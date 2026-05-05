@@ -943,3 +943,85 @@ html, body, #root {
     transform-origin: top left !important;
   }
 }
+
+/* =====================================================
+   RESPONSIVE V5: Cockpit-Fix + Inventar-Kompakt + No-Foil
+   ===================================================== */
+
+/* ── Foil/Tilt komplett deaktivieren auf Touch-Geräten ──
+   @media (hover: none) trifft alle Geräte ohne Hover (Handys/Tablets).
+   Gilt global, nicht nur auf Mobile-Breakpoint. */
+@media (hover: none) {
+  .card-foil   { display: none !important; }
+  .card-glare  { display: none !important; }
+  /* Kein Tilt-Reset nötig, da JS-Guard in Card.jsx das mouseMove blockiert */
+}
+
+@media (max-width: 768px) {
+
+  /* ── 1. COCKPIT-CENTER: overflow:hidden entfernen → hand-hub nicht mehr geclipt ──
+     Außerdem Scale von 0.62 → 0.57 damit hand-hub in den verfügbaren Platz passt */
+  .cockpit-center {
+    overflow: visible !important;
+  }
+  .cockpit-center .card-3d-wrapper {
+    transform: scale(0.57) !important;
+    transform-origin: top center !important;
+    margin-bottom: -217px !important; /* 504 × 0.43 = 216.7 */
+  }
+
+  /* ── 2. INVENTAR: Kompakter Text und auto-Höhe für Header ──
+     Alle h2/h3/Buttons in den inv-columns stark verkleinern */
+
+  /* Header-Div hat inline height:160px → auto damit Inhalt nicht überläuft */
+  .inv-dual-panel .inv-column > div:first-child {
+    height: auto !important;
+    margin-bottom: 6px !important;
+    padding-bottom: 8px !important;
+    gap: 4px !important;
+  }
+
+  /* Überschriften */
+  .inv-dual-panel .inv-column h2 {
+    font-size: 0.72rem !important;
+    letter-spacing: 1px !important;
+    margin: 0 !important;
+    line-height: 1.2 !important;
+  }
+  .inv-dual-panel .inv-column h3 {
+    font-size: 0.65rem !important;
+    margin: 6px 0 4px 0 !important;
+    letter-spacing: 1px !important;
+  }
+
+  /* Dropdown / Suche / Filter */
+  .inv-dual-panel .inv-column select,
+  .inv-dual-panel .inv-column input[type="text"] {
+    font-size: 0.6rem !important;
+    padding: 3px 4px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Buttons im Inventar */
+  .inv-dual-panel .inv-column .btn-info,
+  .inv-dual-panel .inv-column .btn-back {
+    font-size: 0.55rem !important;
+    padding: 3px 5px !important;
+    letter-spacing: 1px !important;
+  }
+
+  /* Deck-Stats-Zeile (APEX/LEGACY/...) */
+  .inv-dual-panel .inv-column > div:first-child > div:last-child {
+    font-size: 0.55rem !important;
+    gap: 3px !important;
+    flex-wrap: wrap !important;
+  }
+
+  /* Auto-Deck / Clear Buttons */
+  .inv-dual-panel .inv-column .btn-info[style*="padding: 4px"],
+  .inv-dual-panel .inv-column .btn-back[style*="padding: 4px"] {
+    padding: 2px 5px !important;
+    font-size: 0.55rem !important;
+  }
+}
