@@ -101,6 +101,8 @@ export default function Card({
 
   const handleMouseMove = (e) => {
     if (!wrapperRef.current || !cardRef.current) return;
+    // Disable 3D-tilt and foil on touch devices (no hover support)
+    if (window.matchMedia('(hover: none)').matches) return;
     const canTilt = isApex || isLegacy || rarityClass === 'rarity-legendary' || rarityClass === 'rarity-epic';
     if (!canTilt && !isEffect) return;
 
