@@ -802,3 +802,144 @@ html, body, #root {
     /* Hover-Effekte bleiben funktional */
   }
 }
+
+/* =====================================================
+   RESPONSIVE V4: Clash-Fix + Inventar Side-by-Side
+   ===================================================== */
+@media (max-width: 768px) {
+
+  /* ── 1. CLASH OVERLAY: Scrollbar + kompakter Inhalt ──
+     War zIndex:1000, top-bar hat 10000 → Overlay unsichtbar.
+     Fix im JSX (zIndex: 25000). Zusätzlich Inhalt komprimieren. */
+  .glass-overlay.active {
+    justify-content: flex-start !important;
+    overflow-y: auto !important;
+    padding: 12px !important;
+    gap: 6px;
+  }
+  /* clash-title kleiner */
+  .clash-title {
+    font-size: 1.1rem !important;
+    letter-spacing: 2px !important;
+    margin-bottom: 0 !important;
+  }
+  /* HP-Bars kompakt */
+  .clash-hp-container {
+    margin-bottom: 0 !important;
+    width: 100%;
+  }
+  .clash-hp-container .bar-box {
+    padding: 6px 10px !important;
+  }
+  /* Meldung kompakt */
+  .clash-news {
+    font-size: 0.78rem !important;
+    padding: 6px 10px !important;
+    letter-spacing: 1px !important;
+    margin-bottom: 0 !important;
+  }
+  /* Kategorie kompakt */
+  #clash-category {
+    font-size: 1rem !important;
+    letter-spacing: 2px !important;
+    margin-bottom: 0 !important;
+  }
+  /* Clash-Karten: auf 42% skalieren (visuell 151×211px) */
+  .clash-cards-wrapper {
+    flex-direction: column !important;
+    gap: 0 !important;
+    margin-top: 5px !important;
+    margin-bottom: 5px !important;
+    align-items: center !important;
+  }
+  .c-card-container {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+  }
+  .c-card-container .card-3d-wrapper {
+    transform: scale(0.42) !important;
+    transform-origin: top center !important;
+    margin-bottom: -292px !important; /* 504 × 0.58 = 292 */
+  }
+  .vs-badge {
+    font-size: 1.4rem !important;
+    margin: 2px 0 !important;
+    display: block;
+    text-align: center;
+  }
+  /* WEITER-Button: volle Breite, oben etwas Abstand */
+  .glass-overlay .menu-btn {
+    margin-top: 10px !important;
+    width: 90% !important;
+    padding: 14px !important;
+    flex-shrink: 0;
+  }
+
+  /* ── 2. INVENTAR: Side-by-Side mit 150px-Mini-Cards ──
+     Ziel: Beide Spalten sichtbar, jede unabhängig scrollbar */
+
+  /* Screen: feste Höhe, kein äußeres Scroll */
+  .inv-screen {
+    height: 100dvh !important;
+    min-height: unset !important;
+    overflow: hidden !important;
+    overflow-x: hidden !important;
+    padding: 10px !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  /* Inventar-Header: Wrap erlauben, kompakter */
+  .inv-screen .top-bar {
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+    align-items: center !important;
+    margin-bottom: 8px !important;
+    padding-bottom: 8px !important;
+  }
+  .inv-screen .top-bar > div:last-child {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+
+  /* Dual-Panel: Row (nebeneinander), füllt verbleibenden Platz */
+  .inv-dual-panel {
+    flex-direction: row !important;
+    flex: 1 !important;
+    min-height: 0 !important;
+    height: auto !important;
+    gap: 8px !important;
+    overflow: hidden !important;
+  }
+
+  /* Jede Spalte: eigener Scroll, kompaktes Padding */
+  .inv-dual-panel .inv-column {
+    flex: 1 !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding: 8px !important;
+    scrollbar-width: none !important;
+  }
+
+  /* Mini-Grid: 1 Karte pro Zeile (Spalte ist nur ~150px breit) */
+  .mini-grid {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+    justify-items: center !important;
+  }
+
+  /* Mini-Card: 150×210px (scale 0.417 von 360×504) */
+  .mini-card-wrapper {
+    width: 150px !important;
+    height: 210px !important;
+  }
+  .mini-card-scaler {
+    transform: scale(0.417) !important;
+    transform-origin: top left !important;
+  }
+}

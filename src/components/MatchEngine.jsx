@@ -612,7 +612,7 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
       )}
 
       {clashData && !showCrisisIntro && (
-        <div className="glass-overlay active" style={{zIndex: 1000}}>
+        <div className="glass-overlay active" style={{zIndex: 25000}}>
           <div className="clash-title">SYSTEM RESOLUTION</div>
           
           <div className="clash-hp-container">
