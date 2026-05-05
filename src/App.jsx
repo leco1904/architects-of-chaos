@@ -52,6 +52,30 @@ const DIFFICULTY_CONFIG = {
   4: { name: 'ARCHITECT', color: 'var(--lose)', reward: 1000, loseReward: 250, lvl: 3, desc: "Unfair. Boss-Buff (+15 Stats). Die KI liest deine Karten und wählt Hard-Counter aus dem ultimativen Meta-Deck." }
 };
 
+const InspectorModal = ({ card, isEffect, onClose }) => {
+  const [gyroActive, setGyroActive] = useState(true);
+
+  useEffect(() => {
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      DeviceOrientationEvent.requestPermission().catch(() => {});
+    }
+  }, []);
+
+  return (
+    <div className="glass-overlay active cinematic" style={{ zIndex: 99999, flexDirection: 'column', padding: '10px' }}>
+      <button className="btn-back" style={{ position: 'absolute', top: '15px', right: '15px', zIndex: 100 }} onClick={onClose}>
+        X SCHLIESSEN
+      </button>
+      
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', marginTop: '30px' }}>
+        <div className="inspector-card-scaler">
+          <Card card={card} context="lexicon" isInspecting={gyroActive} />
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function App() {
   const [currentView, setCurrentView] = useState('menu');
   const [difficulty, setDifficulty] = useState(1);
@@ -107,6 +131,7 @@ export default function App() {
   });
 
   const [lastMatch, setLastMatch] = useState(null);
+  const [lexiconInspectCard, setLexiconInspectCard] = useState(null);
   const [lexSearch, setLexSearch] = useState('');
   const [lexFaction, setLexFaction] = useState('ALL');
 
@@ -228,7 +253,6 @@ export default function App() {
     setCredits(c => c + amount);
     const id = Date.now() + Math.random();
     setFloats(prev => [...prev, { id, x, y, text: `+${amount}💳` }]);
-    // Timeout auf 1500ms erhöht, damit die neue CSS Animation durchläuft
     setTimeout(() => setFloats(prev => prev.filter(f => f.id !== id)), 1500); 
   };
 
@@ -238,7 +262,6 @@ export default function App() {
 
   const hasNewCards = inventory.some(c => c.isNew);
   const hasClaimableMissions = missions.some(m => !m.claimed && m.progress >= m.target);
-  // Mirror Inventory.jsx grouping logic to detect upgradeable cards for the menu button
   const hasUpgrades = (() => {
     const counts = {}; const levels = {};
     inventory.forEach(c => {
@@ -280,7 +303,6 @@ export default function App() {
   };
 
   const handleEndGame = ({ isWin, sarcasmNews, isAbort = false }) => {
-    // Online matches are always treated as ARCHITECT (difficulty 4) for rewards & missions
     const isOnlineMatch = !!conn;
     const effectiveDifficulty = isOnlineMatch ? 4 : difficulty;
     const conf = DIFFICULTY_CONFIG[effectiveDifficulty];
@@ -339,17 +361,14 @@ export default function App() {
 
   return (
     <>
-      {/* 🚀 NEU: Die System Boot Animation */}
       <div className="boot-sequence">
         <div className="boot-text">INITIALIZING ARCHITECTS_OF_CHAOS.EXE...</div>
       </div>
 
-      {/* 💳 NEU: Die gefixte Money Animation */}
       {floats.map(ft => (
          <div key={ft.id} className="money-popup" style={{ left: ft.x, top: ft.y }}>{ft.text}</div>
       ))}
 
-      {/* 📜 NEU: Das fehlende Rules Modal */}
       {showGlobalRules && (
         <div className="glass-overlay" style={{ zIndex: 999999, pointerEvents: 'auto' }}>
           <div className="rules-box">
@@ -537,6 +556,14 @@ export default function App() {
 
       {currentView === 'lexicon' && (
         <div className="screen active lex-screen" style={{ display: 'block', padding: '30px' }}>
+          {lexiconInspectCard && (
+             <InspectorModal 
+               card={lexiconInspectCard} 
+               isEffect={lexiconInspectCard.type === 'effect'}
+               onClose={() => setLexiconInspectCard(null)}
+             />
+          )}
+          
           <div className="top-bar">
             <div className="game-title-small">ARCHIV: LEXIKON</div>
             <div className="lex-top-controls" style={{ display: 'flex', gap: '15px' }}>
@@ -553,7 +580,11 @@ export default function App() {
             {cardsData.characters
               .filter(c => (c.name || '').toLowerCase().includes(lexSearch.toLowerCase()) && (lexFaction === 'ALL' || c.faction === lexFaction))
               .sort((a,b) => (b.gti || 0) - (a.gti || 0))
-              .map((c, i) => <div key={i} className="card-grid-cell"><Card card={c} context="lexicon" /></div>)
+              .map((c, i) => (
+                <div key={i} className="card-grid-cell" onClick={() => { playSound('click'); setLexiconInspectCard(c); }}>
+                  <Card card={c} context="lexicon" />
+                </div>
+              ))
             }
           </div>
         </div>
@@ -575,7 +606,6 @@ export default function App() {
           <div className="menu-subtitle">TCG EDITION V1.0 &nbsp;//&nbsp; THE BOARD IS SET</div>
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', width: '100%', maxWidth: '400px', margin: '0 auto', position: 'relative', zIndex: 10 }}>
-            {/* 🤖 NEU: Button umbenannt */}
             <button className="menu-btn btn-primary" onClick={startMatchFlow}>GEGEN KI SPIELEN</button>
             
             <button className="menu-btn" style={{ borderColor: 'var(--ep)', color: 'var(--ep)', background: 'rgba(255,215,0,0.05)', boxShadow: '0 0 15px rgba(255,215,0,0.1)' }} onClick={() => navTo('multiplayer')}>

@@ -53,13 +53,7 @@ export default function Card({
   const [imgExt, setImgExt] = useState('.png');
   const [imgFailed, setImgFailed] = useState(false);
 
-  // Reset Image State if the card changes (important for re-rendering)
-  useEffect(() => {
-    setImgExt('.png');
-    setImgFailed(false);
-  }, [card?.name]);
-
-  // --- GYRO SENSOR LOGIC ---
+// --- GYRO SENSOR LOGIC ---
   useEffect(() => {
     if (!wrapperRef.current || !cardRef.current) return;
     
@@ -79,7 +73,7 @@ export default function Card({
       const rotY = (gamma / 3);
 
       const innerCard = cardRef.current;
-      wrapperRef.current.style.transform  = `rotateX(${rotX * 2}deg) rotateY(${rotY * 2}deg)`;
+      wrapperRef.current.style.transform  = `rotateX(${rotX * 2}deg) rotateY(${rotY * 2}deg) scale(1.05)`;
       
       innerCard.style.setProperty('--x',  `${50 + gamma}%`);
       innerCard.style.setProperty('--y',  `${50 + beta}%`);
@@ -88,6 +82,9 @@ export default function Card({
     };
 
     window.addEventListener('deviceorientation', handleOrientation);
+    // Für iOS-Geräte, die eine explizite Geste zum Starten brauchen, 
+    // feuern wir das Event trotzdem an. Falls es stumm blockiert wird,
+    // sieht man die Karte zumindest normal.
     return () => window.removeEventListener('deviceorientation', handleOrientation);
   }, [isInspecting]);
 

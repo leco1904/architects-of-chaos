@@ -36,44 +36,38 @@ const MiniCard = ({ card, onClick, onHover }) => {
 };
 
 const InspectorModal = ({ card, isInDeck, isEffect, onClose, onAdd, onRemove }) => {
-  const [gyroActive, setGyroActive] = useState(false);
+  // Der Gyro ist jetzt standardmäßig immer 'true', wenn das Modal offen ist
+  const [gyroActive, setGyroActive] = useState(true);
 
-  const enableGyro = () => {
-    playSound('click');
+  // Fallback für iOS: Wenn iOS zwingend einen Klick braucht, können wir
+  // die Erlaubnis direkt beim Klick auf den Schließen- oder Hinzufügen-Button anfordern
+  useEffect(() => {
     if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-      DeviceOrientationEvent.requestPermission()
-        .then(res => { if (res === 'granted') setGyroActive(true); })
-        .catch(console.error);
-    } else {
-      setGyroActive(true); // Für Android/PC
+      // Manche iOS Versionen erlauben das Requesten direkt im Mount, andere nicht.
+      // Wir versuchen es stumm im Hintergrund.
+      DeviceOrientationEvent.requestPermission().catch(() => {});
     }
-  };
+  }, []);
 
   return (
-    <div className="glass-overlay active cinematic" style={{ zIndex: 99999, flexDirection: 'column', padding: '20px' }}>
-      <button className="btn-back" style={{ position: 'absolute', top: '20px', right: '20px', zIndex: 100 }} onClick={onClose}>
+    <div className="glass-overlay active cinematic" style={{ zIndex: 99999, flexDirection: 'column', padding: '10px' }}>
+      <button className="btn-back" style={{ position: 'absolute', top: '15px', right: '15px', zIndex: 100 }} onClick={onClose}>
         X SCHLIESSEN
       </button>
       
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', marginTop: '40px' }}>
-        <div style={{ transform: 'scale(1.15)', transition: 'transform 0.3s' }}>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', marginTop: '30px' }}>
+        <div className="inspector-card-scaler">
           <Card card={card} context="inventory" isInspecting={gyroActive} />
         </div>
       </div>
 
-      <div style={{ width: '100%', maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '30px', marginTop: '30px' }}>
-        {!gyroActive && (
-          <button className="menu-btn" style={{ borderColor: 'var(--ep)', color: 'var(--ep)', padding: '12px', fontSize: '1rem' }} onClick={enableGyro}>
-            👁️ GYRO-SENSOR AKTIVIEREN
-          </button>
-        )}
-        
+      <div style={{ width: '100%', maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
         {isInDeck ? (
-          <button className="menu-btn btn-danger" style={{ padding: '15px', fontSize: '1.2rem' }} onClick={() => { onRemove(card, isEffect); onClose(); }}>
+          <button className="menu-btn btn-danger" style={{ padding: '15px', fontSize: '1.2rem', margin: '0 auto' }} onClick={() => { onRemove(card, isEffect); onClose(); }}>
             AUS DECK ENTFERNEN
           </button>
         ) : (
-          <button className="menu-btn btn-primary" style={{ padding: '15px', fontSize: '1.2rem' }} onClick={() => { onAdd(card); onClose(); }}>
+          <button className="menu-btn btn-primary" style={{ padding: '15px', fontSize: '1.2rem', margin: '0 auto' }} onClick={() => { onAdd(card); onClose(); }}>
             ZUM DECK HINZUFÜGEN
           </button>
         )}

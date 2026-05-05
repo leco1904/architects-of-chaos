@@ -1338,3 +1338,85 @@ html, body, #root {
     margin-top: 6px !important;
   }
 }
+
+/* ========================================= */
+/* --- FINALE MOBILE LAYOUT FIXES ---        */
+/* ========================================= */
+
+/* 1. Lexikon Grid Fix für Mobile (Screenshot 3) */
+@media (max-width: 768px) {
+  .lex-screen .card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) !important;
+    gap: 10px !important;
+    justify-items: center;
+  }
+  
+  /* Wir nutzen dieselbe Logik wie im Inventar für Mini-Cards im Lexikon */
+  .lex-screen .card-grid-cell {
+    width: 150px !important;
+    height: 210px !important;
+    overflow: hidden;
+    position: relative;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  
+  .lex-screen .card-3d-wrapper {
+    transform: scale(0.417) !important;
+    transform-origin: top left !important;
+    margin: 0 !important;
+  }
+}
+
+/* 2. Inspector Modal Skalierung (Screenshot 1) */
+.inspector-card-scaler {
+  transform: scale(1.15); /* Auf dem PC groß */
+  transition: transform 0.3s;
+}
+
+@media (max-width: 768px) {
+  .inspector-card-scaler {
+    /* Auf dem Handy etwas verkleinern, damit sie nicht aus dem Bildschirm ragt */
+    transform: scale(0.85) !important;
+    transform-origin: center;
+  }
+}
+
+/* 3. In-Game Karten Position Fix (Screenshot 2) */
+@media (max-width: 768px) {
+  .arena-card-wrapper {
+    /* Die Karte war zu weit unten. Wir ändern den Margin, um sie hochzuziehen */
+    transform: scale(0.55) !important; /* Minimal kleiner für mehr Platz */
+    transform-origin: top center !important;
+    margin-bottom: -240px !important; /* Zieht den Container nach oben */
+    margin-top: 10px !important; /* Abstand nach oben zu den Balken */
+  }
+  
+  /* Platz für die Action-Buttons sichern */
+  .cockpit-arena-column {
+    margin-bottom: 10px !important;
+  }
+}
+
+/* 4. Lexikon Hover/Flackern auf Mobile reparieren */
+@media (hover: none) {
+  /* Deaktiviert den 3D-Hover-Effekt auf der Karte im Grid/Lexikon */
+  .card-grid-cell .card-3d-wrapper:hover,
+  .mini-card-wrapper:hover .card-3d-wrapper {
+    transform: scale(0.417) !important; /* Bleibt starr auf der Mobile-Größe */
+    filter: brightness(1) !important;
+  }
+
+  /* Deaktiviert das Hochpoppen der ganzen Zelle */
+  .mini-card-wrapper:hover {
+    transform: none !important;
+  }
+
+  /* Blockiert das Einblenden von Foil/Glare beim Antippen */
+  .card-grid-cell .card-foil,
+  .card-grid-cell .card-glare,
+  .mini-card-wrapper .card-foil,
+  .mini-card-wrapper .card-glare {
+    display: none !important;
+  }
+}
