@@ -611,3 +611,136 @@ html, body, #root {
   .top-bar { gap: 6px; }
   #turn-ind { font-size: 0.85rem; }
 }
+
+/* =====================================================
+   RESPONSIVE V2: Verbleibende Mobile-Fixes
+   ===================================================== */
+@media (max-width: 768px) {
+
+  /* ── 1. HAUPTMENÜ: Absolute Buttons überlagern Titel ──
+     Die Credits/Rules/Reset Buttons stehen absolut bei top:20px.
+     menu-title braucht Abstand nach oben. */
+  .menu-title {
+    padding-top: 65px;
+  }
+
+  /* ── 2. INVENTAR: Zwei-Spalten-Layout → vertikal stapeln ──
+     Inline style hat display:flex – wir überschreiben via Klasse */
+  .inv-dual-panel {
+    flex-direction: column !important;
+    height: auto !important;
+    gap: 15px !important;
+  }
+  .inv-dual-panel .inv-column {
+    height: auto !important;
+    min-height: unset !important;
+    overflow-y: visible !important;
+    padding: 15px !important;
+    flex: none !important;
+  }
+
+  /* ── 3. INVENTAR: Mini-Cards 2 pro Zeile statt 1 ──
+     Wrapper von 216×302 auf 152×213 (scale 0.422) verkleinert */
+  .mini-grid {
+    grid-template-columns: repeat(auto-fill, minmax(152px, 1fr)) !important;
+    gap: 10px !important;
+  }
+  .mini-card-wrapper {
+    width: 152px !important;
+    height: 213px !important;
+  }
+  .mini-card-scaler {
+    transform: scale(0.422) !important;
+    transform-origin: top left !important;
+  }
+
+  /* ── 4. SPIELFELD: Komplett ohne Scrollen ──
+     Ziel: Alles passt in 100dvh. Card auf 62% skaliert. */
+  #game-ui {
+    height: 100dvh;
+    min-height: unset !important;
+    overflow: hidden !important;
+    padding: 8px !important;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  #game-ui > .top-bar {
+    flex-shrink: 0;
+    margin-bottom: 5px;
+    padding-bottom: 5px;
+    font-size: 0.82rem;
+  }
+  #game-ui .game-title-small { font-size: 0.8rem; letter-spacing: 1px !important; }
+  #game-ui #turn-ind { font-size: 0.78rem; }
+
+  /* Cockpit: flex-Spalte statt Grid */
+  #game-ui .cockpit-layout {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 5px;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+    grid-template-columns: unset !important;
+  }
+
+  /* ─ Stats-Panel: sehr kompakt, nur das Wichtigste ─ */
+  .cockpit-left {
+    order: 1;
+    flex-shrink: 0;
+  }
+  /* Deck-Zähler ausblenden – spart ~30px */
+  #game-ui .hud-counters { display: none; }
+  #game-ui .stats-hub     { padding: 8px !important; }
+  #game-ui .bar-box       { margin-bottom: 3px; }
+  #game-ui .label         { font-size: 0.68rem; margin-bottom: 1px; }
+  #game-ui .bar-bg        { margin-top: 1px; height: 4px; }
+  #game-ui .crisis-box    { margin-top: 5px; padding-top: 5px; font-size: 0.72rem; }
+
+  /* ─ Karte + Hand: nimmt freien Platz ─ */
+  .cockpit-center {
+    order: 2;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+  }
+  /* Karte auf 62% skalieren; Höhen-Ausgleich via negativen Margin */
+  .cockpit-center .card-3d-wrapper {
+    transform: scale(0.62) !important;
+    transform-origin: top center !important;
+    margin-bottom: -192px !important; /* 504 × 0.38 ≈ 191px */
+    flex-shrink: 0;
+  }
+  /* Hand-Karten noch kompakter */
+  #game-ui .hand-hub        { gap: 5px; margin-top: 6px; flex-shrink: 0; justify-content: center; }
+  #game-ui .hand-card       { width: 68px; height: 90px; }
+  #game-ui .hand-name       { font-size: 0.63rem; }
+  #game-ui .hand-icon       { font-size: 0.85rem; }
+  #game-ui .tactic-separator { height: 55px; }
+
+  /* ─ Aktions-Buttons: kompakt ─ */
+  .cockpit-right {
+    order: 3;
+    flex-shrink: 0;
+  }
+  #game-ui #action-area      { gap: 5px; }
+  #game-ui .action-container { gap: 5px; }
+  #game-ui .log-box {
+    height: 48px !important;
+    padding: 7px 10px !important;
+    font-size: 0.78rem !important;
+    margin-bottom: 5px;
+  }
+  #game-ui .btn-act {
+    padding: 8px 12px !important;
+    clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px) !important;
+  }
+  #game-ui .act-title { font-size: 0.88rem; }
+  #game-ui .act-cost  { font-size: 0.78rem; }
+}

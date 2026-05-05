@@ -376,7 +376,7 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
       </div>
 
       {mode === 'deck' ? (
-        <div style={{ display: 'flex', gap: '30px', height: 'calc(100% - 70px)', width: '100%' }}>
+        <div className="inv-dual-panel" style={{ display: 'flex', gap: '30px', height: 'calc(100% - 70px)', width: '100%' }}>
           <div className="glass-panel inv-column">
             
             <div style={{ height: '160px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', marginBottom: '20px', paddingBottom: '15px', borderBottom: '1px solid #333' }}>
@@ -413,11 +413,11 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
             </div>
             
             <h3 style={{color: '#888', margin: '0 0 15px 0'}}>CHARAKTERE</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(216px, 1fr))', justifyItems: 'center', gap: '20px', paddingBottom: '20px' }}>
+            <div className="mini-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(216px, 1fr))', justifyItems: 'center', gap: '20px', paddingBottom: '20px' }}>
               {sortedDeckChars.map((c) => <MiniCard key={`deckc-${c.name}`} card={c} onClick={() => handleRemoveCard(c, false)} onHover={() => onClearNew(c.name)} />)}
             </div>
             <h3 style={{color: 'var(--eff-col)', margin: '20px 0 15px 0', borderTop: '1px dashed #333', paddingTop: '20px'}}>EFFEKTE</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(216px, 1fr))', justifyItems: 'center', gap: '20px', paddingBottom: '30px' }}>
+            <div className="mini-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(216px, 1fr))', justifyItems: 'center', gap: '20px', paddingBottom: '30px' }}>
               {safeEffs.map((e) => <MiniCard key={`decke-${e.name}`} card={e} onClick={() => handleRemoveCard(e, true)} onHover={() => onClearNew(e.name)} />)}
             </div>
           </div>
@@ -447,11 +447,11 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
             {uniqueInvChars.length === 0 && uniqueInvEffs.length === 0 && <p style={{ color: '#555', marginTop: '20px' }}>Keine passenden Karten gefunden.</p>}
             
             <h3 style={{color: '#888', margin: '0 0 15px 0'}}>VERFÜGBARE CHARAKTERE</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(216px, 1fr))', justifyItems: 'center', gap: '20px', paddingBottom: '20px' }}>
+            <div className="mini-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(216px, 1fr))', justifyItems: 'center', gap: '20px', paddingBottom: '20px' }}>
               {uniqueInvChars.map((c) => <MiniCard key={`invc-${c.name}`} card={c} onClick={() => handleAddCard(c)} onHover={() => onClearNew(c.name)} />)}
             </div>
             <h3 style={{color: 'var(--eff-col)', margin: '20px 0 15px 0', borderTop: '1px dashed #333', paddingTop: '20px'}}>VERFÜGBARE EFFEKTE</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(216px, 1fr))', justifyItems: 'center', gap: '20px', paddingBottom: '30px' }}>
+            <div className="mini-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(216px, 1fr))', justifyItems: 'center', gap: '20px', paddingBottom: '30px' }}>
               {uniqueInvEffs.map((e) => <MiniCard key={`inve-${e.name}`} card={e} onClick={() => handleAddCard(e)} onHover={() => onClearNew(e.name)} />)}
             </div>
           </div>
