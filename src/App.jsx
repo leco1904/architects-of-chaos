@@ -52,7 +52,7 @@ const DIFFICULTY_CONFIG = {
   4: { name: 'ARCHITECT', color: 'var(--lose)', reward: 1000, loseReward: 250, lvl: 3, desc: "Unfair. Boss-Buff (+15 Stats). Die KI liest deine Karten und wählt Hard-Counter aus dem ultimativen Meta-Deck." }
 };
 
-const InspectorModal = ({ card, isEffect, onClose }) => {
+const InspectorModal = ({ card, onClose }) => {
   const [gyroActive, setGyroActive] = useState(true);
 
   useEffect(() => {
@@ -62,13 +62,13 @@ const InspectorModal = ({ card, isEffect, onClose }) => {
   }, []);
 
   return (
-    <div className="glass-overlay active cinematic" style={{ zIndex: 99999, flexDirection: 'column', padding: '10px' }}>
-      <button className="btn-back" style={{ position: 'absolute', top: '15px', right: '15px', zIndex: 100 }} onClick={onClose}>
+    <div className="glass-overlay active" style={{ zIndex: 99999, flexDirection: 'column', padding: '20px', background: 'rgba(5, 5, 8, 0.95)' }}>
+      <button className="btn-back" style={{ position: 'absolute', top: '20px', right: '20px', zIndex: 100 }} onClick={onClose}>
         X SCHLIESSEN
       </button>
       
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', marginTop: '30px' }}>
-        <div className="inspector-card-scaler">
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+        <div className="inspector-card-scaler" style={{ display: 'flex', justifyContent: 'center' }}>
           <Card card={card} context="lexicon" isInspecting={gyroActive} />
         </div>
       </div>

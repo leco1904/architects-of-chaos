@@ -1345,12 +1345,13 @@ html, body, #root {
 
 /* 1. Lexikon Grid Fix für Mobile (Screenshot 3) */
 @media (max-width: 768px) {
-  .lex-screen .card-grid {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) !important;
-    gap: 10px !important;
-    justify-items: center;
-  }
-  
+  /* WICHTIG: .card-grid-cell hinzugefügt! */
+  .lex-screen .card-grid-cell .card-3d-wrapper {
+    transform: scale(0.417) !important;
+    transform-origin: top left !important;
+    margin: 0 !important;
+  } 
+
   /* Wir nutzen dieselbe Logik wie im Inventar für Mini-Cards im Lexikon */
   .lex-screen .card-grid-cell {
     width: 150px !important;
