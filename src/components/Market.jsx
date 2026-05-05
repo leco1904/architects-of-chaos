@@ -8,30 +8,59 @@ export default function Market({ credits, setCredits, inventory, setInventory, o
   const [pulledCards, setPulledCards] = useState([]);
   const [showFlash, setShowFlash] = useState(false);
 
-  // Shop-Angebote
+  // ─── NEUE, HARTE ECONOMY ────────────────────────────────────────────────
   const packs = [
-    { id: 'standard', name: 'BASIC DATACACHE', cost: 100, icon: '💾', desc: 'Enthält 3 zufällige Agenten oder Taktikkarten. Gut für den Start.' },
-    { id: 'premium', name: 'ENCRYPTED ARCHIVE', cost: 250, icon: '🗄️', desc: 'Enthält 5 Karten. Erhöhte Wahrscheinlichkeit auf Epic & Legendary.' },
-    { id: 'apex', name: 'APEX PROTOCOL', cost: 500, icon: '👑', desc: 'Enthält 3 Karten. Garantiert mindestens 1 Apex Unit oder Legacy Asset.' }
+    { id: 'basic', name: 'BASIC DATACACHE', cost: 250, icon: '💾', num: 3, desc: 'Enthält 3 Karten. Standard-Dropraten. Gut für den Start.' },
+    { id: 'premium', name: 'EXECUTIVE ARCHIVE', cost: 1000, icon: '🗄️', num: 5, desc: 'Enthält 5 Karten. Erhöhte Wahrscheinlichkeit auf Apex & Legacy.' },
+    { id: 'apex', name: 'BLACK MARKET OVERRIDE', cost: 3500, icon: '👑', num: 1, desc: 'Zieht nur 1 Karte! Massive Chance auf Apex/Legacy. Nichts für schwache Nerven.' }
   ];
 
-  // Zieh-Logik
-  const getRandomCard = (guaranteeApex = false) => {
-    let pool = [...cardsData.characters, ...cardsData.effects];
-    
-    if (guaranteeApex) {
-      pool = pool.filter(c => c.type === 'apex' || c.type === 'legacy');
+  // ─── GACHA DROP RATES (Brutal gewichtet) ──────────────────────────
+  const getRandomCard = (packType) => {
+    const roll = Math.random(); // Würfelt eine Zahl zwischen 0.000 und 1.000
+    let selectedCardType = 'std';
+
+   if (packType === 'apex') {
+      // Das 3500-Credit High-Roller Pack (1 Karte)
+      if (roll < 0.015) selectedCardType = 'anomaly';      // 1.5% Chance
+      else if (roll < 0.265) selectedCardType = 'apex';    // 25% Chance auf Apex
+      else if (roll < 0.715) selectedCardType = 'legacy';  // 45% Chance auf Legacy
+      else selectedCardType = 'std';                       // 28.5% Chance auf Standard-Agent (die "Niete", aber KEINE Taktik mehr!)
+    }
+    else if (packType === 'premium') {
+      // Das 1000-Credit Pack (5 Karten)
+      if (roll < 0.004) selectedCardType = 'anomaly';      // 0.4% Chance
+      else if (roll < 0.044) selectedCardType = 'apex';    // 4.0% Chance
+      else if (roll < 0.144) selectedCardType = 'legacy';  // 10.0% Chance
+      else if (roll < 0.394) selectedCardType = 'effect';  // 25.0% Chance
+      else selectedCardType = 'std';                       // 60.6% Chance
+    } 
+    else {
+      // Das 250-Credit Basic Pack (3 Karten)
+      if (roll < 0.001) selectedCardType = 'anomaly';      // 0.1% Chance (1 von 1000!)
+      else if (roll < 0.011) selectedCardType = 'apex';    // 1.0% Chance
+      else if (roll < 0.061) selectedCardType = 'legacy';  // 5.0% Chance
+      else if (roll < 0.311) selectedCardType = 'effect';  // 25.0% Chance
+      else selectedCardType = 'std';                       // 68.8% Chance
     }
 
+    // 1. Filtere den gesamten Karten-Pool nach dem ausgewählten Typ
+    const allCards = [...cardsData.characters, ...(cardsData.effects || [])];
+    let pool = allCards.filter(c => c.type === selectedCardType);
+
+    // 2. Fallback, falls der Pool leer ist
+    if (pool.length === 0) pool = allCards.filter(c => c.type === 'std');
+
+    // 3. Wähle eine zufällige Karte aus dem gefilterten Pool
     const randomCard = pool[Math.floor(Math.random() * pool.length)];
-    // Wir fügen eine einzigartige ID und den 'isNew' State hinzu
+    
+    // 4. Gib die Karte mit eindeutiger ID und Level 1 zurück
     return { ...randomCard, id: Date.now() + Math.random(), isNew: true, level: 1 };
   };
 
   const handleBuy = (pack) => {
     if (credits < pack.cost) {
       playSound('error');
-      // Kleiner visuelle Hinweis wäre hier gut (z.B. ein roter Flash auf den Credits)
       return;
     }
     
@@ -39,23 +68,17 @@ export default function Market({ credits, setCredits, inventory, setInventory, o
     setCredits(prev => prev - pack.cost);
     setIsOpening(true);
     
-    // 1. SOUND: Hacking/Rattern startet
+    // SOUND: Hacking/Rattern startet
     playSound('decrypt');
 
     let newCards = [];
-    const numCards = pack.id === 'premium' ? 5 : 3;
-    
-    for (let i = 0; i < numCards; i++) {
-      // Wenn es das Apex-Pack ist, wird die erste Karte garantiert ein Apex/Legacy Asset
-      const guarantee = (pack.id === 'apex' && i === 0);
-      newCards.push(getRandomCard(guarantee));
+    for (let i = 0; i < pack.num; i++) {
+      newCards.push(getRandomCard(pack.id));
     }
 
-    // Warte auf die Wackel-Animation (2 Sekunden)
+    // Warte auf die Wackel-Animation
     setTimeout(() => {
       setShowFlash(true);
-      
-      // 2. SOUND: Einschlag und Erfolg-Ping
       playSound('reveal');
       
       setPulledCards(newCards);
@@ -108,7 +131,6 @@ export default function Market({ credits, setCredits, inventory, setInventory, o
         ))}
       </div>
 
-      {/* Das Wackelnde Paket */}
       {isOpening && pulledCards.length === 0 && (
         <div className="pack-opening-center">
           <div className="pack-shaking">
@@ -118,10 +140,8 @@ export default function Market({ credits, setCredits, inventory, setInventory, o
         </div>
       )}
 
-      {/* Weißer/Cyaner Screen-Flash */}
       {showFlash && <div className="screen-flash"></div>}
 
-      {/* Das Reveal der gezogenen Karten */}
       {pulledCards.length > 0 && (
         <div className="reveal-container">
           <h2 style={{ color: '#fff', fontSize: '3rem', letterSpacing: '8px', marginBottom: '40px', textShadow: '0 0 20px var(--win)' }}>ACCESS GRANTED</h2>
