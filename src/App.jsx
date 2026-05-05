@@ -536,10 +536,10 @@ export default function App() {
       )}
 
       {currentView === 'lexicon' && (
-        <div className="screen active" style={{ display: 'block', padding: '30px' }}>
+        <div className="screen active lex-screen" style={{ display: 'block', padding: '30px' }}>
           <div className="top-bar">
             <div className="game-title-small">ARCHIV: LEXIKON</div>
-            <div style={{ display: 'flex', gap: '15px' }}>
+            <div className="lex-top-controls" style={{ display: 'flex', gap: '15px' }}>
               <input type="text" placeholder="Suche..." value={lexSearch} onChange={e => setLexSearch(e.target.value)} className="mono" style={{ padding: '8px', background: '#000', border: '1px solid #444', color: '#fff' }} />
               <select value={lexFaction} onChange={e => setLexFaction(e.target.value)} className="mono" style={{ padding: '8px', background: '#000', border: '1px solid #444', color: '#fff' }}>
                 <option value="ALL">ALLE FRAKTIONEN</option>
@@ -553,7 +553,7 @@ export default function App() {
             {cardsData.characters
               .filter(c => (c.name || '').toLowerCase().includes(lexSearch.toLowerCase()) && (lexFaction === 'ALL' || c.faction === lexFaction))
               .sort((a,b) => (b.gti || 0) - (a.gti || 0))
-              .map((c, i) => <Card key={i} card={c} context="lexicon" />)
+              .map((c, i) => <div key={i} className="card-grid-cell"><Card card={c} context="lexicon" /></div>)
             }
           </div>
         </div>

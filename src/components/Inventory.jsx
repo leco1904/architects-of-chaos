@@ -333,7 +333,7 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
   const isDeckValid = safeChars.length === 12 && safeEffs.length === 3;
 
   return (
-    <div className="screen active" style={{ display: 'flex', padding: '20px', height: '100vh', overflow: 'hidden', position: 'relative' }}>
+    <div className="screen active inv-screen" style={{ display: 'flex', padding: '20px', height: '100vh', overflow: 'hidden', position: 'relative' }}>
       
       {activeUpgradeSession && (
          <UpgradeModal 

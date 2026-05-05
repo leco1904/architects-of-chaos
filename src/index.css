@@ -744,3 +744,61 @@ html, body, #root {
   #game-ui .act-title { font-size: 0.88rem; }
   #game-ui .act-cost  { font-size: 0.78rem; }
 }
+
+/* =====================================================
+   RESPONSIVE V3: Inventar-Scroll + Lexikon 2-spaltig
+   ===================================================== */
+@media (max-width: 768px) {
+
+  /* ── 1. INVENTAR: Inline overflow:hidden + height:100vh aufheben ──
+     Der root-div hat diese als Inline-Styles gesetzt → überschreiben */
+  .inv-screen {
+    height: auto !important;
+    min-height: 100dvh;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    flex-direction: column !important;
+  }
+
+  /* Inventar-Header passt kompakter auf mobile */
+  .inv-screen .top-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .inv-screen .top-bar > div:last-child {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* ── 2. LEXIKON: Top-Controls umbrechen → kein Horizontal-Scroll ── */
+  .lex-top-controls {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+  .lex-top-controls input,
+  .lex-top-controls select {
+    flex: 1 1 120px;
+    min-width: 0;
+  }
+
+  /* ── 3. LEXIKON + INVENTAR: 2 Karten pro Zeile via card-grid-cell ──
+     card-grid bleibt Basis-Grid; card-grid-cell ist der Clip-Container */
+  .card-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px;
+  }
+  /* Jede Zelle: exakt die sichtbare Kartengröße (scale 0.422 von 360×504) */
+  .card-grid-cell {
+    width: 100%;
+    height: 213px;
+    overflow: hidden;
+    position: relative;
+  }
+  .card-grid-cell .card-3d-wrapper {
+    transform: scale(0.422);
+    transform-origin: top left;
+    margin: 0 !important;
+    /* Hover-Effekte bleiben funktional */
+  }
+}
