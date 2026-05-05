@@ -480,94 +480,80 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
       </div>
 
       <div className="cockpit-layout">
-        <div className="cockpit-left">
-          <div className="stats-hub glass-panel">
-            
-            <div className="hud-counters mono">
-               <div title="Deck & Hand">🎴 {pDeck.length + pHand.length}</div>
-               <div title="Taktiken" style={{color:'var(--eff-col)'}}>⚡ {pEffDeck.length + pEffHand.length}</div>
-            </div>
+       <div className="cockpit-layout">
+  <div className="cockpit-center mobile-arena">
+    {/* LINKE BALKEN: Stabilität & Energie */}
+    <div className="arena-side-bars left-bars">
+      <div className="vertical-bar-container">
+        <div className="v-bar-fill win-bg" style={{ height: `${(pHP / 1000) * 100}%` }}></div>
+        <span className="v-bar-text">STAB {Math.floor(pHP)}</span>
+      </div>
+      <div className="vertical-bar-container">
+        <div className="v-bar-fill ep-bg" style={{ height: `${(pEP / 15) * 100}%` }}></div>
+        <span className="v-bar-text">NRG {pEP}</span>
+      </div>
+    </div>
 
-            <div className="bar-box">
-              <div className="label"><span>STABILITÄT (MAX 1000)</span><b className="mono">{Math.floor(pHP)}</b></div>
-              <div className="bar-bg"><div className="bar-fill" style={{ width: `${(pHP / 1000) * 100}%`, background: 'var(--win)' }}></div></div>
-            </div>
-            <div className="bar-box">
-              <div className="label"><span>INTEGRITÄT</span><b className="mono">{Math.floor(aHP)}</b></div>
-              <div className="bar-bg"><div className="bar-fill" style={{ width: `${(aHP / 1000) * 100}%`, background: 'var(--lose)' }}></div></div>
-            </div>
-            
-            <div className="bar-box energy-box">
-              <div className="label">
-                <span>ENERGIE ⚡ (+{getPlayerRegen(pHand)}/RND)</span>
-                <b className="mono" style={{ color: pEP > 10 ? 'var(--r-epi)' : '#fff' }}>{pEP}/15 MAX</b>
-              </div>
-              <div className="bar-bg">
-                <div className="bar-fill" style={{ width: `${(pEP / 15) * 100}%`, background: pEP > 10 ? 'var(--r-epi)' : 'var(--ep)' }}></div>
-              </div>
-            </div>
-            
-            <div className="crisis-box" style={{ flexDirection: 'column', gap: '5px' }}>
-               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>KRISEN-RISIKO (+{crisisLevel === 0 ? 5 : (crisisLevel === 1 ? 10 : 20)}%/RND)</span>
-                  <b className="mono">{crisisRisk}%</b>
-               </div>
-               {activeCrisis && (
-                  <div style={{ background: 'var(--lose)', color: '#fff', padding: '5px', textAlign: 'center', fontSize: '0.85rem', fontWeight: 'bold', borderRadius: '4px' }}>
-                      ⚠ {activeCrisis.name} ({Math.ceil(activeCrisis.turnsLeft / 2)} RUNDEN)
-                  </div>
-               )}
-            </div>
-          </div>
-        </div>
+    {/* DIE KARTE */}
+    <div className="arena-card-wrapper">
+      <Card 
+        card={activeCard} 
+        context="game" 
+        activeEffect={activeEffObj} 
+        apexBuffs={currentApexBuffs}
+        activeCrisis={activeCrisis}
+        curCategory={curK} 
+        isPlayerTurn={pTurn} 
+        onStatClick={handleStatClick} 
+      />
+    </div>
 
-        <div className="cockpit-center">
-          <Card 
-            card={activeCard} 
-            context="game" 
-            activeEffect={activeEffObj} 
-            apexBuffs={currentApexBuffs}
-            activeCrisis={activeCrisis}
-            curCategory={curK} 
-            isPlayerTurn={pTurn} 
-            onStatClick={handleStatClick} 
-          />
-          <div className="hand-hub">
-            <div className="hand-grid">
-              {pHand.map((c, i) => {
-                const rc = getRarityColor(c);
-                const isActive = i === activeIdx;
-                return (
-                  <div
-                    key={i}
-                    className={`hand-card ${getRarityClass(c.gti)} ${isActive ? 'active' : ''}`}
-                    style={{
-                      borderColor: rc,
-                      background: isActive
-                        ? `linear-gradient(135deg, ${rc}33, ${rc}11)`
-                        : `linear-gradient(135deg, ${rc}18, transparent)`,
-                      boxShadow: isActive ? `0 0 10px ${rc}88, inset 0 0 6px ${rc}22` : `inset 0 0 4px ${rc}11`,
-                    }}
-                    onClick={() => { playSound('click'); setActiveIdx(i); }}
-                  >
-                    <div className="hand-name" style={{ color: isActive ? '#fff' : rc === '#2a2a3a' ? '#888' : rc }}>
-                      {(c?.Nachnamen || c?.name?.split(' ').pop() || '').toUpperCase()}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="tactic-separator"></div>
-            <div className="tactic-grid">
-              {pEffHand[0] ? (
-                <div className={`hand-card type-effect ${activeEffObj ? 'active' : ''}`} onClick={handleToggleEffect}>
-                  <div className="hand-icon">{pEffHand[0].cost}⚡</div>
-                  <div className="hand-name">{pEffHand[0].name.toUpperCase()}</div>
-                </div>
-              ) : <div className="hand-card empty"><div className="hand-name">LEER</div></div>}
-            </div>
-          </div>
-        </div>
+    {/* RECHTE BALKEN: Integrität & Krise */}
+    <div className="arena-side-bars right-bars">
+      <div className="vertical-bar-container">
+        <div className="v-bar-fill lose-bg" style={{ height: `${(aHP / 1000) * 100}%` }}></div>
+        <span className="v-bar-text">INT {Math.floor(aHP)}</span>
+      </div>
+      <div className="vertical-bar-container">
+        <div className="v-bar-fill crisis-bg" style={{ height: `${crisisRisk}%` }}></div>
+        <span className="v-bar-text">RISK {crisisRisk}%</span>
+      </div>
+    </div>
+  </div>
+
+  {/* DIE HANDKARTEN (Kommen direkt unter die Arena) */}
+  <div className="hand-hub">
+    <div className="hand-grid">
+      {/* ... Dein bestehender hand-grid Code mit pHand.map ... */}
+    </div>
+    <div className="tactic-separator"></div>
+    <div className="tactic-grid">
+      {/* ... Dein bestehender tactic-grid Code ... */}
+    </div>
+  </div>
+
+  <div className="cockpit-right">
+    <div id="action-area">
+      {/* HIER WURDE DER LOG-BOX ENTFERNT! */}
+      
+      <div className="action-container" style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+        {/* Buttons nebeneinander statt untereinander */}
+        {pTurn ? (
+          <>
+            <button className="btn-act" onClick={() => executeAction('erholen')}><span className="act-title">ERHOLEN</span></button>
+            <button className="btn-act btn-primary" style={{ opacity: canStd ? 1 : 0.4 }} onClick={() => canStd && executeAction('std')}><span className="act-title">STD</span></button>
+            <button className="btn-act btn-danger" style={{ opacity: canAllIn ? 1 : 0.4 }} onClick={() => canAllIn && executeAction('allin')}><span className="act-title">ALL-IN</span></button>
+          </>
+        ) : (
+          <>
+            <button className="btn-act btn-primary" style={{ opacity: canBlock && canDefend ? 1 : 0.4 }} onClick={() => canBlock && canDefend && executeAction('block')}><span className="act-title">BLOCK</span></button>
+            <button className="btn-act btn-danger" style={{ opacity: canKonter && canDefend ? 1 : 0.4 }} onClick={() => canKonter && canDefend && executeAction('konter')}><span className="act-title">KONTER</span></button>
+          </>
+        )}
+      </div>
+    </div>
+  </div>
+</div>
 
         <div className="cockpit-right">
           <div id="action-area">

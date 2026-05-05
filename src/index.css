@@ -1025,3 +1025,75 @@ html, body, #root {
     font-size: 0.55rem !important;
   }
 }
+
+/* --- MOBILE ARENA (Spielfeld) --- */
+.mobile-arena {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+  width: 100%;
+}
+
+.arena-card-wrapper {
+  transform: scale(0.62);
+  transform-origin: center;
+  margin-bottom: -192px; /* gleicht die Höhe aus */
+  z-index: 10;
+}
+
+.arena-side-bars {
+  display: flex;
+  gap: 8px;
+  height: 280px; /* Passt genau zur verkleinerten Karte */
+}
+
+.vertical-bar-container {
+  width: 14px;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 4px;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+}
+
+.v-bar-fill {
+  width: 100%;
+  border-radius: 3px;
+  transition: height 0.5s ease-out;
+}
+
+.win-bg { background: var(--win); box-shadow: 0 0 10px var(--win); }
+.lose-bg { background: var(--lose); box-shadow: 0 0 10px var(--lose); }
+.ep-bg { background: var(--ep); }
+.crisis-bg { background: var(--crisis); }
+
+.v-bar-text {
+  position: absolute;
+  bottom: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #aaa;
+  white-space: nowrap;
+}
+
+/* Anpassung der Action Buttons auf dem Handy nebeneinander */
+@media (max-width: 768px) {
+  #game-ui .action-container {
+    flex-direction: row !important;
+    justify-content: space-between;
+  }
+  #game-ui .action-container .btn-act {
+    padding: 12px 5px !important;
+    text-align: center;
+    justify-content: center;
+  }
+  #game-ui .btn-act .act-cost { display: none; } /* Kostet Platz auf Mobile */
+  
+  /* Auf Mobile die alten Balken komplett verstecken (falls Reste übrig sind) */
+  .cockpit-left { display: none !important; } 
+}

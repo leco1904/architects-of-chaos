@@ -35,6 +35,53 @@ const MiniCard = ({ card, onClick, onHover }) => {
   );
 };
 
+const InspectorModal = ({ card, isInDeck, isEffect, onClose, onAdd, onRemove }) => {
+  const [gyroActive, setGyroActive] = useState(false);
+
+  const enableGyro = () => {
+    playSound('click');
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      DeviceOrientationEvent.requestPermission()
+        .then(res => { if (res === 'granted') setGyroActive(true); })
+        .catch(console.error);
+    } else {
+      setGyroActive(true); // Für Android/PC
+    }
+  };
+
+  return (
+    <div className="glass-overlay active cinematic" style={{ zIndex: 99999, flexDirection: 'column', padding: '20px' }}>
+      <button className="btn-back" style={{ position: 'absolute', top: '20px', right: '20px', zIndex: 100 }} onClick={onClose}>
+        X SCHLIESSEN
+      </button>
+      
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', marginTop: '40px' }}>
+        <div style={{ transform: 'scale(1.15)', transition: 'transform 0.3s' }}>
+          <Card card={card} context="inventory" isInspecting={gyroActive} />
+        </div>
+      </div>
+
+      <div style={{ width: '100%', maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '30px', marginTop: '30px' }}>
+        {!gyroActive && (
+          <button className="menu-btn" style={{ borderColor: 'var(--ep)', color: 'var(--ep)', padding: '12px', fontSize: '1rem' }} onClick={enableGyro}>
+            👁️ GYRO-SENSOR AKTIVIEREN
+          </button>
+        )}
+        
+        {isInDeck ? (
+          <button className="menu-btn btn-danger" style={{ padding: '15px', fontSize: '1.2rem' }} onClick={() => { onRemove(card, isEffect); onClose(); }}>
+            AUS DECK ENTFERNEN
+          </button>
+        ) : (
+          <button className="menu-btn btn-primary" style={{ padding: '15px', fontSize: '1.2rem' }} onClick={() => { onAdd(card); onClose(); }}>
+            ZUM DECK HINZUFÜGEN
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const UpgradeModal = ({ group, isEffect, onClose, onConfirm }) => {
   const [phase, setPhase] = useState('hidden'); 
   const [simCard, setSimCard] = useState(group.main);
@@ -122,6 +169,7 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
   const activeEditDeck = decks.find(d => d.id === activeEditId) || decks[0];
 
   const [activeUpgradeSession, setActiveUpgradeSession] = useState(null);
+  const [inspectCard, setInspectCard] = useState(null); // NEU: State für den Fokus-Inspektor
 
   const updateCurrentDeck = (updates) => {
       setDecks(prev => prev.map(d => d.id === activeEditId ? { ...d, ...updates } : d));
@@ -344,6 +392,18 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
          />
       )}
 
+      {/* NEU: Der Inspector / Fokus Modus */}
+      {inspectCard && (
+        <InspectorModal 
+          card={inspectCard.data} 
+          isEffect={inspectCard.isEff}
+          isInDeck={inspectCard.isEff ? safeEffs.some(e => e.name === inspectCard.data.name) : safeChars.some(c => c.name === inspectCard.data.name)}
+          onClose={() => setInspectCard(null)}
+          onAdd={handleAddCard}
+          onRemove={handleRemoveCard}
+        />
+      )}
+
       <div className="top-bar" style={{ flexShrink: 0, width: '100%' }}>
         
         <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
@@ -414,11 +474,13 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
             
             <h3 style={{color: '#888', margin: '0 0 15px 0'}}>CHARAKTERE</h3>
             <div className="mini-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(216px, 1fr))', justifyItems: 'center', gap: '20px', paddingBottom: '20px' }}>
-              {sortedDeckChars.map((c) => <MiniCard key={`deckc-${c.name}`} card={c} onClick={() => handleRemoveCard(c, false)} onHover={() => onClearNew(c.name)} />)}
+              {/* NEU: onClick triggert jetzt den Inspector! */}
+              {sortedDeckChars.map((c) => <MiniCard key={`deckc-${c.name}`} card={c} onClick={() => { playSound('click'); setInspectCard({ data: c, isEff: false }); }} onHover={() => onClearNew(c.name)} />)}
             </div>
             <h3 style={{color: 'var(--eff-col)', margin: '20px 0 15px 0', borderTop: '1px dashed #333', paddingTop: '20px'}}>EFFEKTE</h3>
             <div className="mini-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(216px, 1fr))', justifyItems: 'center', gap: '20px', paddingBottom: '30px' }}>
-              {safeEffs.map((e) => <MiniCard key={`decke-${e.name}`} card={e} onClick={() => handleRemoveCard(e, true)} onHover={() => onClearNew(e.name)} />)}
+              {/* NEU: onClick triggert jetzt den Inspector! */}
+              {safeEffs.map((e) => <MiniCard key={`decke-${e.name}`} card={e} onClick={() => { playSound('click'); setInspectCard({ data: e, isEff: true }); }} onHover={() => onClearNew(e.name)} />)}
             </div>
           </div>
 
@@ -448,11 +510,13 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
             
             <h3 style={{color: '#888', margin: '0 0 15px 0'}}>VERFÜGBARE CHARAKTERE</h3>
             <div className="mini-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(216px, 1fr))', justifyItems: 'center', gap: '20px', paddingBottom: '20px' }}>
-              {uniqueInvChars.map((c) => <MiniCard key={`invc-${c.name}`} card={c} onClick={() => handleAddCard(c)} onHover={() => onClearNew(c.name)} />)}
+              {/* NEU: onClick triggert jetzt den Inspector! */}
+              {uniqueInvChars.map((c) => <MiniCard key={`invc-${c.name}`} card={c} onClick={() => { playSound('click'); setInspectCard({ data: c, isEff: false }); }} onHover={() => onClearNew(c.name)} />)}
             </div>
             <h3 style={{color: 'var(--eff-col)', margin: '20px 0 15px 0', borderTop: '1px dashed #333', paddingTop: '20px'}}>VERFÜGBARE EFFEKTE</h3>
             <div className="mini-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(216px, 1fr))', justifyItems: 'center', gap: '20px', paddingBottom: '30px' }}>
-              {uniqueInvEffs.map((e) => <MiniCard key={`inve-${e.name}`} card={e} onClick={() => handleAddCard(e)} onHover={() => onClearNew(e.name)} />)}
+              {/* NEU: onClick triggert jetzt den Inspector! */}
+              {uniqueInvEffs.map((e) => <MiniCard key={`inve-${e.name}`} card={e} onClick={() => { playSound('click'); setInspectCard({ data: e, isEff: true }); }} onHover={() => onClearNew(e.name)} />)}
             </div>
           </div>
         </div>
