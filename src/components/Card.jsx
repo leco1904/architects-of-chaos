@@ -265,7 +265,7 @@ const themeColor =
         </div>
 
        <div className="type-badge parallax-layer">
-          {isAnomaly ? '⚠ SYSTEM ANOMALY ⚠' : isApex ? 'APEX UNIT' : isLegacy ? 'LEGACY ASSET' : 'SYSTEM AGENT'}
+          {isAnomaly ? 'SYSTEM ANOMALY' : isApex ? 'APEX UNIT' : isLegacy ? 'LEGACY ASSET' : 'SYSTEM AGENT'}
         </div>
 
         <div className="card-header parallax-layer">

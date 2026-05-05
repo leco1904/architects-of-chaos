@@ -419,47 +419,55 @@ html, body, #root {
 .edge-anomaly { background: #1a0000; }
 
 .card-ui.type-anomaly {
-  background: #000 !important;
-  border-top: 4px solid #ff0000 !important;
-  box-shadow: inset 0 0 60px rgba(255, 0, 0, 0.4), 0 0 40px rgba(255, 0, 0, 0.5) !important;
+  background: #050000 !important; /* Die tiefschwarze Basis */
+  border-top: 1px solid rgba(255, 0, 0, 0.4) !important;
+  
+  /* Der Glow: Viel sanfter, eleganter und tiefer angesetzt */
+  box-shadow: inset 0 -60px 80px -20px rgba(200, 0, 0, 0.4), inset 0 0 15px rgba(255, 0, 0, 0.1), 0 0 30px rgba(255, 0, 0, 0.4) !important;
+  
   animation: anomalyGlitch 4s infinite alternate;
 }
 
-/* Schwarzer Glitch-Foil */
-.card-ui.type-anomaly .card-foil {
-  background: repeating-linear-gradient(
-    45deg,
-    rgba(255, 0, 0, 0.1),
-    rgba(255, 0, 0, 0.1) 10px,
-    transparent 10px,
-    transparent 20px
-  );
-  mix-blend-mode: color-dodge;
-  opacity: 0.8 !important;
+/* DER FIX FÜR DEN BILD-CUT: 
+   Ein Gradient, der genau über der harten Kante liegt und sie ins Schwarze fadet */
+.card-ui.type-anomaly::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent 35%, #050000 60%);
+  z-index: 2; /* Über dem Bild, aber unter dem Text */
+  pointer-events: none;
 }
 
-/* Animierte Bild-Zerstörung */
+/* Foil-Glitch etwas dezenter */
+.card-ui.type-anomaly .card-foil {
+  background: repeating-linear-gradient(45deg, rgba(255, 0, 0, 0.05), rgba(255, 0, 0, 0.05) 10px, transparent 10px, transparent 20px);
+  mix-blend-mode: color-dodge;
+  opacity: 0.2 !important; 
+}
+
+/* Bild: Dunkelrot getönt, ohne die Pixel ausbrennen zu lassen */
 .card-ui.type-anomaly img {
-  filter: grayscale(100%) contrast(1.5) brightness(0.8) sepia(1) hue-rotate(-50deg) saturate(3) !important;
-  mix-blend-mode: hard-light;
+  filter: grayscale(100%) sepia(1) hue-rotate(-50deg) saturate(4) brightness(0.5) contrast(1.2) !important;
+  mix-blend-mode: normal; /* WICHTIG: Auf normal setzen, damit der Cut-Fix funktioniert */
   animation: imageGlitch 0.2s infinite;
 }
 
-/* Roter Text-Glow für alles auf der Karte */
+/* Roter Text-Glow - etwas schärfer und weniger "verschwommen" */
 .card-ui.type-anomaly .card-name, 
 .card-ui.type-anomaly .gti-value,
 .card-ui.type-anomaly .type-badge {
   color: #ff0000 !important;
-  text-shadow: 0 0 10px #ff0000, 0 0 20px #ff0000 !important;
+  text-shadow: 0 0 8px rgba(255, 0, 0, 0.8) !important;
 }
 
-/* Brutale CSS Glitch Animationen */
+/* Sanfte Puls-Animation für den unteren Glow */
 @keyframes anomalyGlitch {
-  0% { box-shadow: inset 0 0 60px rgba(255, 0, 0, 0.4), 0 0 40px rgba(255, 0, 0, 0.5); transform: translate(0); }
-  10% { transform: translate(-2px, 1px); }
-  20% { transform: translate(2px, -1px); box-shadow: inset 0 0 80px rgba(255, 0, 0, 0.6), 0 0 60px rgba(255, 0, 0, 0.8); }
+  0% { box-shadow: inset 0 -60px 80px -20px rgba(200, 0, 0, 0.4), inset 0 0 15px rgba(255, 0, 0, 0.1), 0 0 30px rgba(255, 0, 0, 0.4); transform: translate(0); }
+  10% { transform: translate(-1px, 1px); }
+  20% { box-shadow: inset 0 -70px 90px -15px rgba(255, 0, 0, 0.5), inset 0 0 20px rgba(255, 0, 0, 0.2), 0 0 40px rgba(255, 0, 0, 0.5); transform: translate(1px, -1px); }
   30% { transform: translate(0); }
-  100% { box-shadow: inset 0 0 60px rgba(255, 0, 0, 0.4), 0 0 40px rgba(255, 0, 0, 0.5); }
+  100% { box-shadow: inset 0 -60px 80px -20px rgba(200, 0, 0, 0.4), inset 0 0 15px rgba(255, 0, 0, 0.1), 0 0 30px rgba(255, 0, 0, 0.4); }
 }
 
 @keyframes imageGlitch {
