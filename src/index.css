@@ -478,3 +478,136 @@ html, body, #root {
   80% { transform: translateX(1px); }
   100% { transform: translateX(0); }
 }
+
+/* =====================================================
+   RESPONSIVE: MOBILE (≤ 768px)
+   Nur die nötigsten Fixes für Mobile-Kompatibilität.
+   ===================================================== */
+@media (max-width: 768px) {
+
+  /* Verhindert horizontales Scrollen durch überlaufende Elemente */
+  html, body { overflow-x: hidden; }
+
+  /* --- MENÜ --- */
+  .menu-title {
+    font-size: 2.4rem;
+    letter-spacing: 5px;
+  }
+  .menu-subtitle {
+    font-size: 0.95rem;
+    letter-spacing: 4px;
+    margin-bottom: 20px;
+  }
+  /* Buttons: width war fix 400px, jetzt fluid */
+  .menu-btn {
+    width: 100%;
+    padding: 15px;
+    letter-spacing: 2px;
+    font-size: 1.1rem;
+  }
+  /* Lange Überschriften mit großem letter-spacing dürfen umbrechen */
+  .game-title-small {
+    letter-spacing: 3px !important;
+    word-break: break-word;
+    white-space: normal;
+    text-align: center;
+    max-width: 100%;
+  }
+
+  /* --- SPIELFELD: COCKPIT LAYOUT ---
+     War: 320px | 1fr | 320px  (> 1000px breit – katastrophal auf Mobile)
+     Neu: Einspaltiges Layout, Karte zuerst, dann Stats, dann Aktionen */
+  .cockpit-layout {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+  .cockpit-left   { order: 2; }
+  .cockpit-center { order: 1; }
+  .cockpit-right  { order: 3; }
+
+  /* Karte im Cockpit passt knapp nicht (360px > ~350px verfügbar) */
+  .cockpit-center .card-3d-wrapper {
+    transform: scale(0.94);
+    transform-origin: top center;
+    /* Höhenausgleich damit kein Leerraum bleibt */
+    margin-bottom: calc(504px * -0.06);
+  }
+
+  /* Hand-Karten kompakter */
+  .hand-hub  { gap: 8px; margin-top: 12px; flex-wrap: wrap; justify-content: center; }
+  .hand-card { width: 82px; height: 110px; }
+  .hand-name { font-size: 0.7rem; }
+  .tactic-separator { height: 70px; }
+
+  /* --- CLASH OVERLAY ---
+     War: zwei 360px-Karten nebeneinander (~780px) → vertikal stapeln */
+  .clash-cards-wrapper {
+    flex-direction: column !important;
+    gap: 0 !important;
+    margin-bottom: 10px !important;
+    align-items: center !important;
+  }
+  .c-card-container {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+  }
+  /* Karten auf 70% skalieren (252px × 353px sichtbar, Layout bleibt 360×504) */
+  .c-card-container .card-3d-wrapper {
+    transform: scale(0.70);
+    transform-origin: top center;
+    margin-bottom: -152px; /* 504 × 0.30 ≈ 151px */
+  }
+  .vs-badge {
+    font-size: 1.8rem !important;
+    margin: 4px 0 !important;
+    display: block;
+    text-align: center;
+  }
+  .clash-title       { font-size: 1.6rem; letter-spacing: 3px; }
+  #clash-category    { font-size: 1.1rem !important; letter-spacing: 2px !important; margin-bottom: 15px; }
+  .clash-news        { font-size: 0.9rem; padding: 10px 15px; letter-spacing: 1px; }
+  .clash-hp-container { gap: 10px; }
+
+  /* --- KARTENRASTER (Lexikon, Market-Reveal) --- */
+  .card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+  }
+
+  /* --- MARKT --- */
+  .market-grid  { margin-top: 20px; gap: 15px; }
+  .pack-item    { width: 100%; max-width: 100%; padding: 25px 15px; }
+  .pack-icon    { font-size: 3rem; margin-bottom: 10px; }
+  .pack-cost    { font-size: 2rem; margin: 10px 0; }
+  .pack-item h3 { font-size: 1.2rem; }
+
+  /* Reveal nach Pack-Kauf */
+  .pull-reveal-grid { gap: 15px; }
+  .reveal-container { padding-top: 5vh; }
+
+  /* --- INVENTAR / UPGRADE --- */
+  .upgrade-pod { max-width: 240px; padding: 15px; gap: 10px; }
+  .mini-card-wrapper { width: 180px; height: 252px; }
+  .mini-card-scaler  {
+    transform: scale(0.5);
+    transform-origin: top left;
+  }
+
+  /* --- GLASS PANEL Padding (z.B. Difficulty-Screen) --- */
+  /* Inline-Style setzt padding: 40px; wir überschreiben via !important */
+  .glass-panel { padding: 20px !important; }
+
+  /* Difficulty-Grid: von 2 auf 1 Spalte */
+  .glass-panel > div[style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* --- KRISEN-OVERLAY --- */
+  .crisis-alert-title { font-size: 2.2rem; letter-spacing: 4px; }
+  .crisis-alert-desc  { font-size: 1.1rem; padding: 12px 20px; }
+
+  /* --- TOP-BAR kompakter --- */
+  .top-bar { gap: 6px; }
+  #turn-ind { font-size: 0.85rem; }
+}
