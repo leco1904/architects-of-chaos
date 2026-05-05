@@ -1097,3 +1097,244 @@ html, body, #root {
   /* Auf Mobile die alten Balken komplett verstecken (falls Reste übrig sind) */
   .cockpit-left { display: none !important; } 
 }
+
+/* ========================================= */
+/* --- SPIELFELD: FIXES COCKPIT LAYOUT ---   */
+/* ========================================= */
+
+.cockpit-layout {
+  display: flex !important;
+  flex-direction: row !important;
+  justify-content: center !important;
+  align-items: center !important;
+  gap: 60px !important;
+  max-width: 1400px !important;
+  margin: 0 auto !important;
+  width: 100% !important;
+}
+
+.cockpit-arena-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 40px;
+}
+
+.arena-row {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+}
+
+.arena-card-wrapper {
+  transform: scale(1) !important; /* Auf dem PC Originalgröße! */
+  margin-bottom: 0 !important;
+  z-index: 10;
+}
+
+.arena-side-bars {
+  display: flex;
+  gap: 15px;
+  height: 400px; /* Perfekte Höhe für den PC */
+}
+
+.vertical-bar-container {
+  width: 18px;
+  height: 100%;
+  background: rgba(0,0,0,0.6);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 4px;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+}
+
+.v-bar-fill {
+  width: 100%;
+  border-radius: 3px;
+  transition: height 0.5s ease-out;
+}
+
+.win-bg { background: var(--win); box-shadow: 0 0 10px var(--win); }
+.lose-bg { background: var(--lose); box-shadow: 0 0 10px var(--lose); }
+.ep-bg { background: var(--ep); }
+.crisis-bg { background: var(--crisis); }
+
+.v-bar-text {
+  position: absolute;
+  bottom: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #aaa;
+  white-space: nowrap;
+  font-family: 'Roboto Mono', monospace;
+}
+
+.cockpit-action-column {
+  display: flex;
+  flex-direction: column;
+  width: 320px; /* Platz für die Action-Buttons auf dem PC */
+}
+
+/* ── RESPONSIVE MOBILE FIX ── */
+@media (max-width: 768px) {
+  .cockpit-layout {
+    flex-direction: column !important;
+    gap: 15px !important;
+  }
+  .cockpit-arena-column {
+    gap: 10px !important;
+  }
+  .arena-row {
+    gap: 10px !important;
+  }
+  .arena-card-wrapper {
+    transform: scale(0.62) !important; /* Nur auf dem Handy verkleinern! */
+    transform-origin: center !important;
+    margin-bottom: -192px !important; 
+  }
+  .arena-side-bars {
+    height: 250px !important; /* Balken auf dem Handy kürzer */
+    gap: 8px !important;
+  }
+  .vertical-bar-container {
+    width: 12px !important;
+  }
+  .v-bar-text {
+    font-size: 0.6rem !important;
+    bottom: -20px !important;
+  }
+  .cockpit-action-column {
+    width: 100% !important;
+  }
+  .action-container {
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    width: 100%;
+  }
+  .action-container .btn-act {
+    padding: 12px 5px !important;
+    flex: 1;
+    margin: 0 5px;
+    justify-content: center;
+  }
+  .action-container .act-cost {
+    display: none !important; /* Auf dem Handy Platz sparen */
+  }
+}
+
+/* ========================================= */
+/* --- NEUES HANDKARTEN DESIGN (MINI) ---    */
+/* ========================================= */
+
+.hand-card {
+  width: 95px;
+  height: 135px;
+  background: rgba(12, 12, 16, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+  border-top: 3px solid var(--card-color, #444) !important;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 6px 15px rgba(0,0,0,0.6);
+  clip-path: none !important; /* Entfernt die alten abgehackten Ecken */
+}
+
+/* Dezente Scanlines für den Tech-Look */
+.hand-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.4) 50%);
+  background-size: 100% 4px;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.5;
+}
+
+/* Leichter farbiger Schimmer von oben */
+.hand-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at top, var(--card-color), transparent 70%);
+  opacity: 0.1;
+  pointer-events: none;
+}
+
+.hand-card:hover {
+  transform: translateY(-8px);
+  border-color: rgba(255,255,255,0.15) !important;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.8), inset 0 0 15px rgba(255,255,255,0.02);
+}
+
+.hand-card.active {
+  transform: translateY(-15px);
+  border-color: var(--win) !important;
+  border-top: 3px solid var(--win) !important;
+  background: rgba(0, 229, 255, 0.08) !important;
+  box-shadow: 0 15px 25px rgba(0,0,0,0.8), 0 0 15px rgba(0, 229, 255, 0.3), inset 0 0 20px rgba(0, 229, 255, 0.1);
+}
+
+.hand-name {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #fff !important;
+  letter-spacing: 1px;
+  z-index: 1;
+  padding: 0 6px;
+  text-shadow: 0 2px 5px rgba(0,0,0,0.8);
+  word-wrap: break-word;
+}
+
+.hand-icon {
+  font-size: 1.4rem;
+  margin-bottom: 5px;
+  z-index: 1;
+  text-shadow: 0 0 10px currentColor;
+}
+
+/* Der neue Synergie-Badge */
+.hand-syn {
+  font-size: 0.6rem;
+  color: var(--eff-col);
+  margin-top: 10px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  z-index: 1;
+  background: rgba(0, 255, 204, 0.1);
+  padding: 3px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 255, 204, 0.3);
+}
+
+/* ── RESPONSIVE MOBILE FIX FÜR HANDKARTEN ── */
+@media (max-width: 768px) {
+  .hand-card {
+    width: 70px !important;
+    height: 100px !important;
+    border-radius: 4px;
+  }
+  .hand-name {
+    font-size: 0.6rem !important;
+    padding: 0 2px;
+  }
+  .hand-icon {
+    font-size: 1rem !important;
+  }
+  .hand-syn {
+    font-size: 0.5rem !important;
+    padding: 2px 4px !important;
+    margin-top: 6px !important;
+  }
+}

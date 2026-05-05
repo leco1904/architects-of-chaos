@@ -1,7 +1,7 @@
 // src/components/MatchEngine.jsx
 import React, { useState, useEffect } from 'react';
 import Card, { CAT_CONFIG, getRarityClass } from './Card';
-import { getAIBestCategory, getPlayerRegen, getSarcasticNews } from '../logic/gameLogic';
+import { getAIBestCategory, getSarcasticNews } from '../logic/gameLogic';
 import { playSound } from '../logic/audio';
 
 function shuffle(array) {
@@ -71,13 +71,12 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
   const [remoteClashAck, setRemoteClashAck] = useState(null);
 
   const [showMatchIntro, setShowMatchIntro] = useState(true);
-  const [introPhase, setIntroPhase] = useState(0); // 0=entering 1=hold 2=leaving
+  const [introPhase, setIntroPhase] = useState(0); 
 
   const activeCard = pHand[activeIdx];
   const aiCard = (isOnline && !pTurn && remoteActionData) ? remoteActionData.card : aDeck[0];
 
   useEffect(() => {
-    // FIX: Match-Intro Sound an den Load-Screen gekoppelt
     playSound('matchIntro');
     const t1 = setTimeout(() => setIntroPhase(1), 400);
     const t2 = setTimeout(() => setIntroPhase(2), 1900);
@@ -119,18 +118,16 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
     if (!isOnline && !pTurn && aiCard) setCurK(getAIBestCategory(aiCard, activeCrisis, difficulty, activeCard));
   }, [pTurn, aiCard, activeCrisis, difficulty, activeCard, isOnline]);
 
-  // FIX: Hier triggern wir die Sounds synchron zur Aufprall-Animation!
   useEffect(() => {
     if (clashData && !showCrisisIntro) {
       const timer = setTimeout(() => {
         setClashAnim(true);
-        // Sound-Evaluation basierend auf dem Schaden
         if (clashData.dmgP > clashData.dmgA) {
-          playSound('roundLose'); // Runden-Niederlage (Thud Loss)
+          playSound('roundLose'); 
         } else if (clashData.dmgA > clashData.dmgP) {
-          playSound('win');       // Runde gewonnen
+          playSound('win');       
         } else {
-          playSound('patt');      // Unentschieden oder 0-Schaden-Block
+          playSound('patt');      
         }
       }, 150);
       return () => clearTimeout(timer);
@@ -202,7 +199,7 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
       const atkVal = isAttacker ? pV : aV;
       const defVal = isAttacker ? aV : pV;
 
-      let dmgP = 0, dmgA = 0, healP = 0, healA = 0, recoilP = 0, recoilA = 0;
+      let dmgP = 0, dmgA = 0, recoilP = 0, recoilA = 0;
       const diff = Math.max(0, atkVal - defVal);
       let dmg = Math.floor(diff * 1.5);
       let recoil = 0;
@@ -233,13 +230,10 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
            if (recoil > 0) { if (isAttacker) recoilP = recoil; else recoilA = recoil; }
       }
 
-      if (k === 'finance') {
-           if (dmgA > 0 && isAttacker) healP = Math.floor(dmgA * 0.5);
-           if (dmgP > 0 && !isAttacker) healA = Math.floor(dmgP * 0.5);
-      }
-
-      const newPHP = Math.max(0, pHP - dmgP - recoilP + healP);
-      const newAHP = Math.max(0, aHP - dmgA - recoilA + healA);
+      // Kategorien-Effekte (wie Lifesteal durch finance) wurden restlos entfernt!
+      
+      const newPHP = Math.max(0, pHP - dmgP - recoilP);
+      const newAHP = Math.max(0, aHP - dmgA - recoilA);
 
       const getCost = (act, effObj) => {
           let c = act === 'std' ? 2 : act === 'allin' ? 8 : act === 'konter' ? 6 : 0;
@@ -247,7 +241,8 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
           return c;
       };
 
-      const newPEP = Math.min(15, pEP - getCost(myLockedAction.action, myLockedAction.effObj) + 2 + getPlayerRegen(pHand));
+      // Energie-Bug Fix: Wir ziehen die festen +2 ab ohne zusätzliche Skalierungen
+      const newPEP = Math.min(15, pEP - getCost(myLockedAction.action, myLockedAction.effObj) + 2);
       const newAEP = Math.min(15, aEP - getCost(remoteActionData.action, remoteActionData.effObj) + 2); 
 
       setClashData({
@@ -257,13 +252,11 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
           pAct: formatActionName(myLockedAction.action), 
           aAct: formatActionName(remoteActionData.action),
           oldPHP: pHP, oldAHP: aHP, newPHP, newAHP, newPEP, newAEP, 
-          dmgP: dmgP + recoilP, dmgA: dmgA + recoilA, healToPlayer: healP
+          dmgP: dmgP + recoilP, dmgA: dmgA + recoilA
       });
 
       setMyLockedAction(null);
       setRemoteActionData(null);
-
-      // (Sounds wurden in den useEffect verschoben für bessere Synchronisation)
 
       if (myLockedAction.effObj) {
           setPEffDeck(pEffDeck.slice(1));
@@ -343,7 +336,6 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
               const newCrisis = { ...randomEvent, turnsLeft: 6 };
               setActiveCrisis(newCrisis); setCrisisRisk(0); setCrisisLevel(crisisLevel + 1);
 
-              // FIX: Hier wird der Krisen-Alarm getriggert!
               setShowCrisisIntro(newCrisis); 
               playSound('crisis');
               
@@ -407,7 +399,6 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
 
   return (
     <div id="game-ui" className="screen active">
-      {/* ── MATCH INTRO ANIMATION ── */}
       {showMatchIntro && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 9999,
@@ -419,7 +410,6 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
           transition: introPhase === 0 ? 'none' : 'opacity 0.5s ease',
           pointerEvents: 'none',
         }}>
-          {/* Scanline overlay */}
           <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,229,255,0.03) 3px, rgba(0,229,255,0.03) 4px)', pointerEvents: 'none' }} />
 
           <div style={{
@@ -456,7 +446,6 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
             {isOnline ? 'ONLINE DUEL — ARCHITECT REWARDS' : 'SYSTEM BOOT SEQUENCE INITIATED'}
           </div>
 
-          {/* Animated bar */}
           <div style={{ width: '320px', height: '2px', background: '#111', marginTop: '8px', overflow: 'hidden', opacity: introPhase >= 1 ? 1 : 0, transition: 'opacity 0.3s 0.3s' }}>
             <div style={{ height: '100%', background: 'var(--ep)', boxShadow: '0 0 8px var(--ep)', width: introPhase >= 1 ? '100%' : '0%', transition: 'width 1.2s linear 0.2s' }} />
           </div>
@@ -480,108 +469,129 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
       </div>
 
       <div className="cockpit-layout">
-       <div className="cockpit-layout">
-  <div className="cockpit-center mobile-arena">
-    {/* LINKE BALKEN: Stabilität & Energie */}
-    <div className="arena-side-bars left-bars">
-      <div className="vertical-bar-container">
-        <div className="v-bar-fill win-bg" style={{ height: `${(pHP / 1000) * 100}%` }}></div>
-        <span className="v-bar-text">STAB {Math.floor(pHP)}</span>
-      </div>
-      <div className="vertical-bar-container">
-        <div className="v-bar-fill ep-bg" style={{ height: `${(pEP / 15) * 100}%` }}></div>
-        <span className="v-bar-text">NRG {pEP}</span>
-      </div>
-    </div>
-
-    {/* DIE KARTE */}
-    <div className="arena-card-wrapper">
-      <Card 
-        card={activeCard} 
-        context="game" 
-        activeEffect={activeEffObj} 
-        apexBuffs={currentApexBuffs}
-        activeCrisis={activeCrisis}
-        curCategory={curK} 
-        isPlayerTurn={pTurn} 
-        onStatClick={handleStatClick} 
-      />
-    </div>
-
-    {/* RECHTE BALKEN: Integrität & Krise */}
-    <div className="arena-side-bars right-bars">
-      <div className="vertical-bar-container">
-        <div className="v-bar-fill lose-bg" style={{ height: `${(aHP / 1000) * 100}%` }}></div>
-        <span className="v-bar-text">INT {Math.floor(aHP)}</span>
-      </div>
-      <div className="vertical-bar-container">
-        <div className="v-bar-fill crisis-bg" style={{ height: `${crisisRisk}%` }}></div>
-        <span className="v-bar-text">RISK {crisisRisk}%</span>
-      </div>
-    </div>
-  </div>
-
-  {/* DIE HANDKARTEN (Kommen direkt unter die Arena) */}
-  <div className="hand-hub">
-    <div className="hand-grid">
-      {/* ... Dein bestehender hand-grid Code mit pHand.map ... */}
-    </div>
-    <div className="tactic-separator"></div>
-    <div className="tactic-grid">
-      {/* ... Dein bestehender tactic-grid Code ... */}
-    </div>
-  </div>
-
-  <div className="cockpit-right">
-    <div id="action-area">
-      {/* HIER WURDE DER LOG-BOX ENTFERNT! */}
-      
-      <div className="action-container" style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-        {/* Buttons nebeneinander statt untereinander */}
-        {pTurn ? (
-          <>
-            <button className="btn-act" onClick={() => executeAction('erholen')}><span className="act-title">ERHOLEN</span></button>
-            <button className="btn-act btn-primary" style={{ opacity: canStd ? 1 : 0.4 }} onClick={() => canStd && executeAction('std')}><span className="act-title">STD</span></button>
-            <button className="btn-act btn-danger" style={{ opacity: canAllIn ? 1 : 0.4 }} onClick={() => canAllIn && executeAction('allin')}><span className="act-title">ALL-IN</span></button>
-          </>
-        ) : (
-          <>
-            <button className="btn-act btn-primary" style={{ opacity: canBlock && canDefend ? 1 : 0.4 }} onClick={() => canBlock && canDefend && executeAction('block')}><span className="act-title">BLOCK</span></button>
-            <button className="btn-act btn-danger" style={{ opacity: canKonter && canDefend ? 1 : 0.4 }} onClick={() => canKonter && canDefend && executeAction('konter')}><span className="act-title">KONTER</span></button>
-          </>
-        )}
-      </div>
-    </div>
-  </div>
-</div>
-
-        <div className="cockpit-right">
-          <div id="action-area">
-            <div className="log-box mono" style={{ flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', height: '100px', overflow: 'hidden' }}>
-              <div>{curK ? CAT_CONFIG[curK]?.short : (pTurn ? "WÄHLE STATS ODER ERHOLE DICH..." : "VERTEIDIGE DICH...")}</div>
+        <div className="cockpit-arena-column">
+          <div className="arena-row">
+            <div className="arena-side-bars left-bars">
+              <div className="bar-pod" style={{ '--accent': 'var(--win)' }}>
+                <div className="v-bar-label">HP</div>
+                <div className="vertical-bar-container">
+                  <div className="v-bar-fill win-bg" style={{ height: `${(pHP / 1000) * 100}%` }}></div>
+                </div>
+                <div className="v-bar-val">{Math.floor(pHP)}</div>
+              </div>
               
-              {activeEffObj && (
-                <div style={{ marginTop: '5px', fontSize: '0.8rem', color: 'var(--eff-col)' }}>
-                  ► EFFEKT: +{activeEffObj.buff} {CAT_CONFIG[activeEffObj.stat]?.name}<br/>
-                  <span style={{ color: '#aaa' }}>SYN: {activeEffObj.syn.join(', ')} (+{activeEffObj.synBuff})</span>
+              <div className="bar-pod" style={{ '--accent': 'var(--ep)' }}>
+                <div className="v-bar-label">⚡</div>
+                <div className="vertical-bar-container">
+                  <div className="v-bar-fill ep-bg" style={{ height: `${(pEP / 15) * 100}%` }}></div>
+                </div>
+                <div className="v-bar-val">{pEP}</div>
+              </div>
+            </div>
+
+            <div className="arena-card-wrapper">
+              <Card 
+                card={activeCard} 
+                context="game" 
+                activeEffect={activeEffObj} 
+                apexBuffs={currentApexBuffs}
+                activeCrisis={activeCrisis}
+                curCategory={curK} 
+                isPlayerTurn={pTurn} 
+                onStatClick={handleStatClick} 
+              />
+            </div>
+
+            <div className="arena-side-bars right-bars">
+              <div className="bar-pod" style={{ '--accent': 'var(--lose)' }}>
+                <div className="v-bar-label">HP</div>
+                <div className="vertical-bar-container">
+                  <div className="v-bar-fill lose-bg" style={{ height: `${(aHP / 1000) * 100}%` }}></div>
+                </div>
+                <div className="v-bar-val">{Math.floor(aHP)}</div>
+              </div>
+              
+              <div className="bar-pod" style={{ '--accent': 'var(--crisis)' }}>
+                <div className="v-bar-label">KRISE</div>
+                <div className="vertical-bar-container">
+                  <div className="v-bar-fill crisis-bg" style={{ height: `${crisisRisk}%` }}></div>
+                </div>
+                <div className="v-bar-val">{crisisRisk}%</div>
+              </div>
+            </div>
+          </div>
+
+          {/* HANDKARTEN UNTER DER ARENA */}
+          <div className="hand-hub">
+            <div className="hand-grid">
+              {pHand.map((c, i) => {
+                const rc = getRarityColor(c);
+                const isActive = i === activeIdx;
+                return (
+                  <div
+                    key={i}
+                    className={`hand-card ${getRarityClass(c.gti)} ${isActive ? 'active' : ''}`}
+                    style={{ '--card-color': rc }}
+                    onClick={() => { playSound('click'); setActiveIdx(i); }}
+                  >
+                    <div className="hand-name">
+                      {(c?.Nachnamen || c?.name?.split(' ').pop() || '').toUpperCase()}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="tactic-separator"></div>
+            <div className="tactic-grid">
+              {/* Taktikkarte & Synergie */}
+              {pEffHand[0] ? (
+                <div className={`hand-card type-effect ${activeEffObj ? 'active' : ''}`} style={{ '--card-color': 'var(--eff-col)' }} onClick={handleToggleEffect}>
+                  <div className="hand-icon" style={{ color: 'var(--eff-col)' }}>{pEffHand[0].cost}⚡</div>
+                  <div className="hand-name">{pEffHand[0].name.toUpperCase()}</div>
+                  {pEffHand[0].syn && (
+                    <div className="hand-syn">
+                      SYN: {Array.isArray(pEffHand[0].syn) ? pEffHand[0].syn[0].split(' ').pop() : pEffHand[0].syn.split(' ').pop()}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="hand-card empty" style={{ '--card-color': '#333' }}>
+                  <div className="hand-name" style={{ color: '#555' }}>LEER</div>
                 </div>
               )}
             </div>
-            
-            <div className="action-container" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              {pTurn ? (
-                <>
-                  <button className="btn-act" onClick={() => executeAction('erholen')}><span className="act-title">ERHOLEN</span><span className="act-cost">+{getPlayerRegen(pHand)}⚡</span></button>
-                  <button className="btn-act btn-primary" style={{ opacity: canStd ? 1 : 0.4 }} onClick={() => canStd && executeAction('std')}><span className="act-title">STANDARD</span><span className="act-cost">-{2 + dynEffCost}⚡</span></button>
-                  <button className="btn-act btn-danger" style={{ opacity: canAllIn ? 1 : 0.4 }} onClick={() => canAllIn && executeAction('allin')}><span className="act-title">ALL-IN</span><span className="act-cost">-{8 + dynEffCost}⚡</span></button>
-                </>
-              ) : (
-                <>
-                  <button className="btn-act btn-primary" style={{ opacity: canBlock && canDefend ? 1 : 0.4 }} onClick={() => canBlock && canDefend && executeAction('block')}><span className="act-title">BLOCKEN</span><span className="act-cost">-{dynEffCost}⚡</span></button>
-                  <button className="btn-act btn-danger" style={{ opacity: canKonter && canDefend ? 1 : 0.4 }} onClick={() => canKonter && canDefend && executeAction('konter')}><span className="act-title">KONTER</span><span className="act-cost">-{6 + dynEffCost}⚡</span></button>
-                </>
-              )}
-            </div>
+          </div>
+        </div>
+
+        <div className="cockpit-action-column">
+          <div className="action-container">
+            {pTurn ? (
+              <>
+                <button className="btn-act" onClick={() => executeAction('erholen')}>
+                  <span className="act-title">ERHOLEN</span>
+                  <span className="act-cost">+2⚡</span>
+                </button>
+                <button className="btn-act btn-primary" style={{ opacity: canStd ? 1 : 0.4 }} onClick={() => canStd && executeAction('std')}>
+                  <span className="act-title">STANDARD</span>
+                  <span className="act-cost">-{2 + dynEffCost}⚡</span>
+                </button>
+                <button className="btn-act btn-danger" style={{ opacity: canAllIn ? 1 : 0.4 }} onClick={() => canAllIn && executeAction('allin')}>
+                  <span className="act-title">ALL-IN</span>
+                  <span className="act-cost">-{8 + dynEffCost}⚡</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <button className="btn-act btn-primary" style={{ opacity: canBlock && canDefend ? 1 : 0.4 }} onClick={() => canBlock && canDefend && executeAction('block')}>
+                  <span className="act-title">BLOCKEN</span>
+                  <span className="act-cost">-{dynEffCost}⚡</span>
+                </button>
+                <button className="btn-act btn-danger" style={{ opacity: canKonter && canDefend ? 1 : 0.4 }} onClick={() => canKonter && canDefend && executeAction('konter')}>
+                  <span className="act-title">KONTER</span>
+                  <span className="act-cost">-{6 + dynEffCost}⚡</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -649,7 +659,6 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
                   </div>
                </div>
                {clashAnim && clashData.dmgP > 0 && <div className="dmg-popup dmg-neg show">-{clashData.dmgP}</div>}
-               {clashAnim && clashData.healToPlayer > 0 && <div className="dmg-popup dmg-pos show">+{clashData.healToPlayer}</div>}
             </div>
 
             <div className="vs-badge" style={{ fontSize: '4rem', color: '#555', fontStyle: 'italic', fontWeight: '900' }}>VS</div>
