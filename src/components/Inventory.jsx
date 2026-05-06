@@ -53,7 +53,7 @@ const InspectorModal = ({ card, isInDeck, isEffect, onClose, onAdd, onRemove }) 
         </button>
         
         <div className="inspector-card-scaler">
-          <Card card={card} context="inventory" isInspecting={gyroActive} />
+          <Card card={card} context="inventory" isInspecting={gyroActive} interactiveReveal={true} />
         </div>
 
         <div className="inspector-actions">
@@ -95,8 +95,25 @@ const UpgradeModal = ({ group, isEffect, onClose, onConfirm }) => {
       <div className="game-title-small" style={{ fontSize: '2rem', marginBottom: '40px', opacity: phase === 'hidden' ? 0 : 1, transition: 'opacity 0.5s', letterSpacing: '8px', textAlign: 'center', color: phase === 'done' ? 'var(--win)' : '#fff', textShadow: phase === 'done' ? '0 0 15px var(--win)' : 'none' }}>
         {phase === 'done' ? 'UPGRADE ABGESCHLOSSEN' : 'SYSTEM-UPGRADE INITIALISIERT...'}
       </div>
-      <div className={`upgrade-modal-card phase-${phase}`}>
+      <div className={`upgrade-modal-card phase-${phase}`} style={{
+        position: 'relative',
+        transition: 'all 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+        transform: phase === 'done' ? 'scale(1.15)' : (phase === 'upgrading' ? 'scale(1.05)' : 'scale(1)'),
+        filter: (phase === 'done' || phase === 'upgrading') ? 'drop-shadow(0 0 40px var(--win))' : 'none',
+        zIndex: 10
+      }}>
         <Card card={simCard} context="inventory" />
+        
+        {/* Die Pfeil-Animation direkt im Modal */}
+        {(phase === 'upgrading' || phase === 'done') && (
+          <div className="mono" style={{
+            position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+            fontSize: '6rem', color: 'var(--win)', textShadow: '0 0 40px var(--win)',
+            animation: 'pulse 0.5s infinite', pointerEvents: 'none', zIndex: 20
+          }}>
+            ⏫
+          </div>
+        )}
       </div>
       <div style={{ height: '80px', marginTop: '60px', opacity: phase === 'done' ? 1 : 0, transition: 'opacity 0.5s', visibility: phase === 'done' ? 'visible' : 'hidden' }}>
         <button className="menu-btn btn-play modern-btn" onClick={() => { 
@@ -110,7 +127,7 @@ const UpgradeModal = ({ group, isEffect, onClose, onConfirm }) => {
   );
 };
 
-const UpgradeCard = ({ group, onInitiateUpgrade, onSell }) => {
+const UpgradeCard = ({ group, isUpgrading, onInitiateUpgrade, onSell }) => {
   const { main, count } = group;
   const isEffect = main.type === 'effect';
   const isMax = main.level === 3;
@@ -120,29 +137,47 @@ const UpgradeCard = ({ group, onInitiateUpgrade, onSell }) => {
   const sellValue = getSellValue(main);
 
   return (
-    <div className="upgrade-pod">
-       <div className="upgrade-card-wrapper">
+    <div className="upgrade-pod" style={{ position: 'relative' }}>
+       <div className="upgrade-card-wrapper" style={{ 
+          transition: 'all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)', 
+          transform: isUpgrading ? 'translateY(-20px) scale(1.05)' : 'none',
+          filter: isUpgrading ? 'drop-shadow(0 0 25px var(--win))' : 'none',
+          zIndex: isUpgrading ? 10 : 1
+       }}>
          <div className="mini-card-scaler">
             <Card card={main} context="inventory" />
          </div>
          <div className="count-badge mono">KOPIEN: {count}</div>
+         
+         {isUpgrading && (
+            <div className="mono" style={{
+              position: 'absolute', top: '40%', left: '50%', transform: 'translate(-50%, -50%)',
+              fontSize: '4rem', color: 'var(--win)', textShadow: '0 0 30px var(--win)',
+              animation: 'pulse 0.3s infinite', pointerEvents: 'none', zIndex: 20
+            }}>
+              ⏫
+            </div>
+         )}
        </div>
 
-       <div className="upgrade-actions">
+       <div className="upgrade-actions" style={{ marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
          {canUpgrade && (
-            <button className="btn-upgrade" onClick={() => onInitiateUpgrade(main.name, isEffect)}>
-               LEVEL UP (3)
+            <button className="btn-act" style={{ width: '100%', borderLeftColor: 'var(--win)' }} onClick={() => onInitiateUpgrade(main.name, isEffect)}>
+               <span className="act-title">LEVEL UP (3)</span>
             </button>
          )}
          
          {canSell && (
-            <button className="btn-sell" onClick={(e) => onSell(main.name, isEffect, e)}>
-               VERKAUF (+{sellValue}💳)
+            <button className="btn-act" style={{ width: '100%', borderLeftColor: 'var(--ep)' }} onClick={(e) => onSell(main.name, isEffect, e)}>
+               <span className="act-title">VERKAUFEN</span>
+               <span className="act-cost mono" style={{ color: 'var(--ep)' }}>+{sellValue}💳</span>
             </button>
          )}
 
          {!canUpgrade && !canSell && (
-            <div className="upgrade-locked">ZU WENIG KOPIEN</div>
+            <button className="btn-act" style={{ width: '100%', borderLeftColor: '#444', opacity: 0.5, cursor: 'not-allowed' }} disabled>
+               <span className="act-title" style={{ color: '#888' }}>ZU WENIG KOPIEN</span>
+            </button>
          )}
        </div>
     </div>
@@ -161,6 +196,7 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
 
   const [activeUpgradeSession, setActiveUpgradeSession] = useState(null);
   const [inspectCard, setInspectCard] = useState(null); 
+  const [upgradingCard, setUpgradingCard] = useState(null); // NEU: Animations-State 
 
   // --- NEU: 1-Click PC Logik ---
   const handleCardClick = (card, isEff, isDeck) => {
@@ -339,6 +375,10 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
           chars: d.chars.map(c => c.name === cardName ? { ...c, level: currentLevel + 1 } : c),
           effs: d.effs.map(c => c.name === cardName ? { ...c, level: currentLevel + 1 } : c)
       })));
+      
+      // NEU: Inline-Animation triggern
+      setUpgradingCard(cardName);
+      setTimeout(() => setUpgradingCard(null), 1200);
   };
 
   const handleSell = (cardName, isEffect, e) => {
@@ -581,6 +621,7 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
                  <div key={i} onMouseEnter={() => onClearNew(group.main.name)}>
                     <UpgradeCard 
                        group={group} 
+                       isUpgrading={upgradingCard === group.main.name}
                        onInitiateUpgrade={(name, isEff) => setActiveUpgradeSession({ group, isEffect: isEff })}
                        onSell={handleSell}
                     />

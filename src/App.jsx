@@ -99,6 +99,11 @@ export default function App() {
     return saved ? JSON.parse(saved) : null;
   });
 
+  const [rewardPacks, setRewardPacks] = useState(() => {
+    const saved = localStorage.getItem('aoc_reward_packs');
+    return saved ? JSON.parse(saved) : [];
+  });
+
   const makeStarterInventory = () => [
     ...defaultStarterChars.map(c=>({...c,level:1,isNew:false})),
     ...defaultStarterEffs.map(c=>({...c,level:1,isNew:false})),
@@ -179,7 +184,7 @@ export default function App() {
   const [remoteDeck, setRemoteDeck] = useState(null);
   const activeDeck = decks.find(d => d.isActive) || decks[0];
 
- useEffect(()=>{
+  useEffect(()=>{
     localStorage.setItem('aoc_credits',   credits.toString());
     localStorage.setItem('aoc_inventory', JSON.stringify(inventory));
     localStorage.setItem('aoc_decks',     JSON.stringify(decks));
@@ -187,7 +192,8 @@ export default function App() {
     localStorage.setItem('aoc_missions',  JSON.stringify(missions));
     localStorage.setItem('aoc_avatar',    JSON.stringify(avatarCard));
     localStorage.setItem('aoc_run',       JSON.stringify(roguelikeRun));
-  },[credits,inventory,decks,stats,missions,avatarCard,roguelikeRun]);
+    localStorage.setItem('aoc_reward_packs', JSON.stringify(rewardPacks));
+  },[credits,inventory,decks,stats,missions,avatarCard,roguelikeRun,rewardPacks]);
 
   // ── Supabase Auth ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -213,9 +219,8 @@ export default function App() {
   }, []);
 
   const loadProfile = async (user) => {
-    cloudSyncReady.current = false; // Ladesperre AKTIVIEREN
+    cloudSyncReady.current = false;
     try {
-      // WICHTIG: maybeSingle() verhindert Abstürze, falls das Profil komplett neu ist
       const { data: p, error } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
       if (error) throw error;
 
@@ -227,7 +232,6 @@ export default function App() {
         if (p.avatar_card !== undefined) setAvatarCard(p.avatar_card);
         if (p.active_run !== undefined) setRoguelikeRun(p.active_run);
 
-        // Zwinge den lokalen Browser, sich SOFORT an die Cloud-Daten anzupassen
         localStorage.setItem('aoc_credits', (p.credits || 500).toString());
         localStorage.setItem('aoc_inventory', JSON.stringify(p.inventory || []));
         localStorage.setItem('aoc_decks', JSON.stringify(p.decks || []));
@@ -235,7 +239,6 @@ export default function App() {
         localStorage.setItem('aoc_run', JSON.stringify(p.active_run || null));
         
       } else {
-        // Neues Profil anlegen
         const inv = makeStarterInventory();
         const d = makeStarterDecks();
         await supabase.from('profiles').insert({
@@ -244,8 +247,6 @@ export default function App() {
         });
         setCredits(500); setInventory(inv); setDecks(d);
       }
-      
-      // Ladesperre AUFHEBEN - Erst ab jetzt darf die App wieder in die Cloud speichern!
       cloudSyncReady.current = true;
     } catch (e) {
       console.error('[Profile Load Error]', e);
@@ -261,22 +262,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    // Harte Blockade: Kein Upload, wenn das Profil nicht vollständig geladen wurde
     if (guestMode || !cloudSyncReady.current) return;
-    
-    const t = setTimeout(() => {
-      saveToCloud({ credits, inventory, decks, avatar_card: avatarCard, active_run: roguelikeRun });
-    }, 1500);
-    return () => clearTimeout(t);
-  }, [credits, inventory, decks, avatarCard, roguelikeRun, guestMode]);
-
- useEffect(() => {
-    // 1. Sperre: Nicht im GuestMode und nur wenn cloudSyncReady auf true steht
-    if (guestMode || !cloudSyncReady.current) return;
-    
-    // 2. Sperre: Verhindere das Überschreiben mit "Nichts", wenn man gerade erst eingeloggt ist
-    // Wenn wir in der Cloud eigentlich einen Avatar haben sollten (session vorhanden),
-    // aber lokal noch null steht, brechen wir das Speichern ab.
     if (session && !avatarCard) return;
 
     const t = setTimeout(() => {
@@ -328,7 +314,6 @@ export default function App() {
     return { aiChars, aiEffs, difficulty: diff, initialAHP: aHP };
   };
 
-  // ── DER FIX FÜR DEN RUN-START ──
   const startRoguelikeRunWithDeck = (selectedChars, selectedEffs) => {
     if (!avatarCard) return;
     const newRun = {
@@ -338,7 +323,6 @@ export default function App() {
         effs:  selectedEffs,
       },
     };
-    // Status aktualisieren und DIREKT in die Map zwingen
     setRoguelikeRun(newRun);
     setCurrentView('roguelikemap');
   };
@@ -356,91 +340,93 @@ export default function App() {
     setCurrentView('match');
   };
 
+  // --- DIE REPARIERTE LOOT & DRAFT LOGIK ---
   const handleRoguelikeEndGame = ({ isWin, remainingHP = 0, isAbort = false }) => {
-    setRoguelikeMatchData(null);
     if (!isWin || isAbort) {
+      setRoguelikeMatchData(null);
       setRoguelikeRun(null);
       saveToCloud({ active_run: null });
       setCurrentView('roguelikefailed');
       return;
     }
+
     const node = roguelikeRun.node;
-    const isBoss = node === 5;
-    const isElite = node === 3;
+    const isBoss = node >= 5 || roguelikeMatchData?.difficulty >= 4; 
+    const isElite = node === 3 || roguelikeMatchData?.node?.type === 'elite';
     
-    // Loot-Tabelle
     const spGain = isBoss ? 3 : 1;
-    const earnedCredits = isBoss ? 500 : isElite ? 200 : 75;
+    const earnedCredits = isBoss ? 500 : (isElite ? 200 : 75);
 
-    // Credits & SP anrechnen
-    setCredits(prev => prev + earnedCredits);
-    const updatedAvatar = { ...avatarCard, sp: (avatarCard.sp || 0) + spGain };
-    setAvatarCard(updatedAvatar);
-
-    // Node & Sektor hochzählen
-    let newNode   = node + 1;
+    let newNode = node + 1;
     let newSector = roguelikeRun.sector;
-    if (newNode > 5) { newNode = 1; newSector++; }
-    const updatedRun = { ...roguelikeRun, currentHP: Math.max(0, remainingHP), node: newNode, sector: newSector };
-    setRoguelikeRun(updatedRun);
+    if (isBoss) { newNode = 1; newSector++; }
 
-    // 1. Deck Draft generieren (immer 3 Karten)
+    const updatedRun = { 
+      ...roguelikeRun, 
+      currentHP: Math.max(0, remainingHP), 
+      node: newNode, 
+      sector: newSector 
+    };
+    const updatedAvatar = { ...avatarCard, sp: (avatarCard.sp || 0) + spGain };
+
+    // 1. DRAFT GENERIEREN (3 Karten für das Deck)
     const allPool = [...cardsData.characters, ...(cardsData.effects || [])];
-    const draftPool = [...allPool].sort(() => Math.random() - 0.5).slice(0, 3).map(c => ({ ...c, level: 1 }));
-    
-    // 2. Permanente Pack-Logik generieren
-    let lootedCards = [];
-    let packName = null;
-    let packColor = null;
+    const draftPool = [...allPool]
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 3)
+      .map(c => ({ ...c, level: 1 }));
 
-    if (isElite) {
-      packName = 'GHOST CACHE';
-      packColor = '#bc13fe';
-      for(let i=0; i<3; i++) {
-         const r = Math.random();
-         let rarity = r < 0.1 ? 'rarity-legendary' : r < 0.5 ? 'rarity-epic' : 'rarity-rare';
-         const pool = cardsData.characters.filter(c => getRarityClass(c.gti||0) === rarity && c.type !== 'apex' && c.type !== 'legacy');
-         if(pool.length > 0) lootedCards.push({...pool[Math.floor(Math.random()*pool.length)], level: 1, isNew: true});
+    // 2. LOOT FÜR DEN SCHWARZMARKT SAMMELN
+    let lootedCards = [];
+    if (isElite || isBoss) {
+      const count = isBoss ? 5 : 3;
+      for(let i=0; i < count; i++) {
+        const picked = allPool[Math.floor(Math.random() * allPool.length)];
+        lootedCards.push({
+          ...picked, 
+          level: 1, 
+          isNew: !inventory.some(inv => inv.name === picked.name)
+        });
       }
-    } else if (isBoss) {
-      packName = 'ARCHITECT CORE';
-      packColor = 'var(--lose)';
-      // 1x Garantierte High-End Karte
-      const topPool = cardsData.characters.filter(c => c.type === 'apex' || c.type === 'legacy' || getRarityClass(c.gti||0) === 'rarity-legendary');
-      if(topPool.length > 0) lootedCards.push({...topPool[Math.floor(Math.random()*topPool.length)], level: 1, isNew: true});
-      // 4x Normal gezogen
-      for(let i=0; i<4; i++) lootedCards.push({...allPool[Math.floor(Math.random()*allPool.length)], level: 1, isNew: true});
     }
 
     if (lootedCards.length > 0) {
-       setInventory(prev => [...prev, ...lootedCards]);
+      setRewardPacks(prev => [...prev, {
+        id: 'reward-' + Date.now(),
+        name: isBoss ? 'SEKTOR-KERN CACHE' : 'GHOST DATA',
+        cards: lootedCards,
+        color: isBoss ? 'var(--lose)' : '#bc13fe'
+      }]);
     }
 
-    // #003 — Cloud sync: save credits, avatar SP, looted inventory, and run progress
-    const newInventory = lootedCards.length > 0 ? [...inventory, ...lootedCards] : inventory;
-    saveToCloud({
-      credits:    credits + earnedCredits,
-      avatar_card: updatedAvatar,
-      inventory:  newInventory,
-      active_run: updatedRun,
-    });
+    // 3. STATES AKTUALISIEREN
+    setCredits(prev => prev + earnedCredits);
+    setAvatarCard(updatedAvatar);
+    setRoguelikeRun(updatedRun);
+    setRoguelikeMatchData(null);
 
-    setRewardData({ draft: draftPool, loot: lootedCards, credits: earnedCredits, packName, packColor });
+    // 4. ZUM DRAFT-SCREEN LEITEN
+    setRewardData({ draft: draftPool });
     setCurrentView('roguelikereward');
+    
+    saveToCloud({ 
+      credits: credits + earnedCredits, 
+      active_run: updatedRun, 
+      avatar_card: updatedAvatar
+    });
   };
 
+  // --- DIE FEHLENDE FUNKTION IST WIEDER DA ---
   const applyRoguelikeDraft = (newCard, replaceIndex, replaceIn) => {
     if (!roguelikeRun) return;
     const deck = { chars: [...roguelikeRun.runDeck.chars], effs: [...roguelikeRun.runDeck.effs] };
 
-    // 1. Alte Karte gezielt entfernen
     if (replaceIn === 'chars') {
       deck.chars.splice(replaceIndex, 1);
     } else {
       deck.effs.splice(replaceIndex, 1);
     }
 
-    // 2. Neue Karte anhand ihres echten Typs in die richtige Kategorie einsortieren
     if (newCard.type === 'effect') {
       deck.effs.push({ ...newCard, level: 1 });
     } else {
@@ -449,7 +435,7 @@ export default function App() {
 
     const updated = { ...roguelikeRun, runDeck: deck };
     setRoguelikeRun(updated);
-    saveToCloud({ active_run: updated });  // #002 — persist draft to cloud
+    
     setRewardData(null); 
     setCurrentView('roguelikemap');
   };
@@ -649,7 +635,6 @@ export default function App() {
     <GhostNodeMenu
       avatarCard={avatarCard}
       roguelikeRun={roguelikeRun}
-      updateAvatar={updateAvatar}
       onGoToLab={() => setCurrentView('avatarlab')}
       onGoToSquad={() => setCurrentView('roguelikesquad')}
       onGoToMap={() => setCurrentView('roguelikemap')}
@@ -681,7 +666,6 @@ export default function App() {
 
   if (currentView === 'roguelikemap') {
     if (!roguelikeRun) {
-      // Sicherheitsnetz gegen das Race-Condition-Abstürzen der State-Updates
       return (
         <div className="screen active" style={{ justifyContent: 'center', alignItems: 'center' }}>
           <div className="mono" style={{ color: 'var(--ep)', fontSize: '1.2rem', animation: 'pulse 1s infinite' }}>INITIALISIERE THE GRID...</div>
@@ -1006,7 +990,21 @@ export default function App() {
         </div>
       )}
 
-      {currentView === 'market' && ( <Market credits={credits} setCredits={setCredits} inventory={inventory} setInventory={setInventory} onBack={() => setCurrentView('menu')} onShowRules={() => { playSound('click'); setShowGlobalRules(true); }} onPackBought={() => { handleMissionProgress('buy_pack', 1); handleStatUpdate('packsOpened', 1); }} onCreditGain={handleCreditGain} /> )}
+      {/* --- DER MARKET MIT DEM REWARD_PACKS UPDATE --- */}
+      {currentView === 'market' && ( 
+        <Market 
+          credits={credits} 
+          setCredits={setCredits} 
+          inventory={inventory} 
+          setInventory={setInventory} 
+          onBack={() => setCurrentView('menu')} 
+          onShowRules={() => { playSound('click'); setShowGlobalRules(true); }} 
+          onPackBought={() => { handleMissionProgress('buy_pack', 1); handleStatUpdate('packsOpened', 1); }} 
+          onCreditGain={handleCreditGain} 
+          rewardPacks={rewardPacks}
+          setRewardPacks={setRewardPacks}
+        /> 
+      )}
       
       {currentView === 'inventory' && ( <Inventory inventory={inventory} setInventory={setInventory} decks={decks} setDecks={setDecks} allFactions={allFactions} onBack={() => setCurrentView('menu')} onShowRules={() => { playSound('click'); setShowGlobalRules(true); }} onClearNew={clearNewStatus} onCreditGain={handleCreditGain} onMissionAction={(type, amount) => { handleMissionProgress(type, amount); if (type === 'upgrade') handleStatUpdate('upgradesDone', amount); }} /> )}
 
