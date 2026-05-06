@@ -5,7 +5,12 @@ import { getAIBestCategory, getSarcasticNews } from '../logic/gameLogic';
 import { playSound } from '../logic/audio';
 
 function shuffle(array) {
-  return [...array].sort(() => Math.random() - 0.5);
+  const a = [...array];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 
 // Maps a card to its thematic rarity color
@@ -34,9 +39,13 @@ const formatActionName = (act) => {
   return act.toUpperCase();
 };
 
-export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, difficulty = 1, isOnline = false, isHost = false, conn = null, onEndGame, onShowRules }) {
-  const [pHP, setPHP] = useState(1000);
-  const [aHP, setAHP] = useState(1000);
+export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, difficulty = 1, isOnline = false, isHost = false, conn = null, onEndGame, onShowRules, initialPHP = 1000, initialAHP = 1000, isRoguelike = false, contextLabel = '' }) {
+  // Shuffle ONCE, then split — avoids duplicates across hand/deck (Bug #011)
+  const _sc = React.useRef(shuffle([...playerChars])).current;
+  const _se = React.useRef(shuffle([...playerEffs])).current;
+
+  const [pHP, setPHP] = useState(initialPHP);
+  const [aHP, setAHP] = useState(initialAHP);
   const [pEP, setPEP] = useState(10);
   const [aEP, setAEP] = useState(10);
   
@@ -46,12 +55,12 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
   
   const [pTurn, setPTurn] = useState(isOnline ? isHost : true);
   
-  const [pHand, setPHand] = useState([...playerChars].slice(0, 3));
-  const [pDeck, setPDeck] = useState([...playerChars].slice(3));
+  const [pHand, setPHand] = useState(_sc.slice(0, 3));
+  const [pDeck, setPDeck] = useState(_sc.slice(3));
   const [aDeck, setADeck] = useState([...aiChars]);
   
-  const [pEffHand, setPEffHand] = useState([...playerEffs].slice(0, 1));
-  const [pEffDeck, setPEffDeck] = useState([...playerEffs].slice(1));
+  const [pEffHand, setPEffHand] = useState(_se.slice(0, 1));
+  const [pEffDeck, setPEffDeck] = useState(_se.slice(1));
   const [aEffHand, setAEffHand] = useState([...aiEffs].slice(0, 1));
   const [aEffDeck, setAEffDeck] = useState([...aiEffs].slice(1));
   
@@ -115,17 +124,25 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
   }, [myClashConfirmed, remoteClashAck, isOnline, clashData]);
 
   useEffect(() => {
-    if (!isOnline && !pTurn && aiCard) setCurK(getAIBestCategory(aiCard, activeCrisis, difficulty, activeCard));
-  }, [pTurn, aiCard, activeCrisis, difficulty, activeCard, isOnline]);
+    if (!isOnline && !pTurn && aiCard) {
+      // Wir übergeben pHand statt activeCard!
+      setCurK(getAIBestCategory(aiCard, activeCrisis, difficulty, pHand));
+    }
+  // WICHTIG: activeCard ist hier aus den Dependencies verschwunden!
+  }, [pTurn, aiCard, activeCrisis, difficulty, pHand, isOnline]);
 
   useEffect(() => {
     if (clashData && !showCrisisIntro) {
       const timer = setTimeout(() => {
         setClashAnim(true);
+        
+        // NEU: Max Damage berechnen für Sound
+        const maxDmg = Math.max(clashData.dmgP, clashData.dmgA);
+        
         if (clashData.dmgP > clashData.dmgA) {
-          playSound('roundLose'); 
+          playSound(maxDmg > 100 ? 'heavy_impact' : 'roundLose'); 
         } else if (clashData.dmgA > clashData.dmgP) {
-          playSound('win');       
+          playSound(maxDmg > 100 ? 'heavy_impact' : 'win');       
         } else {
           playSound('patt');      
         }
@@ -135,7 +152,6 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
       setClashAnim(false);
     }
   }, [clashData, showCrisisIntro]);
-
   const handleStatClick = (statKey) => {
     if (!pTurn) return;
     playSound('click');
@@ -212,19 +228,26 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
            if (isAttacker) dmgA = dmg; else dmgP = dmg;
       } else {
            if (atkAct.action === 'allin') {
-               if (atkVal > defVal) dmg = Math.floor((diff + 40) * 3);
-               else recoil = 150;
+               if (atkVal > defVal) {
+                   dmg = Math.floor((diff + 40) * 3);
+               } else if (atkVal < defVal) {
+                   // All-In verloren: Rückstoß
+                   recoil = 150;
+               }
+               // Gleichstand bei All-In: kein Schaden, kein Rückstoß
            }
            if (defAct.action === 'konter') {
                if (defVal > atkVal) {
                    dmg = 0;
                    let counterDmg = Math.floor((defVal - atkVal + 30) * 2);
                    if (isAttacker) dmgP = counterDmg; else dmgA = counterDmg;
-               } else {
+               } else if (atkVal > defVal) {
+                   // Konter gescheitert: Selbstschaden
                    let selfDmg = Math.floor((atkVal - defVal + 40) * 3);
                    if (isAttacker) dmgA = selfDmg; else dmgP = selfDmg;
                    dmg = 0;
                }
+               // Gleichstand bei Konter: kein Schaden (Patt)
            }
            if (dmg > 0) { if (isAttacker) dmgA = dmg; else dmgP = dmg; }
            if (recoil > 0) { if (isAttacker) recoilP = recoil; else recoilA = recoil; }
@@ -356,7 +379,7 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
 
     if (finalPHP <= 0 || finalAHP <= 0) {
       const isWin = finalAHP <= 0 && finalPHP > 0;
-      onEndGame({ isWin, sarcasmNews: getSarcasticNews(isWin) });
+      onEndGame({ isWin, sarcasmNews: getSarcasticNews(isWin), ...(isRoguelike ? { remainingHP: finalPHP } : {}) });
       return; 
     }
 
@@ -397,6 +420,14 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
       remoteIsLoser = clashData.aAct === 'ERHOLEN' || localWins;
   }
 
+// --- NEU: Prüfen, ob die aktuelle Taktik-Karte zur aktiven Karte passt ---
+  const activeEffOnCard = pEffHand[0];
+  const isSynergyAvailable = activeEffOnCard && (
+    Array.isArray(activeEffOnCard.syn) 
+      ? activeEffOnCard.syn.some(name => activeCard?.name?.includes(name))
+      : activeCard?.name?.includes(activeEffOnCard.syn)
+  );
+
   return (
     <div id="game-ui" className="screen active">
       {showMatchIntro && (
@@ -419,7 +450,10 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
             fontFamily: 'monospace', letterSpacing: '12px',
             fontSize: '0.9rem', color: 'var(--ep)', textTransform: 'uppercase',
           }}>
-            {isOnline ? '// P2P NETWORK MATCH //' : `// THREAT LEVEL ${difficulty} — ${['','TRAINEE','OPERATIVE','EXECUTIVE','ARCHITECT'][difficulty]} //`}
+          {isOnline ? '// P2P NETWORK MATCH //' 
+            : isRoguelike && contextLabel 
+              ? `// ${contextLabel} //`
+              : `// THREAT LEVEL ${difficulty} — ${['','TRAINEE','OPERATIVE','EXECUTIVE','ARCHITECT'][difficulty]} //`}
           </div>
 
           <div style={{
@@ -462,7 +496,9 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
         <div className="game-title-small">ARCHITECTS OF CHAOS {isOnline ? '[ONLINE]' : ''}</div>
         <div id="turn-ind" className={pTurn ? 'turn-player' : 'turn-ai'}>{pTurn ? "▶ DEIN ZUG" : "⚠ GEGNER GREIFT AN"}</div>
         <div style={{ display: 'flex', gap: '10px' }}>
-          <div className="mono" style={{ alignSelf: 'center', opacity: 0.6, fontSize: '0.8rem' }}>LVL {difficulty} Threat</div>
+          <div className="mono" style={{ alignSelf: 'center', opacity: 0.6, fontSize: '0.8rem' }}>
+            {isRoguelike && contextLabel ? contextLabel : `LVL ${difficulty} Threat`}
+          </div>
           <button className="btn-info" onClick={onShowRules}>RULES</button>
           <button className="btn-back" onClick={handleAbort}>ABORT</button>
         </div>
@@ -470,16 +506,42 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
 
       <div className="cockpit-layout">
         <div className="cockpit-arena-column">
+
+          {/* ── HP-Leisten oben (horizontal) ─────────────────────────── */}
+          <div className="hp-row">
+            <div className="hp-bar-pod">
+              <div className="hp-label">
+                <span>DU</span>
+                <span className="mono hp-val" style={{ color: 'var(--win)' }}>{Math.floor(pHP)}</span>
+              </div>
+              <div className="hp-bar-bg">
+                <div className="hp-bar-fill win-bg" style={{ width: `${(pHP / initialPHP) * 100}%` }} />
+              </div>
+            </div>
+            <div className="hp-divider" />
+            <div className="hp-bar-pod">
+              <div className="hp-label">
+                <span className="mono hp-val" style={{ color: 'var(--lose)' }}>{Math.floor(aHP)}</span>
+                <span>GEGNER</span>
+              </div>
+              <div className="hp-bar-bg">
+                <div className="hp-bar-fill lose-bg" style={{ width: `${(aHP / initialAHP) * 100}%` }} />
+              </div>
+            </div>
+          </div>
+
+          {/* ── Aktive Krise Banner ───────────────────────────────────── */}
+          {activeCrisis && (
+            <div className="active-crisis-banner">
+              <span className="cr-icon">⚠</span>
+              <span className="cr-name">{activeCrisis.name}</span>
+              <span className="cr-turns mono">{activeCrisis.turnsLeft} RND</span>
+            </div>
+          )}
+
+          {/* ── Arena: ⚡ links | Karte | KRISE rechts ───────────────── */}
           <div className="arena-row">
             <div className="arena-side-bars left-bars">
-              <div className="bar-pod" style={{ '--accent': 'var(--win)' }}>
-                <div className="v-bar-label">HP</div>
-                <div className="vertical-bar-container">
-                  <div className="v-bar-fill win-bg" style={{ height: `${(pHP / 1000) * 100}%` }}></div>
-                </div>
-                <div className="v-bar-val">{Math.floor(pHP)}</div>
-              </div>
-              
               <div className="bar-pod" style={{ '--accent': 'var(--ep)' }}>
                 <div className="v-bar-label">⚡</div>
                 <div className="vertical-bar-container">
@@ -491,7 +553,7 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
 
             <div className="arena-card-wrapper">
               <Card 
-                card={activeCard} 
+               card={activeCard} 
                 context="game" 
                 activeEffect={activeEffObj} 
                 apexBuffs={currentApexBuffs}
@@ -499,18 +561,12 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
                 curCategory={curK} 
                 isPlayerTurn={pTurn} 
                 onStatClick={handleStatClick} 
+                highlightSynergyStat={isSynergyAvailable ? activeEffOnCard.stat : null}
+                lightGyro={true}
               />
             </div>
 
             <div className="arena-side-bars right-bars">
-              <div className="bar-pod" style={{ '--accent': 'var(--lose)' }}>
-                <div className="v-bar-label">HP</div>
-                <div className="vertical-bar-container">
-                  <div className="v-bar-fill lose-bg" style={{ height: `${(aHP / 1000) * 100}%` }}></div>
-                </div>
-                <div className="v-bar-val">{Math.floor(aHP)}</div>
-              </div>
-              
               <div className="bar-pod" style={{ '--accent': 'var(--crisis)' }}>
                 <div className="v-bar-label">KRISE</div>
                 <div className="vertical-bar-container">
@@ -561,6 +617,10 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
               )}
             </div>
           </div>
+          {/* #010 Deck counter */}
+          <div className="mono" style={{textAlign:'center',padding:'4px 0',fontSize:'0.6rem',color:'rgba(255,255,255,0.28)',letterSpacing:'2px',borderTop:'1px solid rgba(255,255,255,0.04)',marginTop:'4px'}}>
+            DECK: {pDeck.length} · TAKTIKEN: {pEffDeck.length}
+          </div>
         </div>
 
         <div className="cockpit-action-column">
@@ -597,18 +657,20 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
       </div>
 
       {showCrisisIntro && (
-        <div className="glass-overlay active" style={{zIndex: 4000, background: 'rgba(25, 0, 5, 0.98)', justifyContent: 'center', overflow: 'hidden'}}>
+        <div className="glass-overlay active" style={{zIndex: 4000, background: 'rgba(8, 0, 2, 0.98)', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', flexDirection: 'column', gap: 0}}>
           <div className="crisis-glitch-bg"></div>
           <div className="crisis-alert-title">⚠ SYSTEM COLLAPSE ⚠<br/>{showCrisisIntro.name}</div>
-          <div className="crisis-alert-desc">{showCrisisIntro.desc}</div>
-          <div className="mono" style={{ color: 'var(--lose)', marginTop: '40px', fontSize: '1.2rem', animation: 'crisisFlashFade 1s infinite alternate', fontWeight: 'bold', textAlign: 'center' }}>
-            -- GLOBALE PARAMETER ÜBERSCHRIEBEN FÜR 3 RUNDEN --
+          <div className="crisis-effect-box">
+            <div className="eff-label">— AKTIVER EFFEKT —</div>
+            <div className="eff-value">{showCrisisIntro.desc}</div>
           </div>
+          <div className="crisis-duration-line">— GLOBALE PARAMETER ÜBERSCHRIEBEN FÜR 3 RUNDEN —</div>
         </div>
       )}
 
       {clashData && !showCrisisIntro && (
         <div className="glass-overlay active" style={{zIndex: 25000}}>
+          <div style={{transform:'scale(0.9)', transformOrigin:'center center', display:'flex', flexDirection:'column', alignItems:'center', width:'100%'}}>
           <div className="clash-title">SYSTEM RESOLUTION</div>
           
           <div className="clash-hp-container">
@@ -654,9 +716,9 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
                     curCategory={clashData.categoryKey} 
                     isPlayerTurn={true} 
                   />
-                  <div style={{ position: 'absolute', top: '-20px', left: '50%', transform: 'translateX(-50%)', background: '#000', color: 'var(--ep)', padding: '8px 20px', border: '2px solid #555', fontWeight: '900', fontSize: '1.2rem', zIndex: 30, letterSpacing: '2px' }}>
-                     {clashData.pAct}
-                  </div>
+                  <div className="clash-badge" style={{ position: 'absolute', top: '-20px', left: '50%', transform: 'translateX(-50%)', background: '#000', color: 'var(--ep)', padding: '8px 20px', border: '2px solid #555', fontWeight: '900', fontSize: '1.2rem', zIndex: 30, letterSpacing: '2px' }}>
+   {clashData.pAct}
+</div>
                </div>
                {clashAnim && clashData.dmgP > 0 && <div className="dmg-popup dmg-neg show">-{clashData.dmgP}</div>}
             </div>
@@ -680,15 +742,16 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
                     curCategory={clashData.categoryKey} 
                     isPlayerTurn={false} 
                   />
-                  <div style={{ position: 'absolute', top: '-20px', left: '50%', transform: 'translateX(-50%)', background: '#000', color: 'var(--ep)', padding: '8px 20px', border: '2px solid #555', fontWeight: '900', fontSize: '1.2rem', zIndex: 30, letterSpacing: '2px' }}>
-                     {clashData.aAct}
-                  </div>
+                  <div className="clash-badge" style={{ position: 'absolute', top: '-20px', left: '50%', transform: 'translateX(-50%)', background: '#000', color: 'var(--ep)', padding: '8px 20px', border: '2px solid #555', fontWeight: '900', fontSize: '1.2rem', zIndex: 30, letterSpacing: '2px' }}>
+   {clashData.aAct}
+</div>
                </div>
                {clashAnim && clashData.dmgA > 0 && <div className="dmg-popup dmg-neg show">-{clashData.dmgA}</div>}
             </div>
           </div>
 
           <button className="menu-btn btn-play modern-btn" style={{marginTop: '40px'}} onClick={confirmClash}>WEITER &gt;</button>
+          </div>{/* end scale wrapper */}
         </div>
       )}
     </div>

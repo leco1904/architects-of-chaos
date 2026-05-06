@@ -29,7 +29,7 @@ export function getAIAttackAction({ aEP, difficulty = 1, pEP = 10 }) {
   return aEP >= 8 && Math.random() > 0.5 ? 'allin' : 'std'
 }
 
-export function getAIBestCategory(aiCard, activeCrisis = null, difficulty = 1, playerCard = null) {
+export function getAIBestCategory(aiCard, activeCrisis = null, difficulty = 1, playerHand = []) {
   const cats = ['tech', 'finance', 'manipulation', 'erosion', 'kingmaking', 'system', 'arsenal'];
   
   if (difficulty >= 3 && activeCrisis) {
@@ -47,19 +47,29 @@ export function getAIBestCategory(aiCard, activeCrisis = null, difficulty = 1, p
 
   const targetPool = validCats.length > 0 ? validCats : cats;
 
-  if (difficulty === 4 && playerCard) {
+  if (difficulty === 4 && playerHand && playerHand.length > 0) {
+    // Die KI scannt deine KOMPLETTE Hand und findet die Kategorie,
+    // in der du selbst mit deiner besten Karte am schwächsten verteidigen kannst.
     return [...targetPool].sort((a, b) => {
-      const diffB = (aiCard[b] || 0) - (playerCard[b] || 0);
-      const diffA = (aiCard[a] || 0) - (playerCard[a] || 0);
-      return diffB - diffA; 
+      const aiA = (aiCard[a] ?? aiCard.stats?.[a] ?? 0);
+      const aiB = (aiCard[b] ?? aiCard.stats?.[b] ?? 0);
+      
+      const plBestA = Math.max(...playerHand.filter(c=>c).map(c => c[a] ?? c.stats?.[a] ?? 0), 0);
+      const plBestB = Math.max(...playerHand.filter(c=>c).map(c => c[b] ?? c.stats?.[b] ?? 0), 0);
+      
+      // Berechne den Vorteil der KI: Eigener Wert minus deine beste mögliche Verteidigung
+      const advantageA = aiA - plBestA;
+      const advantageB = aiB - plBestB;
+
+      return advantageB - advantageA; // Absteigend sortieren
     })[0];
   }
 
+  // Difficulty 1-3: Nimmt einfach den besten eigenen Stat
   return [...targetPool].sort(
     (a, b) => (aiCard[b] ?? aiCard.stats?.[b] ?? 0) - (aiCard[a] ?? aiCard.stats?.[a] ?? 0)
   )[0];
 }
-
 export function getPlayerRegen(pHandCards) {
   return 2; 
 }

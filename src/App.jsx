@@ -1,10 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import MatchEngine from './components/MatchEngine';
 import Card from './components/Card';
 import Market from './components/Market';
 import Inventory from './components/Inventory';
+import Auth from './components/AuthScreen';
+import AvatarLab from './components/AvatarLab';
+import RoguelikeMap from './components/RoguelikeMap';
+import RoguelikeReward from './components/RoguelikeReward';
+import RoguelikeSquad from './components/Roguelikesquad';
+import GhostNodeMenu from './components/GhostNodeMenu';
 import cardsData from './data/cards.json';
 import { playSound } from './logic/audio';
+import { supabase } from './logic/supabase';
 import { Peer } from 'peerjs';
 
 function shuffle(array) {
@@ -77,18 +84,45 @@ const InspectorModal = ({ card, onClose }) => {
 };
 
 export default function App() {
+  // ── Auth / Cloud ──────────────────────────────────────────────────────────
+  const [session,       setSession]       = useState(undefined);
+  const [guestMode,     setGuestMode]     = useState(false);
+  const cloudSyncReady                    = useRef(false);
+
+  // ── Roguelike States ──────────────────────────────────────────────────────
+  const [avatarCard, setAvatarCard] = useState(() => {
+    const saved = localStorage.getItem('aoc_avatar');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [roguelikeRun, setRoguelikeRun] = useState(() => {
+    const saved = localStorage.getItem('aoc_run');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  const makeStarterInventory = () => [
+    ...defaultStarterChars.map(c=>({...c,level:1,isNew:false})),
+    ...defaultStarterEffs.map(c=>({...c,level:1,isNew:false})),
+  ];
+  const makeStarterDecks = () => [
+    { id:'deck-'+Date.now(), name:'STARTER DECK',
+      chars:defaultStarterChars.map(c=>({...c,level:1,isNew:false})),
+      effs: defaultStarterEffs.map(c=>({...c,level:1,isNew:false})),
+      isActive:true }
+  ];
   const [currentView, setCurrentView] = useState('menu');
   const [difficulty, setDifficulty] = useState(1);
   const [showGlobalRules, setShowGlobalRules] = useState(false);
   const [floats, setFloats] = useState([]);
-  
-  const [credits, setCredits] = useState(() => parseInt(localStorage.getItem('aoc_credits') || '0'));
+  const [playMenuOpen, setPlayMenuOpen] = useState(false);
+
+  const [credits, setCredits] = useState(() => {
+    const saved = localStorage.getItem('aoc_credits');
+    return (saved !== null && !isNaN(parseInt(saved))) ? parseInt(saved) : 500;
+  });
   const [inventory, setInventory] = useState(() => {
     const savedInv = localStorage.getItem('aoc_inventory');
     if (savedInv !== null) {
       const parsedInv = JSON.parse(savedInv);
-      // Backfill: if any deck card is missing from inventory, add it.
-      // This fixes existing saves where starter deck cards were never in inventory.
       const savedDecks = localStorage.getItem('aoc_decks');
       if (savedDecks) {
         const parsedDecks = JSON.parse(savedDecks);
@@ -106,7 +140,6 @@ export default function App() {
       }
       return parsedInv;
     }
-    // Fresh start: seed inventory with the starter deck cards so they can be returned when removed
     return [
       ...defaultStarterChars.map(c => ({ ...c, level: 1, isNew: false })),
       ...defaultStarterEffs.map(c => ({ ...c, level: 1, isNew: false })),
@@ -146,13 +179,280 @@ export default function App() {
   const [remoteDeck, setRemoteDeck] = useState(null);
   const activeDeck = decks.find(d => d.isActive) || decks[0];
 
-  useEffect(() => {
-    localStorage.setItem('aoc_credits', credits.toString());
+ useEffect(()=>{
+    localStorage.setItem('aoc_credits',   credits.toString());
     localStorage.setItem('aoc_inventory', JSON.stringify(inventory));
-    localStorage.setItem('aoc_decks', JSON.stringify(decks));
-    localStorage.setItem('aoc_stats', JSON.stringify(stats));
-    localStorage.setItem('aoc_missions', JSON.stringify(missions));
-  }, [credits, inventory, decks, stats, missions]);
+    localStorage.setItem('aoc_decks',     JSON.stringify(decks));
+    localStorage.setItem('aoc_stats',     JSON.stringify(stats));
+    localStorage.setItem('aoc_missions',  JSON.stringify(missions));
+    localStorage.setItem('aoc_avatar',    JSON.stringify(avatarCard));
+    localStorage.setItem('aoc_run',       JSON.stringify(roguelikeRun));
+  },[credits,inventory,decks,stats,missions,avatarCard,roguelikeRun]);
+
+  // ── Supabase Auth ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    let subRef;
+    const init = async () => {
+      try {
+        const { data: { session: s } } = await supabase.auth.getSession();
+        setSession(s ?? null);
+        if (s) await loadProfile(s.user);
+      } catch (e) {
+        console.error("Auth Init Error", e);
+        setSession(null);
+      }
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_, s) => {
+        setSession(s ?? null);
+        if (s) loadProfile(s.user);
+        else cloudSyncReady.current = false;
+      });
+      subRef = subscription;
+    };
+    init();
+    return () => { subRef?.unsubscribe(); };
+  }, []);
+
+  const loadProfile = async (user) => {
+    cloudSyncReady.current = false; // Ladesperre AKTIVIEREN
+    try {
+      // WICHTIG: maybeSingle() verhindert Abstürze, falls das Profil komplett neu ist
+      const { data: p, error } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
+      if (error) throw error;
+
+      if (p) {
+        if (p.credits != null && !isNaN(p.credits)) setCredits(p.credits);
+        if (p.inventory?.length) setInventory(p.inventory);
+        if (p.decks?.length) setDecks(p.decks);
+        
+        if (p.avatar_card !== undefined) setAvatarCard(p.avatar_card);
+        if (p.active_run !== undefined) setRoguelikeRun(p.active_run);
+
+        // Zwinge den lokalen Browser, sich SOFORT an die Cloud-Daten anzupassen
+        localStorage.setItem('aoc_credits', (p.credits || 500).toString());
+        localStorage.setItem('aoc_inventory', JSON.stringify(p.inventory || []));
+        localStorage.setItem('aoc_decks', JSON.stringify(p.decks || []));
+        localStorage.setItem('aoc_avatar', JSON.stringify(p.avatar_card || null));
+        localStorage.setItem('aoc_run', JSON.stringify(p.active_run || null));
+        
+      } else {
+        // Neues Profil anlegen
+        const inv = makeStarterInventory();
+        const d = makeStarterDecks();
+        await supabase.from('profiles').insert({
+          id: user.id, username: (user.user_metadata?.username || 'AGENT').toUpperCase(),
+          credits: 500, inventory: inv, decks: d, avatar_card: null, active_run: null
+        });
+        setCredits(500); setInventory(inv); setDecks(d);
+      }
+      
+      // Ladesperre AUFHEBEN - Erst ab jetzt darf die App wieder in die Cloud speichern!
+      cloudSyncReady.current = true;
+    } catch (e) {
+      console.error('[Profile Load Error]', e);
+    }
+  };
+
+  const saveToCloud = async (updates) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      await supabase.from('profiles').update(updates).eq('id', user.id);
+    } catch (e) { console.error('[Save]', e); }
+  };
+
+  useEffect(() => {
+    // Harte Blockade: Kein Upload, wenn das Profil nicht vollständig geladen wurde
+    if (guestMode || !cloudSyncReady.current) return;
+    
+    const t = setTimeout(() => {
+      saveToCloud({ credits, inventory, decks, avatar_card: avatarCard, active_run: roguelikeRun });
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [credits, inventory, decks, avatarCard, roguelikeRun, guestMode]);
+
+ useEffect(() => {
+    // 1. Sperre: Nicht im GuestMode und nur wenn cloudSyncReady auf true steht
+    if (guestMode || !cloudSyncReady.current) return;
+    
+    // 2. Sperre: Verhindere das Überschreiben mit "Nichts", wenn man gerade erst eingeloggt ist
+    // Wenn wir in der Cloud eigentlich einen Avatar haben sollten (session vorhanden),
+    // aber lokal noch null steht, brechen wir das Speichern ab.
+    if (session && !avatarCard) return;
+
+    const t = setTimeout(() => {
+      saveToCloud({ 
+        credits, 
+        inventory, 
+        decks, 
+        avatar_card: avatarCard, 
+        active_run: roguelikeRun 
+      });
+    }, 1500);
+
+    return () => clearTimeout(t);
+  }, [credits, inventory, decks, avatarCard, roguelikeRun, guestMode, session]);
+
+  const handleGuestLogin = ()=>{ cloudSyncReady.current=true; setGuestMode(true); };
+  const handleLogout = async ()=>{
+    playSound('click');
+    if (window.confirm('Ausloggen? Fortschritt ist in der Cloud gespeichert.')) {
+      await supabase.auth.signOut(); setGuestMode(false); setSession(null);
+    }
+  };
+
+  useEffect(() => {
+    const handler = () => {
+      setRoguelikeRun(null);
+      saveToCloud({ active_run: null });
+      setCurrentView('ghostnodemenu');
+    };
+    window.addEventListener('abortRun', handler);
+    return () => window.removeEventListener('abortRun', handler);
+  }, []);
+
+  const updateAvatar = (newAvatar) => { setAvatarCard(newAvatar); };
+
+  // ── PHASE 2: Roguelike Match-Logik ────────────────────────────────────────
+  const [roguelikeMatchData, setRoguelikeMatchData] = useState(null); 
+  const [rewardData,         setRewardData]         = useState(null);   
+
+  const generateAIDeck = (node, sector) => {
+    const isBoss = node === 5;
+    const level  = isBoss ? 3 : Math.max(1, Math.min(2, sector));
+    const diff   = isBoss ? 4 : Math.min(3, sector);
+    const aHP    = isBoss ? 800 : 500;
+    const shuffledChars = [...cardsData.characters].sort(() => Math.random() - 0.5);
+    const aiChars       = shuffledChars.slice(0, 4).map(c => ({ ...c, level }));
+    const effs          = cardsData.effects || [];
+    const aiEffs        = effs.length > 0 ? [{ ...effs[Math.floor(Math.random() * effs.length)], level: 1 }] : [];
+    return { aiChars, aiEffs, difficulty: diff, initialAHP: aHP };
+  };
+
+  // ── DER FIX FÜR DEN RUN-START ──
+  const startRoguelikeRunWithDeck = (selectedChars, selectedEffs) => {
+    if (!avatarCard) return;
+    const newRun = {
+      currentHP: 500, maxHP: 500, sector: 1, node: 1,
+      runDeck: {
+        chars: [{ ...avatarCard }, ...selectedChars],
+        effs:  selectedEffs,
+      },
+    };
+    // Status aktualisieren und DIREKT in die Map zwingen
+    setRoguelikeRun(newRun);
+    setCurrentView('roguelikemap');
+  };
+
+  const startRoguelikeRun = () => {
+    if (!avatarCard) { setCurrentView('avatarlab'); return; }
+    if (roguelikeRun) { setCurrentView('roguelikemap'); return; } 
+    setCurrentView('roguelikesquad');
+  };
+
+  const startRoguelikeMatch = () => {
+    if (!roguelikeRun) return;
+    const data = generateAIDeck(roguelikeRun.node, roguelikeRun.sector);
+    setRoguelikeMatchData(data);
+    setCurrentView('match');
+  };
+
+  const handleRoguelikeEndGame = ({ isWin, remainingHP = 0, isAbort = false }) => {
+    setRoguelikeMatchData(null);
+    if (!isWin || isAbort) {
+      setRoguelikeRun(null);
+      saveToCloud({ active_run: null });
+      setCurrentView('roguelikefailed');
+      return;
+    }
+    const node = roguelikeRun.node;
+    const isBoss = node === 5;
+    const isElite = node === 3;
+    
+    // Loot-Tabelle
+    const spGain = isBoss ? 3 : 1;
+    const earnedCredits = isBoss ? 500 : isElite ? 200 : 75;
+
+    // Credits & SP anrechnen
+    setCredits(prev => prev + earnedCredits);
+    const updatedAvatar = { ...avatarCard, sp: (avatarCard.sp || 0) + spGain };
+    setAvatarCard(updatedAvatar);
+
+    // Node & Sektor hochzählen
+    let newNode   = node + 1;
+    let newSector = roguelikeRun.sector;
+    if (newNode > 5) { newNode = 1; newSector++; }
+    const updatedRun = { ...roguelikeRun, currentHP: Math.max(0, remainingHP), node: newNode, sector: newSector };
+    setRoguelikeRun(updatedRun);
+
+    // 1. Deck Draft generieren (immer 3 Karten)
+    const allPool = [...cardsData.characters, ...(cardsData.effects || [])];
+    const draftPool = [...allPool].sort(() => Math.random() - 0.5).slice(0, 3).map(c => ({ ...c, level: 1 }));
+    
+    // 2. Permanente Pack-Logik generieren
+    let lootedCards = [];
+    let packName = null;
+    let packColor = null;
+
+    if (isElite) {
+      packName = 'GHOST CACHE';
+      packColor = '#bc13fe';
+      for(let i=0; i<3; i++) {
+         const r = Math.random();
+         let rarity = r < 0.1 ? 'rarity-legendary' : r < 0.5 ? 'rarity-epic' : 'rarity-rare';
+         const pool = cardsData.characters.filter(c => getRarityClass(c.gti||0) === rarity && c.type !== 'apex' && c.type !== 'legacy');
+         if(pool.length > 0) lootedCards.push({...pool[Math.floor(Math.random()*pool.length)], level: 1, isNew: true});
+      }
+    } else if (isBoss) {
+      packName = 'ARCHITECT CORE';
+      packColor = 'var(--lose)';
+      // 1x Garantierte High-End Karte
+      const topPool = cardsData.characters.filter(c => c.type === 'apex' || c.type === 'legacy' || getRarityClass(c.gti||0) === 'rarity-legendary');
+      if(topPool.length > 0) lootedCards.push({...topPool[Math.floor(Math.random()*topPool.length)], level: 1, isNew: true});
+      // 4x Normal gezogen
+      for(let i=0; i<4; i++) lootedCards.push({...allPool[Math.floor(Math.random()*allPool.length)], level: 1, isNew: true});
+    }
+
+    if (lootedCards.length > 0) {
+       setInventory(prev => [...prev, ...lootedCards]);
+    }
+
+    // #003 — Cloud sync: save credits, avatar SP, looted inventory, and run progress
+    const newInventory = lootedCards.length > 0 ? [...inventory, ...lootedCards] : inventory;
+    saveToCloud({
+      credits:    credits + earnedCredits,
+      avatar_card: updatedAvatar,
+      inventory:  newInventory,
+      active_run: updatedRun,
+    });
+
+    setRewardData({ draft: draftPool, loot: lootedCards, credits: earnedCredits, packName, packColor });
+    setCurrentView('roguelikereward');
+  };
+
+  const applyRoguelikeDraft = (newCard, replaceIndex, replaceIn) => {
+    if (!roguelikeRun) return;
+    const deck = { chars: [...roguelikeRun.runDeck.chars], effs: [...roguelikeRun.runDeck.effs] };
+
+    // 1. Alte Karte gezielt entfernen
+    if (replaceIn === 'chars') {
+      deck.chars.splice(replaceIndex, 1);
+    } else {
+      deck.effs.splice(replaceIndex, 1);
+    }
+
+    // 2. Neue Karte anhand ihres echten Typs in die richtige Kategorie einsortieren
+    if (newCard.type === 'effect') {
+      deck.effs.push({ ...newCard, level: 1 });
+    } else {
+      deck.chars.push({ ...newCard, level: 1 });
+    }
+
+    const updated = { ...roguelikeRun, runDeck: deck };
+    setRoguelikeRun(updated);
+    saveToCloud({ active_run: updated });  // #002 — persist draft to cloud
+    setRewardData(null); 
+    setCurrentView('roguelikemap');
+  };
 
   const disconnectPeer = () => {
     if (conn) conn.close();
@@ -228,14 +528,11 @@ export default function App() {
   const connectToHost = () => {
     playSound('click');
     if (!peer || !remotePeerId.trim()) return alert("Bitte eine ID eingeben!");
-    
     const connection = peer.connect(remotePeerId.trim());
-    
     connection.on('open', () => {
       setConn(connection);
       connection.send({ type: 'DECK_SYNC', chars: myOnlineDeck.chars, effs: myOnlineDeck.effs });
     });
-    
     connection.on('data', (data) => {
       if (data.type === 'DECK_SYNC') setRemoteDeck({ chars: data.chars, effs: data.effs });
     });
@@ -330,10 +627,104 @@ export default function App() {
   const resetGame = () => {
     playSound('click');
     if (window.confirm("ACHTUNG: Möchtest du wirklich alle Credits, Karten und Statistiken löschen? Dieser Vorgang kann nicht rückgängig gemacht werden!")) {
-      localStorage.clear();
-      window.location.reload();
+      localStorage.clear(); window.location.reload();
     }
   }
+
+  // ── Auth Guard ────────────────────────────────────────────────────────────
+  if (session === undefined) return (
+    <div style={{position:'fixed',inset:0,background:'#05050a',display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <div style={{fontFamily:"'Roboto Mono',monospace",color:'var(--win)',fontSize:'0.8rem',letterSpacing:'4px',animation:'pulse 1.5s infinite'}}>
+        ⌛ CONNECTING TO NODE...
+      </div>
+    </div>
+  );
+  if (!session && !guestMode) return <Auth onGuestLogin={handleGuestLogin} />;
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // ── ROGUELIKE STRICT ROUTING ──
+  // ════════════════════════════════════════════════════════════════════════════
+
+  if (currentView === 'ghostnodemenu') return (
+    <GhostNodeMenu
+      avatarCard={avatarCard}
+      roguelikeRun={roguelikeRun}
+      updateAvatar={updateAvatar}
+      onGoToLab={() => setCurrentView('avatarlab')}
+      onGoToSquad={() => setCurrentView('roguelikesquad')}
+      onGoToMap={() => setCurrentView('roguelikemap')}
+      onBack={() => setCurrentView('menu')}
+    />
+  );
+
+  if (currentView === 'avatarlab') return (
+    <AvatarLab
+      avatarCard={avatarCard}
+      updateAvatar={updateAvatar}
+      onBack={() => setCurrentView('ghostnodemenu')}
+      onGoToMission={() => {
+        if (roguelikeRun) setCurrentView('roguelikemap');
+        else setCurrentView('roguelikesquad');
+      }}
+      allFactions={allFactions}
+    />
+  );
+
+  if (currentView === 'roguelikesquad') return (
+    <RoguelikeSquad
+      avatarCard={avatarCard}
+      inventory={inventory}
+      onConfirm={startRoguelikeRunWithDeck}
+      onBack={() => setCurrentView('ghostnodemenu')}
+    />
+  );
+
+  if (currentView === 'roguelikemap') {
+    if (!roguelikeRun) {
+      // Sicherheitsnetz gegen das Race-Condition-Abstürzen der State-Updates
+      return (
+        <div className="screen active" style={{ justifyContent: 'center', alignItems: 'center' }}>
+          <div className="mono" style={{ color: 'var(--ep)', fontSize: '1.2rem', animation: 'pulse 1s infinite' }}>INITIALISIERE THE GRID...</div>
+        </div>
+      );
+    }
+    return (
+      <RoguelikeMap
+        avatarCard={avatarCard}
+        roguelikeRun={roguelikeRun}
+        onStartRun={startRoguelikeRun}
+        onStartBattle={startRoguelikeMatch}
+        onBack={() => setCurrentView('ghostnodemenu')}
+        onGoToLab={() => setCurrentView('avatarlab')}
+      />
+    );
+  }
+
+  if (currentView === 'roguelikereward') return (
+    <RoguelikeReward
+      rewardData={rewardData}
+      roguelikeRun={roguelikeRun}
+      onApplyDraft={applyRoguelikeDraft}
+      onSkip={() => { setRewardData(null); setCurrentView('roguelikemap'); }}
+    />
+  );
+
+  if (currentView === 'roguelikefailed') return (
+    <div className="screen active" style={{ justifyContent: 'center', alignItems: 'center' }}>
+      <div className="glass-panel" style={{ width: '100%', maxWidth: '520px', padding: '50px 40px', textAlign: 'center', borderColor: 'var(--lose)' }}>
+        <div style={{ fontSize: '3rem', marginBottom: '16px' }}>💀</div>
+        <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: '2.5rem', fontWeight: 900, letterSpacing: '6px', color: 'var(--lose)', textShadow: '0 0 30px rgba(255,0,50,0.5)', marginBottom: '8px' }}>RUN FAILED</div>
+        <div className="mono" style={{ color: '#ff6680', fontSize: '0.72rem', letterSpacing: '3px', marginBottom: '26px' }}>AGENT KOMPROMITTIERT — SYSTEM COLLAPSED</div>
+        <div style={{ padding: '14px', background: 'rgba(255,0,50,0.05)', border: '1px solid rgba(255,0,50,0.15)', borderLeft: '3px solid var(--lose)', marginBottom: '26px' }}>
+          <div className="mono" style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.35)', letterSpacing: '2px' }}>AVATAR-KARTE BLEIBT ERHALTEN — UPGRADES PERSISTENT</div>
+          {avatarCard && <div className="mono" style={{ color: 'var(--ep)', marginTop: '6px', fontWeight: 700 }}>{avatarCard.name} // SP: {avatarCard.sp ?? 0}</div>}
+        </div>
+        <button className="menu-btn btn-play modern-btn" onClick={() => setCurrentView('ghostnodemenu')}>ZURÜCK ZUM HUB</button>
+      </div>
+    </div>
+  );
+
+  // ════════════════════════════════════════════════════════════════════════════
 
   const startMatchFlow = () => {
     playSound('click');
@@ -361,10 +752,6 @@ export default function App() {
 
   return (
     <>
-      <div className="boot-sequence">
-        <div className="boot-text">INITIALIZING ARCHITECTS_OF_CHAOS.EXE...</div>
-      </div>
-
       {floats.map(ft => (
          <div key={ft.id} className="money-popup" style={{ left: ft.x, top: ft.y }}>{ft.text}</div>
       ))}
@@ -406,18 +793,36 @@ export default function App() {
       )}
 
       {currentView === 'match' && (
-        <MatchEngine 
-          playerChars={conn ? myOnlineDeck.chars : shuffle(activeDeck.chars)} 
-          playerEffs={conn ? myOnlineDeck.effs : shuffle(activeDeck.effs)} 
-          aiChars={conn ? remoteDeck.chars : aiDeck.chars} 
-          aiEffs={conn ? remoteDeck.effs : aiDeck.effs} 
-          difficulty={difficulty} 
-          isOnline={!!conn}
-          isHost={lobbyMode === 'host'}
-          conn={conn}
-          onEndGame={handleEndGame} 
-          onShowRules={() => { playSound('click'); setShowGlobalRules(true); }}
-        />
+        roguelikeMatchData ? (
+          /* ── ROGUELIKE MATCH ─── */
+          <MatchEngine
+            playerChars={roguelikeRun.runDeck.chars}
+            playerEffs={roguelikeRun.runDeck.effs}
+            aiChars={roguelikeMatchData.aiChars}
+            aiEffs={roguelikeMatchData.aiEffs}
+            difficulty={roguelikeMatchData.difficulty}
+            isRoguelike={true}
+            contextLabel={`SEKTOR ${roguelikeRun.sector} // NODE ${roguelikeRun.node}`}
+            initialPHP={roguelikeRun.currentHP}
+            initialAHP={roguelikeMatchData.initialAHP}
+            onEndGame={handleRoguelikeEndGame}
+            onShowRules={() => { playSound('click'); setShowGlobalRules(true); }}
+          />
+        ) : (
+          /* ── NORMALES MATCH ─── */
+          <MatchEngine
+            playerChars={conn ? myOnlineDeck.chars : shuffle(activeDeck.chars)}
+            playerEffs={conn ? myOnlineDeck.effs : shuffle(activeDeck.effs)}
+            aiChars={conn ? remoteDeck.chars : aiDeck.chars}
+            aiEffs={conn ? remoteDeck.effs : aiDeck.effs}
+            difficulty={difficulty}
+            isOnline={!!conn}
+            isHost={lobbyMode === 'host'}
+            conn={conn}
+            onEndGame={handleEndGame}
+            onShowRules={() => { playSound('click'); setShowGlobalRules(true); }}
+          />
+        )
       )}
 
       {currentView === 'difficulty' && (
@@ -438,8 +843,8 @@ export default function App() {
               <div style={{ color: '#ccc', fontSize: '0.95rem' }}>{DIFFICULTY_CONFIG[difficulty].desc}</div>
             </div>
             <div style={{ display: 'flex', gap: '15px', marginTop: '20px' }}>
-              <button className="menu-btn btn-play" style={{ margin: '0' }} onClick={() => navTo('match')}>KAMPF STARTEN</button>
-              <button className="menu-btn" style={{ margin: '0', borderColor: '#444', color: '#888' }} onClick={() => navTo('menu')}>ZURÜCK</button>
+              <button className="menu-btn btn-play" style={{ margin: '0' }} onClick={() => setCurrentView('match')}>KAMPF STARTEN</button>
+              <button className="menu-btn" style={{ margin: '0', borderColor: '#444', color: '#888' }} onClick={() => setCurrentView('menu')}>ZURÜCK</button>
             </div>
           </div>
         </div>
@@ -486,14 +891,14 @@ export default function App() {
                  ) : (
                     <div style={{marginTop: '20px', width: '100%'}}>
                         <p style={{ color: 'var(--win)', fontWeight: 'bold', letterSpacing: '2px', marginBottom: '20px' }}>✓ DECKS SYNCHRONISIERT</p>
-                        <button className="menu-btn btn-primary" onClick={() => navTo('match')}>ONLINE MATCH STARTEN</button>
+                        <button className="menu-btn btn-primary" onClick={() => setCurrentView('match')}>ONLINE MATCH STARTEN</button>
                     </div>
                  )}
 
                  <button className="menu-btn" style={{ borderColor: 'var(--lose)', color: 'var(--lose)', marginTop: '20px' }} onClick={disconnectPeer}>VERBINDUNG TRENNEN</button>
               </div>
             )}
-            {!conn && <button className="menu-btn" style={{ borderColor: '#444', color: '#888', marginTop: '40px' }} onClick={() => navTo('menu')}>ZURÜCK ZUR ZENTRALE</button>}
+            {!conn && <button className="menu-btn" style={{ borderColor: '#444', color: '#888', marginTop: '40px' }} onClick={() => setCurrentView('menu')}>ZURÜCK ZUR ZENTRALE</button>}
           </div>
         </div>
       )}
@@ -508,7 +913,7 @@ export default function App() {
             <div className="mono" style={{ fontSize: '2.5rem', color: 'var(--ep)', fontWeight: 'bold', margin: '40px 0' }}>
               +{lastMatch.reward} 💳
             </div>
-            <button className="menu-btn btn-play modern-btn" onClick={() => navTo('menu')}>ZURÜCK ZUR ZENTRALE</button>
+            <button className="menu-btn btn-play modern-btn" onClick={() => setCurrentView('menu')}>ZURÜCK ZUR ZENTRALE</button>
           </div>
         </div>
       )}
@@ -520,19 +925,21 @@ export default function App() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '30px' }}>
               {missions.map(m => (
                 <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.5)', padding: '15px', borderRadius: '4px', borderLeft: m.claimed ? '3px solid #555' : (m.progress >= m.target ? '3px solid var(--win)' : '3px solid var(--r-epi)') }}>
-                   <div style={{ opacity: m.claimed ? 0.5 : 1, textAlign: 'left' }}>
+                   <div style={{ opacity: m.claimed ? 0.5 : 1, textAlign: 'left', flex: 1, minWidth: 0, paddingRight: '10px' }}>
                       <div style={{ fontSize: '1rem', color: '#fff', fontWeight: 'bold' }}>{m.desc}</div>
                       <div className="mono" style={{ fontSize: '0.8rem', color: '#aaa', marginTop: '6px' }}>{m.progress} / {m.target}</div>
                    </div>
-                   {!m.claimed && m.progress >= m.target ? (
-                      <button className="btn-info" style={{ borderColor: 'var(--win)', color: 'var(--win)', padding: '8px 15px', fontSize: '0.8rem' }} onClick={(e) => claimMission(m.id, e)}>CLAIM +{m.reward}</button>
-                   ) : (
-                      <div className="mono" style={{ color: m.claimed ? '#555' : 'var(--ep)', fontSize: '1.1rem', fontWeight: 'bold' }}>{m.claimed ? 'CLAIMED' : `+${m.reward}💳`}</div>
-                   )}
+                   <div style={{ flexShrink: 0, whiteSpace: 'nowrap', textAlign: 'right' }}>
+                     {!m.claimed && m.progress >= m.target ? (
+                        <button className="btn-info" style={{ borderColor: 'var(--win)', color: 'var(--win)', padding: '8px 15px', fontSize: '0.8rem' }} onClick={(e) => claimMission(m.id, e)}>CLAIM +{m.reward}</button>
+                     ) : (
+                        <div className="mono" style={{ color: m.claimed ? '#555' : 'var(--ep)', fontSize: '1.1rem', fontWeight: 'bold' }}>{m.claimed ? 'CLAIMED' : `+${m.reward}💳`}</div>
+                     )}
+                   </div>
                 </div>
               ))}
             </div>
-            <button className="menu-btn" style={{ borderColor: '#444', color: '#888' }} onClick={() => navTo('menu')}>ZURÜCK ZUR ZENTRALE</button>
+            <button className="menu-btn" style={{ borderColor: '#444', color: '#888' }} onClick={() => setCurrentView('menu')}>ZURÜCK ZUR ZENTRALE</button>
           </div>
         </div>
       )}
@@ -541,29 +948,38 @@ export default function App() {
         <div className="screen active" style={{ justifyContent: 'center', alignItems: 'center' }}>
           <div className="game-title-small" style={{ fontSize: '2rem', marginBottom: '30px' }}>SYSTEM STATISTIKEN</div>
           <div className="glass-panel" style={{ width: '100%', maxWidth: '600px', padding: '40px' }}>
-             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '30px', textAlign: 'center' }}>
-                <div className="log-box" style={{margin:0}}><span>WINS</span><b style={{color:'var(--win)', fontSize:'2.5rem'}}>{stats.wins}</b></div>
-                <div className="log-box" style={{margin:0}}><span>LOSSES</span><b style={{color:'var(--lose)', fontSize:'2.5rem'}}>{stats.losses}</b></div>
-                <div className="log-box" style={{margin:0}}><span>WIN RATE</span><b style={{color:'var(--ep)', fontSize:'2.5rem'}}>{stats.wins + stats.losses > 0 ? Math.round((stats.wins / (stats.wins + stats.losses))*100) : 0}%</b></div>
-                <div className="log-box" style={{margin:0}}><span>ARCHITECT KILLS</span><b style={{color:'var(--apex-pink)', fontSize:'2.5rem'}}>{stats.bossDefeats || 0}</b></div>
-                <div className="log-box" style={{margin:0}}><span>PACKS DECRYPTED</span><b style={{color:'#fff', fontSize:'2.5rem'}}>{stats.packsOpened || 0}</b></div>
-                <div className="log-box" style={{margin:0}}><span>UPGRADES INSTALLED</span><b style={{color:'#fff', fontSize:'2.5rem'}}>{stats.upgradesDone || 0}</b></div>
+             <div className="stats-dashboard-grid">
+                <div className="stat-pod" style={{ '--pod-color': 'var(--win)' }}>
+                  <div className="stat-pod-title">ERFOLGREICHE MISSIONEN</div>
+                  <div className="stat-pod-val">{stats.wins}</div>
+                </div>
+                <div className="stat-pod" style={{ '--pod-color': 'var(--lose)' }}>
+                  <div className="stat-pod-title">SYSTEMVERSAGEN</div>
+                  <div className="stat-pod-val">{stats.losses}</div>
+                </div>
+                <div className="stat-pod stat-pod-wide" style={{ '--pod-color': 'var(--ep)' }}>
+                  <div className="stat-pod-title">GLOBALE SIEGRATE</div>
+                  <div className="stat-pod-val">{stats.wins + stats.losses > 0 ? Math.round((stats.wins / (stats.wins + stats.losses))*100) : 0}%</div>
+                  <div className="stat-progress-bg">
+                    <div className="stat-progress-fill" style={{ width: `${stats.wins + stats.losses > 0 ? Math.round((stats.wins / (stats.wins + stats.losses))*100) : 0}%`, background: 'var(--ep)' }}></div>
+                  </div>
+                </div>
+                <div className="stat-pod" style={{ '--pod-color': 'var(--apex-pink)' }}>
+                  <div className="stat-pod-title">ARCHITECTS ELIMINIERT</div>
+                  <div className="stat-pod-val">{stats.bossDefeats || 0}</div>
+                </div>
+                <div className="stat-pod" style={{ '--pod-color': '#fff' }}>
+                  <div className="stat-pod-title">DATACACHES DECRYPTED</div>
+                  <div className="stat-pod-val">{stats.packsOpened || 0}</div>
+                </div>
              </div>
-             <button className="menu-btn" style={{ borderColor: '#444', color: '#888' }} onClick={() => navTo('menu')}>ZURÜCK ZUR ZENTRALE</button>
+             <button className="menu-btn" style={{ borderColor: '#444', color: '#888' }} onClick={() => setCurrentView('menu')}>ZURÜCK ZUR ZENTRALE</button>
           </div>
         </div>
       )}
 
       {currentView === 'lexicon' && (
         <div className="screen active lex-screen" style={{ display: 'block', padding: '30px' }}>
-          {lexiconInspectCard && (
-             <InspectorModal 
-               card={lexiconInspectCard} 
-               isEffect={lexiconInspectCard.type === 'effect'}
-               onClose={() => setLexiconInspectCard(null)}
-             />
-          )}
-          
           <div className="top-bar">
             <div className="game-title-small">ARCHIV: LEXIKON</div>
             <div className="lex-top-controls" style={{ display: 'flex', gap: '15px' }}>
@@ -573,7 +989,7 @@ export default function App() {
                 {allFactions.map(f => <option key={f} value={f}>{f}</option>)}
               </select>
               <button className="btn-info" onClick={() => { playSound('click'); setShowGlobalRules(true); }}>RULES</button>
-              <button className="btn-back" onClick={() => navTo('menu')}>ZURÜCK</button>
+              <button className="btn-back" onClick={() => setCurrentView('menu')}>ZURÜCK</button>
             </div>
           </div>
           <div className="card-grid">
@@ -590,39 +1006,77 @@ export default function App() {
         </div>
       )}
 
-      {currentView === 'market' && ( <Market credits={credits} setCredits={setCredits} inventory={inventory} setInventory={setInventory} onBack={() => navTo('menu')} onShowRules={() => { playSound('click'); setShowGlobalRules(true); }} onPackBought={() => { handleMissionProgress('buy_pack', 1); handleStatUpdate('packsOpened', 1); }} onCreditGain={handleCreditGain} /> )}
+      {currentView === 'market' && ( <Market credits={credits} setCredits={setCredits} inventory={inventory} setInventory={setInventory} onBack={() => setCurrentView('menu')} onShowRules={() => { playSound('click'); setShowGlobalRules(true); }} onPackBought={() => { handleMissionProgress('buy_pack', 1); handleStatUpdate('packsOpened', 1); }} onCreditGain={handleCreditGain} /> )}
       
-      {currentView === 'inventory' && ( <Inventory inventory={inventory} setInventory={setInventory} decks={decks} setDecks={setDecks} allFactions={allFactions} onBack={() => navTo('menu')} onShowRules={() => { playSound('click'); setShowGlobalRules(true); }} onClearNew={clearNewStatus} onCreditGain={handleCreditGain} onMissionAction={(type, amount) => { handleMissionProgress(type, amount); if (type === 'upgrade') handleStatUpdate('upgradesDone', amount); }} /> )}
+      {currentView === 'inventory' && ( <Inventory inventory={inventory} setInventory={setInventory} decks={decks} setDecks={setDecks} allFactions={allFactions} onBack={() => setCurrentView('menu')} onShowRules={() => { playSound('click'); setShowGlobalRules(true); }} onClearNew={clearNewStatus} onCreditGain={handleCreditGain} onMissionAction={(type, amount) => { handleMissionProgress(type, amount); if (type === 'upgrade') handleStatUpdate('upgradesDone', amount); }} /> )}
 
       {currentView === 'menu' && (
         <div className="screen active" style={{ justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
           <div style={{ position: 'absolute', top: '20px', right: '20px', display: 'flex', gap: '15px', alignItems: 'center', zIndex: 10 }}>
              <div className="mono" style={{ fontSize: '1.5rem', color: '#fff', marginRight: '15px', textShadow: '0 0 10px var(--ep)' }}><span style={{color: 'var(--ep)'}}>{credits}</span> 💳</div>
              <button className="btn-info" onClick={() => { playSound('click'); setShowGlobalRules(true); }}>RULES</button>
-             <button className="btn-back" style={{borderColor: 'var(--lose)', color: 'var(--lose)'}} onClick={resetGame}>RESET DATA</button>
+             {session ? (
+               <button className="btn-back" style={{borderColor:'var(--win)',color:'var(--win)'}} onClick={handleLogout}>
+                 {session.user?.user_metadata?.username || 'LOGOUT'} ⏻
+               </button>
+             ) : (
+               <button className="btn-back" style={{borderColor: 'var(--lose)', color: 'var(--lose)'}} onClick={resetGame}>RESET DATA</button>
+             )}
           </div>
 
           <div className="menu-title">ARCHITECTS<br/>OF CHAOS</div>
           <div className="menu-subtitle">TCG EDITION V1.0 &nbsp;//&nbsp; THE BOARD IS SET</div>
           
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', width: '100%', maxWidth: '400px', margin: '0 auto', position: 'relative', zIndex: 10 }}>
-            <button className="menu-btn btn-primary" onClick={startMatchFlow}>GEGEN KI SPIELEN</button>
-            
-            <button className="menu-btn" style={{ borderColor: 'var(--ep)', color: 'var(--ep)', background: 'rgba(255,215,0,0.05)', boxShadow: '0 0 15px rgba(255,215,0,0.1)' }} onClick={() => navTo('multiplayer')}>
-               ONLINE MULTIPLAYER <span style={{fontSize: '0.8rem', opacity: 0.7}}>(BETA)</span>
-            </button>
-            <button className="menu-btn btn-inventory" style={{ position: 'relative', marginTop: '10px' }} onClick={() => navTo('inventory')}>
-              INVENTAR & DECK
-              {hasNewCards && <div className="notif-badge" style={{ background: 'var(--win)', boxShadow: '0 0 12px var(--win)' }}></div>}
-              {!hasNewCards && hasUpgrades && <div className="notif-badge" style={{ background: 'var(--ep)', boxShadow: '0 0 12px var(--ep)' }}></div>}
-            </button>
-            <button className="menu-btn btn-market" onClick={() => navTo('market')}>SCHWARZMARKT</button>
-            <button className="menu-btn btn-missions" style={{ position: 'relative' }} onClick={() => navTo('missions')}>
-              MISSIONEN
-              {hasClaimableMissions && <div className="notif-badge" style={{ background: 'var(--win)', boxShadow: '0 0 15px var(--win)' }}></div>}
-            </button>
-            <button className="menu-btn btn-stats" onClick={() => navTo('stats')}>STATISTIKEN</button>
-            <button className="menu-btn btn-lexicon" onClick={() => navTo('lexicon')}>LEXIKON</button>
+          <div className="main-menu-container">
+            {!playMenuOpen ? (
+              <div className="main-menu-grid">
+                <button className="menu-btn btn-primary menu-btn-hero" onClick={() => { playSound('click'); setPlayMenuOpen(true); }}>
+                  MISSION STARTEN
+                </button>
+                
+                <button className="menu-btn menu-btn-card" onClick={() => { setPlayMenuOpen(false); setCurrentView('inventory'); }}>
+                  <div className="menu-icon">🗄️</div>
+                  <span>INVENTAR & DECK</span>
+                  {hasNewCards && <div className="notif-badge" style={{ background: 'var(--win)', boxShadow: '0 0 12px var(--win)' }}></div>}
+                  {!hasNewCards && hasUpgrades && <div className="notif-badge" style={{ background: 'var(--ep)', boxShadow: '0 0 12px var(--ep)' }}></div>}
+                </button>
+                
+                <button className="menu-btn menu-btn-card" onClick={() => { setPlayMenuOpen(false); setCurrentView('market'); }}>
+                  <div className="menu-icon">🛒</div>
+                  <span>SCHWARZMARKT</span>
+                </button>
+                
+                <button className="menu-btn menu-btn-wide" onClick={() => { setPlayMenuOpen(false); setCurrentView('missions'); }}>
+                  MISSIONEN
+                  {hasClaimableMissions && <div className="notif-badge" style={{ background: 'var(--win)', boxShadow: '0 0 15px var(--win)' }}></div>}
+                </button>
+                
+                <button className="menu-btn menu-btn-small" onClick={() => { setPlayMenuOpen(false); setCurrentView('stats'); }}>STATISTIKEN</button>
+                <button className="menu-btn menu-btn-small" onClick={() => { setPlayMenuOpen(false); setCurrentView('lexicon'); }}>LEXIKON</button>
+
+                <button
+                  className="menu-btn menu-btn-wide"
+                  style={{ borderColor:'var(--apex-pink)', color:'var(--apex-pink)', background:'rgba(255,0,127,0.04)', boxShadow:'0 0 20px rgba(255,0,127,0.1)', marginTop:'8px', position:'relative' }}
+                  onClick={() => { playSound('click'); setCurrentView('ghostnodemenu'); }}
+                >
+                  <span style={{ fontSize:'0.8rem', marginRight:'6px' }}>⬡</span>
+                  OPERATION: GHOST NODE
+                  <span style={{ fontSize:'0.65rem', opacity:0.6, marginLeft:'6px' }}>[ROGUELIKE]</span>
+                  {!avatarCard && <div style={{ position:'absolute', top:'3px', right:'8px', fontSize:'0.44rem', letterSpacing:'2px', color:'var(--ep)', fontFamily:"'Roboto Mono',monospace" }}>NEU</div>}
+                  {roguelikeRun && <div style={{ position:'absolute', top:'3px', right:'8px', fontSize:'0.44rem', letterSpacing:'2px', color:'var(--apex-pink)', fontFamily:"'Roboto Mono',monospace" }}>AKTIV</div>}
+                </button>
+              </div>
+            ) : (
+              <div className="play-menu-subgrid">
+                <button className="menu-btn btn-primary" onClick={startMatchFlow}>GEGEN KI SPIELEN</button>
+                <button className="menu-btn" style={{ borderColor: 'var(--ep)', color: 'var(--ep)', background: 'rgba(255,215,0,0.05)', boxShadow: '0 0 15px rgba(255,215,0,0.1)' }} onClick={() => setCurrentView('multiplayer')}>
+                   ONLINE MULTIPLAYER <span style={{fontSize: '0.8rem', opacity: 0.7}}>(BETA)</span>
+                </button>
+                <button className="menu-btn" style={{ borderColor: '#444', color: '#888', marginTop: '20px' }} onClick={() => { playSound('click'); setPlayMenuOpen(false); }}>
+                  ZURÜCK
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

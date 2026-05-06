@@ -15,12 +15,13 @@ function getMiniCardColor(card) {
   return 'transparent';
 }
 
-const MiniCard = ({ card, onClick, onHover }) => {
+const MiniCard = ({ card, onClick, onRightClick, onHover }) => {
   const rc = getMiniCardColor(card);
   return (
   <div 
     className={`mini-card-wrapper ${card.type === 'apex' ? 'is-apex-thumb' : card.type === 'legacy' ? 'is-legacy-thumb' : ''}`} 
     onClick={onClick} 
+    onContextMenu={onRightClick}
     onMouseEnter={onHover}
     style={{
       borderColor: rc,
@@ -36,41 +37,36 @@ const MiniCard = ({ card, onClick, onHover }) => {
 };
 
 const InspectorModal = ({ card, isInDeck, isEffect, onClose, onAdd, onRemove }) => {
-  // Der Gyro ist jetzt standardmäßig immer 'true', wenn das Modal offen ist
   const [gyroActive, setGyroActive] = useState(true);
 
-  // Fallback für iOS: Wenn iOS zwingend einen Klick braucht, können wir
-  // die Erlaubnis direkt beim Klick auf den Schließen- oder Hinzufügen-Button anfordern
   useEffect(() => {
     if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-      // Manche iOS Versionen erlauben das Requesten direkt im Mount, andere nicht.
-      // Wir versuchen es stumm im Hintergrund.
       DeviceOrientationEvent.requestPermission().catch(() => {});
     }
   }, []);
 
   return (
-    <div className="glass-overlay active cinematic" style={{ zIndex: 99999, flexDirection: 'column', padding: '10px' }}>
-      <button className="btn-back" style={{ position: 'absolute', top: '15px', right: '15px', zIndex: 100 }} onClick={onClose}>
-        X SCHLIESSEN
-      </button>
-      
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', marginTop: '30px' }}>
+    <div className="glass-overlay active cinematic" style={{ zIndex: 99999 }}>
+      <div className="inspector-modal-box">
+        <button className="btn-back close-btn" onClick={onClose}>
+          X SCHLIESSEN
+        </button>
+        
         <div className="inspector-card-scaler">
           <Card card={card} context="inventory" isInspecting={gyroActive} />
         </div>
-      </div>
 
-      <div style={{ width: '100%', maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
-        {isInDeck ? (
-          <button className="menu-btn btn-danger" style={{ padding: '15px', fontSize: '1.2rem', margin: '0 auto' }} onClick={() => { onRemove(card, isEffect); onClose(); }}>
-            AUS DECK ENTFERNEN
-          </button>
-        ) : (
-          <button className="menu-btn btn-primary" style={{ padding: '15px', fontSize: '1.2rem', margin: '0 auto' }} onClick={() => { onAdd(card); onClose(); }}>
-            ZUM DECK HINZUFÜGEN
-          </button>
-        )}
+        <div className="inspector-actions">
+          {isInDeck ? (
+            <button className="menu-btn btn-danger" style={{ maxWidth: '300px' }} onClick={() => { onRemove(card, isEffect); onClose(); }}>
+              AUS DECK ENTFERNEN
+            </button>
+          ) : (
+            <button className="menu-btn btn-primary" style={{ maxWidth: '300px' }} onClick={() => { onAdd(card); onClose(); }}>
+              ZUM DECK HINZUFÜGEN
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -158,12 +154,35 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
   const [factionFilter, setFactionFilter] = useState('ALL');
   const [sortBy, setSortBy] = useState('rating');
   const [mode, setMode] = useState('deck'); 
+  const [mobileTab, setMobileTab] = useState('deck'); 
   
   const [activeEditId, setActiveEditId] = useState(decks.find(d => d.isActive)?.id || decks[0]?.id);
   const activeEditDeck = decks.find(d => d.id === activeEditId) || decks[0];
 
   const [activeUpgradeSession, setActiveUpgradeSession] = useState(null);
-  const [inspectCard, setInspectCard] = useState(null); // NEU: State für den Fokus-Inspektor
+  const [inspectCard, setInspectCard] = useState(null); 
+
+  // --- NEU: 1-Click PC Logik ---
+  const handleCardClick = (card, isEff, isDeck) => {
+    playSound('click');
+    onClearNew(card.name);
+    // Wenn PC (Breite > 768px), sofort verschieben
+    if (window.innerWidth > 768) {
+      if (isDeck) handleRemoveCard(card, isEff);
+      else handleAddCard(card);
+    } else {
+      // Wenn Handy, Modal öffnen
+      setInspectCard({ data: card, isEff });
+    }
+  };
+
+  const handleCardRightClick = (evt, card, isEff) => {
+    evt.preventDefault(); // Verhindert das Browser-Kontextmenü
+    playSound('click');
+    onClearNew(card.name);
+    setInspectCard({ data: card, isEff });
+  };
+  // -----------------------------
 
   const updateCurrentDeck = (updates) => {
       setDecks(prev => prev.map(d => d.id === activeEditId ? { ...d, ...updates } : d));
@@ -386,7 +405,6 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
          />
       )}
 
-      {/* NEU: Der Inspector / Fokus Modus */}
       {inspectCard && (
         <InspectorModal 
           card={inspectCard.data} 
@@ -399,7 +417,6 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
       )}
 
       <div className="top-bar" style={{ flexShrink: 0, width: '100%' }}>
-        
         <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
            <div className="game-title-small" style={{ color: mode === 'deck' ? 'var(--r-epi)' : 'var(--ep)', textShadow: `0 0 15px ${mode === 'deck' ? 'var(--r-epi)' : 'var(--ep)'}` }}>
               {mode === 'deck' ? 'INVENTAR & DECK-BUILDER' : 'UPGRADE LABOR'}
@@ -423,94 +440,129 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
                {hasUpgradesAvailable && <div className="notif-badge" style={{ background: 'var(--r-epi)', boxShadow: '0 0 12px var(--r-epi)', zIndex: 100, top: '-7px', right: '-7px' }}></div>}
              </div>
           </div>
-          
           <button className="btn-info" onClick={onShowRules}>RULES</button>
           <button className="btn-back" onClick={onBack}>ZURÜCK</button>
         </div>
       </div>
 
       {mode === 'deck' ? (
-        <div className="inv-dual-panel" style={{ display: 'flex', gap: '30px', height: 'calc(100% - 70px)', width: '100%' }}>
-          <div className="glass-panel inv-column">
-            
-            <div style={{ height: '160px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', marginBottom: '20px', paddingBottom: '15px', borderBottom: '1px solid #333' }}>
-               <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-                 <select value={activeEditId} onChange={e => setActiveEditId(e.target.value)} className="mono" style={{ padding: '8px', background: '#000', border: '1px solid var(--ep)', color: '#fff', outline: 'none', fontWeight: 'bold' }}>
-                   {decks.map(d => <option key={d.id} value={d.id}>{d.name} {d.isActive ? '[AKTIV]' : ''}</option>)}
-                 </select>
-                 <button className="btn-info" onClick={createNewDeck}>+ NEU</button>
-                 <button className="btn-info" onClick={renameDeck}>UMBENENNEN</button>
-                 {!activeEditDeck.isActive && <button className="btn-info" style={{borderColor: 'var(--win)', color: 'var(--win)'}} onClick={setAsActive}>AKTIVIEREN</button>}
-                 {decks.length > 1 && <button className="btn-back" style={{borderColor: 'var(--lose)', color: 'var(--lose)'}} onClick={deleteDeck}>LÖSCHEN</button>}
-               </div>
-
-               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h2 style={{ color: '#fff', letterSpacing: '2px', margin: 0 }}>
-                    DECK INHALT ({safeChars.length}/12 | {safeEffs.length}/3)
-                  </h2>
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <button className="btn-info" style={{borderColor: 'var(--win)', color: 'var(--win)', padding: '4px 10px'}} onClick={autoFill}>AUTO-DECK</button>
-                    <button className="btn-back" style={{borderColor: 'var(--lose)', color: 'var(--lose)', padding: '4px 10px'}} onClick={clearDeck}>CLEAR</button>
-                  </div>
-               </div>
-
-               <div style={{ display: 'flex', gap: '15px', fontSize: '0.85rem', color: '#aaa', flexWrap: 'wrap', fontWeight: 'bold' }}>
-                 <span style={{ color: stats.apex > 1 ? 'var(--lose)' : 'var(--apex-pink)' }}>APEX: {stats.apex}/1</span> |
-                 <span style={{ color: stats.legacy > 1 ? 'var(--lose)' : 'var(--legacy-sepia)' }}>LEGACY: {stats.legacy}/1</span> |
-                 <span style={{ color: stats.legendary > 3 ? 'var(--lose)' : 'var(--r-leg)' }}>LEGENDARY: {stats.legendary}/3</span> |
-                 <span style={{ color: stats.epic > 3 ? 'var(--lose)' : 'var(--r-epi)' }}>EPIC: {stats.epic}/3</span>
-                 {isDeckValid 
-                   ? <span style={{ marginLeft: 'auto', color: 'var(--win)' }}>DECK BEREIT ✓</span>
-                   : <span style={{ marginLeft: 'auto', color: 'var(--lose)' }}>UNVOLLSTÄNDIG ⚠</span>
-                 }
-               </div>
-            </div>
-            
-            <h3 style={{color: '#888', margin: '0 0 15px 0'}}>CHARAKTERE</h3>
-            <div className="mini-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(216px, 1fr))', justifyItems: 'center', gap: '20px', paddingBottom: '20px' }}>
-              {/* NEU: onClick triggert jetzt den Inspector! */}
-              {sortedDeckChars.map((c) => <MiniCard key={`deckc-${c.name}`} card={c} onClick={() => { playSound('click'); setInspectCard({ data: c, isEff: false }); }} onHover={() => onClearNew(c.name)} />)}
-            </div>
-            <h3 style={{color: 'var(--eff-col)', margin: '20px 0 15px 0', borderTop: '1px dashed #333', paddingTop: '20px'}}>EFFEKTE</h3>
-            <div className="mini-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(216px, 1fr))', justifyItems: 'center', gap: '20px', paddingBottom: '30px' }}>
-              {/* NEU: onClick triggert jetzt den Inspector! */}
-              {safeEffs.map((e) => <MiniCard key={`decke-${e.name}`} card={e} onClick={() => { playSound('click'); setInspectCard({ data: e, isEff: true }); }} onHover={() => onClearNew(e.name)} />)}
-            </div>
+        <div className="inv-dual-panel" style={{ display: 'flex', gap: '30px', height: 'calc(100% - 70px)', width: '100%', flexDirection: 'column' }}>
+          
+          <div className="mobile-tab-switcher">
+            <button className={`tab-btn ${mobileTab === 'deck' ? 'active' : ''}`} onClick={() => { playSound('click'); setMobileTab('deck'); }}>
+              MEIN DECK
+            </button>
+            <button className={`tab-btn ${mobileTab === 'pool' ? 'active' : ''}`} onClick={() => { playSound('click'); setMobileTab('pool'); }}>
+              INVENTAR POOL
+            </button>
           </div>
 
-          <div className="glass-panel inv-column">
+          <div style={{ display: 'flex', gap: '30px', flex: 1, overflow: 'hidden' }}>
             
-            <div style={{ height: '160px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', marginBottom: '20px', paddingBottom: '15px', borderBottom: '1px solid #333' }}>
-                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                  <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={{ padding: '6px 10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--win)', color: 'var(--win)', borderRadius: '4px', outline: 'none', fontWeight: 'bold' }}>
-                     <option value="rating">NACH RATING</option>
-                     <option value="new">NACH NEU</option>
-                  </select>
-                  <input type="text" placeholder="Suche..." value={search} onChange={e => setSearch(e.target.value)} style={{ padding: '6px 10px', background: 'rgba(0,0,0,0.5)', border: '1px solid #444', color: '#fff', borderRadius: '4px', outline: 'none' }} />
-                  <select value={factionFilter} onChange={e => setFactionFilter(e.target.value)} style={{ padding: '6px 10px', background: 'rgba(0,0,0,0.5)', border: '1px solid #444', color: '#fff', borderRadius: '4px', outline: 'none' }}>
-                     <option value="ALL">ALLE FRAKTIONEN</option>
-                     {allFactions.map(f => <option key={f} value={f}>{f}</option>)}
-                  </select>
-                </div>
+            {/* DECK SPALTE */}
+            <div className={`glass-panel inv-column mobile-tab-deck ${mobileTab === 'deck' ? 'active-tab' : ''}`}>
+              <div style={{ minHeight: '160px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', marginBottom: '20px', paddingBottom: '15px', borderBottom: '1px solid #333' }}>
+                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                   <select value={activeEditId} onChange={e => setActiveEditId(e.target.value)} className="mono" style={{ padding: '8px', background: '#000', border: '1px solid var(--ep)', color: '#fff', outline: 'none', fontWeight: 'bold' }}>
+                     {decks.map(d => <option key={d.id} value={d.id}>{d.name} {d.isActive ? '[AKTIV]' : ''}</option>)}
+                   </select>
+                   <button className="btn-info" onClick={createNewDeck}>+ NEU</button>
+                   <button className="btn-info" onClick={renameDeck}>UMBENENNEN</button>
+                   {!activeEditDeck.isActive && <button className="btn-info" style={{borderColor: 'var(--win)', color: 'var(--win)'}} onClick={setAsActive}>AKTIVIEREN</button>}
+                   {decks.length > 1 && <button className="btn-back" style={{borderColor: 'var(--lose)', color: 'var(--lose)'}} onClick={deleteDeck}>LÖSCHEN</button>}
+                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h2 style={{ color: '#fff', letterSpacing: '2px', margin: 0 }}>INVENTAR POOL</h2>
-                </div>
+                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', marginTop: '15px' }}>
+                    <h2 style={{ color: '#fff', letterSpacing: '2px', margin: 0, fontSize: '1.2rem' }}>
+                      DECK ({safeChars.length}/12 | {safeEffs.length}/3)
+                    </h2>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button className="btn-info" style={{borderColor: 'var(--win)', color: 'var(--win)', padding: '4px 10px'}} onClick={autoFill}>AUTO-DECK</button>
+                      <button className="btn-back" style={{borderColor: 'var(--lose)', color: 'var(--lose)', padding: '4px 10px'}} onClick={clearDeck}>CLEAR</button>
+                    </div>
+                 </div>
 
-                <div style={{ height: '20px' }}></div>
+                 <div style={{ display: 'flex', gap: '15px', fontSize: '0.85rem', color: '#aaa', flexWrap: 'wrap', fontWeight: 'bold', marginTop: '10px' }}>
+                   <span style={{ color: stats.apex > 1 ? 'var(--lose)' : 'var(--apex-pink)' }}>APEX: {stats.apex}/1</span> |
+                   <span style={{ color: stats.legacy > 1 ? 'var(--lose)' : 'var(--legacy-sepia)' }}>LEGACY: {stats.legacy}/1</span> |
+                   <span style={{ color: stats.legendary > 3 ? 'var(--lose)' : 'var(--r-leg)' }}>LEGENDARY: {stats.legendary}/3</span> |
+                   <span style={{ color: stats.epic > 3 ? 'var(--lose)' : 'var(--r-epi)' }}>EPIC: {stats.epic}/3</span>
+                   {isDeckValid ? <span style={{ marginLeft: 'auto', color: 'var(--win)' }}>BEREIT ✓</span> : <span style={{ marginLeft: 'auto', color: 'var(--lose)' }}>UNVOLLSTÄNDIG ⚠</span>}
+                 </div>
+              </div>
+              
+              <h3 style={{color: '#888', margin: '0 0 15px 0'}}>CHARAKTERE</h3>
+              <div className="mini-grid">
+                {sortedDeckChars.map((c) => (
+                  <MiniCard 
+                    key={`deckc-${c.name}`} 
+                    card={c} 
+                    onClick={() => handleCardClick(c, false, true)} 
+                    onRightClick={(evt) => handleCardRightClick(evt, c, false)} 
+                    onHover={() => onClearNew(c.name)} 
+                  />
+                ))}
+              </div>
+              <h3 style={{color: 'var(--eff-col)', margin: '20px 0 15px 0', borderTop: '1px dashed #333', paddingTop: '20px'}}>EFFEKTE</h3>
+              <div className="mini-grid" style={{ paddingBottom: '30px' }}>
+                {safeEffs.map((eff) => (
+                  <MiniCard 
+                    key={`decke-${eff.name}`} 
+                    card={eff} 
+                    onClick={() => handleCardClick(eff, true, true)} 
+                    onRightClick={(evt) => handleCardRightClick(evt, eff, true)} 
+                    onHover={() => onClearNew(eff.name)} 
+                  />
+                ))}
+              </div>
             </div>
 
-            {uniqueInvChars.length === 0 && uniqueInvEffs.length === 0 && <p style={{ color: '#555', marginTop: '20px' }}>Keine passenden Karten gefunden.</p>}
-            
-            <h3 style={{color: '#888', margin: '0 0 15px 0'}}>VERFÜGBARE CHARAKTERE</h3>
-            <div className="mini-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(216px, 1fr))', justifyItems: 'center', gap: '20px', paddingBottom: '20px' }}>
-              {/* NEU: onClick triggert jetzt den Inspector! */}
-              {uniqueInvChars.map((c) => <MiniCard key={`invc-${c.name}`} card={c} onClick={() => { playSound('click'); setInspectCard({ data: c, isEff: false }); }} onHover={() => onClearNew(c.name)} />)}
-            </div>
-            <h3 style={{color: 'var(--eff-col)', margin: '20px 0 15px 0', borderTop: '1px dashed #333', paddingTop: '20px'}}>VERFÜGBARE EFFEKTE</h3>
-            <div className="mini-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(216px, 1fr))', justifyItems: 'center', gap: '20px', paddingBottom: '30px' }}>
-              {/* NEU: onClick triggert jetzt den Inspector! */}
-              {uniqueInvEffs.map((e) => <MiniCard key={`inve-${e.name}`} card={e} onClick={() => { playSound('click'); setInspectCard({ data: e, isEff: true }); }} onHover={() => onClearNew(e.name)} />)}
+            {/* POOL SPALTE */}
+            <div className={`glass-panel inv-column mobile-tab-pool ${mobileTab === 'pool' ? 'active-tab' : ''}`}>
+              <div style={{ minHeight: '160px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', marginBottom: '20px', paddingBottom: '15px', borderBottom: '1px solid #333' }}>
+                  <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-start', flexWrap: 'wrap' }}>
+                    <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={{ padding: '6px 10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--win)', color: 'var(--win)', borderRadius: '4px', outline: 'none', fontWeight: 'bold' }}>
+                       <option value="rating">NACH RATING</option>
+                       <option value="new">NACH NEU</option>
+                    </select>
+                    <input type="text" placeholder="Suche..." value={search} onChange={e => setSearch(e.target.value)} style={{ padding: '6px 10px', background: 'rgba(0,0,0,0.5)', border: '1px solid #444', color: '#fff', borderRadius: '4px', outline: 'none' }} />
+                    <select value={factionFilter} onChange={e => setFactionFilter(e.target.value)} style={{ padding: '6px 10px', background: 'rgba(0,0,0,0.5)', border: '1px solid #444', color: '#fff', borderRadius: '4px', outline: 'none' }}>
+                       <option value="ALL">ALLE FRAKTIONEN</option>
+                       {allFactions.map(f => <option key={f} value={f}>{f}</option>)}
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '15px' }}>
+                    <h2 style={{ color: '#fff', letterSpacing: '2px', margin: 0, fontSize: '1.2rem' }}>INVENTAR POOL</h2>
+                  </div>
+              </div>
+
+              {uniqueInvChars.length === 0 && uniqueInvEffs.length === 0 && <p style={{ color: '#555', marginTop: '20px' }}>Keine passenden Karten gefunden.</p>}
+              
+              <h3 style={{color: '#888', margin: '0 0 15px 0'}}>VERFÜGBARE CHARAKTERE</h3>
+              <div className="mini-grid">
+                {uniqueInvChars.map((c) => (
+                  <MiniCard 
+                    key={`invc-${c.name}`} 
+                    card={c} 
+                    onClick={() => handleCardClick(c, false, false)} 
+                    onRightClick={(evt) => handleCardRightClick(evt, c, false)} 
+                    onHover={() => onClearNew(c.name)} 
+                  />
+                ))}
+              </div>
+              <h3 style={{color: 'var(--eff-col)', margin: '20px 0 15px 0', borderTop: '1px dashed #333', paddingTop: '20px'}}>VERFÜGBARE EFFEKTE</h3>
+              <div className="mini-grid" style={{ paddingBottom: '30px' }}>
+                {uniqueInvEffs.map((eff) => (
+                  <MiniCard 
+                    key={`inve-${eff.name}`} 
+                    card={eff} 
+                    onClick={() => handleCardClick(eff, true, false)} 
+                    onRightClick={(evt) => handleCardRightClick(evt, eff, true)} 
+                    onHover={() => onClearNew(eff.name)} 
+                  />
+                ))}
+              </div>
             </div>
           </div>
         </div>

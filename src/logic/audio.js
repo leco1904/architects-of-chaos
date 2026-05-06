@@ -14,7 +14,8 @@ const audioFiles = {
   thudLoss: new Audio(basePath + 'sounds/thud_loss.wav'),
   crisis: new Audio(basePath + 'sounds/crisis.wav'),
   matchIntro: new Audio(basePath + 'sounds/match_intro.wav'),
-  patt: new Audio(basePath + 'sounds/patt.wav')
+  patt: new Audio(basePath + 'sounds/patt.wav'),
+  heavy_impact: new Audio(basePath + 'sounds/heavy_impact.mp3')
 };
 
 // Zero-Latency Preload
