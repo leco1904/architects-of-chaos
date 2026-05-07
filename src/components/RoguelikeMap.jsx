@@ -44,7 +44,7 @@ function Corners({ color='var(--win)', size=8 }) {
 }
 
 // ── Node Preview Modal ────────────────────────────────────────────────────
-function NodeModal({ nodeObj, sector, currentNode, onClose, onStartBattle }) {
+function NodeModal({ nodeObj, sector, currentNode, onClose, onStartBattle, onStartEvent }) {
   if (!nodeObj) return null;
   const n = nodeObj.step;
   const info = NODE_TYPES[nodeObj.type];
@@ -62,11 +62,8 @@ function NodeModal({ nodeObj, sector, currentNode, onClose, onStartBattle }) {
   const handleAction = () => {
     onClose();
     if (isEvent) {
-      // EVENT TRIGGER: Wir feuern ein Custom Event, das du später in der App.jsx abfangen kannst
-      window.dispatchEvent(new CustomEvent('rl_trigger_event', { detail: { type: nodeObj.type, step: n } }));
-      alert(`[WIP] Event "${nodeObj.type}" ausgewählt! (Wird im nächsten Schritt in App.jsx verknüpft)`);
+      onStartEvent(nodeObj);
     } else {
-      // KAMPF TRIGGER
       onStartBattle(nodeObj);
     }
   };
@@ -197,14 +194,13 @@ function MiniCard({ card }) {
 }
 
 // ── Main Component ────────────────────────────────────────────────────────
-export default function RoguelikeMap({ avatarCard, roguelikeRun, onStartRun, onStartBattle, onBack, onGoToLab }) {
+export default function RoguelikeMap({ avatarCard, roguelikeRun, onStartRun, onStartBattle, onStartEvent, onBack, onGoToLab }) {
   const [selectedNodeObj, setSelectedNodeObj] = useState(null);
 
   // START SCREEN WENN KEIN RUN AKTIV IST
   if (!roguelikeRun) return (
     <div className="screen active" style={{display:'block',padding:'26px',position:'relative',overflow:'hidden'}}>
-      <div className="rl-bg-layer-1"/><div className="rl-bg-layer-2"/><div className="rl-scanline-overlay"/>
-      <div style={{position:'relative',zIndex:2}}>
+            <div style={{position:'relative',zIndex:2}}>
         <div className="top-bar">
           <div className="game-title-small" style={{color:'var(--apex-pink)'}}>⬡ OPERATION: GHOST NODE</div>
           <div style={{display:'flex',gap:'8px'}}>
@@ -240,9 +236,7 @@ export default function RoguelikeMap({ avatarCard, roguelikeRun, onStartRun, onS
 
   return (
     <div style={{position:'fixed',inset:0,overflow:'hidden',background:'#05020e',display:'flex',flexDirection:'column',fontFamily:"'Roboto Mono',monospace"}}>
-      <div className="rl-bg-layer-1" style={{position:'absolute',inset:0,zIndex:0}}/>
-      <div className="rl-bg-layer-2" style={{position:'absolute',inset:0,zIndex:0}}/>
-      <div className="rl-scanline-overlay" style={{position:'absolute',inset:0,zIndex:0}}/>
+      
 
       <div style={{position:'relative',zIndex:2,padding:'10px 18px',display:'flex',justifyContent:'space-between',alignItems:'center',borderBottom:'1px solid rgba(255,0,127,0.15)',background:'rgba(5,0,12,0.8)',backdropFilter:'blur(10px)',flexShrink:0}}>
         <div>
@@ -334,8 +328,8 @@ export default function RoguelikeMap({ avatarCard, roguelikeRun, onStartRun, onS
       </div>
 
       {selectedNodeObj !== null && (
-        <NodeModal nodeObj={selectedNodeObj} sector={sector} currentNode={node} onClose={()=>setSelectedNodeObj(null)} onStartBattle={onStartBattle}/>
-      )}
+                <NodeModal nodeObj={selectedNodeObj} sector={sector} currentNode={node} onClose={()=>setSelectedNodeObj(null)} onStartBattle={onStartBattle} onStartEvent={onStartEvent}/>
+              )}
     </div>
   );
 }

@@ -366,13 +366,13 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
           }
           return true;
       });
-      const finalInv = newInv.map(c => c === mainCard ? { ...c, level: currentLevel + 1 } : c);
+      const finalInv = newInv.map(c => c === mainCard ? { ...c, level: currentLevel + 1, gti: (c.gti || 0) + 1 } : c);
       setInventory(finalInv);
 
       setDecks(prev => prev.map(d => ({
           ...d,
-          chars: d.chars.map(c => c.name === cardName ? { ...c, level: currentLevel + 1 } : c),
-          effs: d.effs.map(c => c.name === cardName ? { ...c, level: currentLevel + 1 } : c)
+          chars: d.chars.map(c => c.name === cardName ? { ...c, level: currentLevel + 1, gti: (c.gti || 0) + 1 } : c),
+          effs: d.effs.map(c => c.name === cardName ? { ...c, level: currentLevel + 1, gti: (c.gti || 0) + 1 } : c)
       })));
       
       // NEU: Inline-Animation triggern

@@ -24,7 +24,7 @@
       "name": "Narendra Modi",
       "title": "PM India",
       "faction": "Hegemony",
-      "gti": 94,
+      "gti": 89,
       "type": "std",
       "bio": "Ein Meister der Massenmobilisierung.",
       "stats": { "tech": 70, "finance": 75, "manipulation": 85, "erosion": 65, "kingmaking": 88, "system": 75, "arsenal": 82, "legitimacy": 92 },
@@ -156,7 +156,7 @@
       "name": "Jensen Huang",
       "title": "NVIDIA CEO",
       "faction": "Tech Cartel",
-      "gti": 95,
+      "gti": 93,
       "type": "std",
       "bio": "Er verkauft die Schaufeln für den Goldrausch der KI.",
       "stats": { "tech": 95, "finance": 88, "manipulation": 65, "erosion": 62, "kingmaking": 85, "system": 92, "arsenal": 60, "legitimacy": 82 },
@@ -167,7 +167,7 @@
       "name": "Jeff Bezos",
       "title": "Amazon Founder",
       "faction": "Tech Cartel",
-      "gti": 94,
+      "gti": 92,
       "type": "std",
       "bio": "Ein Logistik-Gott.",
       "stats": { "tech": 88, "finance": 96, "manipulation": 85, "erosion": 80, "kingmaking": 90, "system": 88, "arsenal": 65, "legitimacy": 65 },
@@ -277,7 +277,7 @@
       "name": "Elon Musk",
       "title": "Tesla & SpaceX CEO",
       "faction": "Tech Cartel",
-      "gti": 96,
+      "gti": 98,
       "type": "legendary",
       "bio": "Raketenbauer, Troll, Systemsprenger.",
       "stats": { "tech": 94, "finance": 100, "manipulation": 92, "erosion": 90, "kingmaking": 92, "system": 92, "arsenal": 75, "legitimacy": 65 },
@@ -288,7 +288,7 @@
       "name": "Jerome Powell",
       "title": "Fed Chairman",
       "faction": "Finance Elite",
-      "gti": 94,
+      "gti": 92,
       "type": "std",
       "bio": "Der Drucker der Weltreserve.",
       "stats": { "tech": 65, "finance": 96, "manipulation": 82, "erosion": 72, "kingmaking": 88, "system": 94, "arsenal": 10, "legitimacy": 85 },
@@ -409,7 +409,7 @@
       "name": "Larry Fink",
       "title": "BlackRock CEO",
       "faction": "Finance Elite",
-      "gti": 96,
+      "gti": 95,
       "type": "legendary",
       "bio": "Er besitzt ein Stück von allem.",
       "stats": { "tech": 80, "finance": 98, "manipulation": 80, "erosion": 80, "kingmaking": 100, "system": 94, "arsenal": 35, "legitimacy": 68 },
@@ -530,7 +530,7 @@
       "name": "Mark Zuckerberg",
       "title": "Meta CEO",
       "faction": "Narrative Matrix",
-      "gti": 96,
+      "gti": 97,
       "type": "legendary",
       "bio": "Der Sozialingenieur.",
       "stats": { "tech": 96, "finance": 94, "manipulation": 100, "erosion": 92, "kingmaking": 92, "system": 90, "arsenal": 25, "legitimacy": 80 },
@@ -552,7 +552,7 @@
       "name": "Prince Abdulaziz",
       "title": "Energy Minister",
       "faction": "Energy Oligarchs",
-      "gti": 94,
+      "gti": 92,
       "type": "std",
       "bio": "Der Wächter des Ventils.",
       "stats": { "tech": 70, "finance": 92, "manipulation": 80, "erosion": 75, "kingmaking": 90, "system": 88, "arsenal": 85, "legitimacy": 82 },
@@ -684,7 +684,7 @@
       "name": "David Barnea",
       "title": "Mossad",
       "faction": "Intelligence Syndicate",
-      "gti": 94,
+      "gti": 92,
       "type": "std",
       "bio": "Die Speerspitze im Nahen Osten.",
       "stats": { "tech": 92, "finance": 70, "manipulation": 92, "erosion": 88, "kingmaking": 92, "system": 85, "arsenal": 88, "legitimacy": 52 },
@@ -805,7 +805,7 @@
       "name": "William Burns",
       "title": "CIA Director",
       "faction": "Intelligence Syndicate",
-      "gti": 96,
+      "gti": 92,
       "type": "legendary",
       "bio": "Der ultimative Diplomat unter den Spionen.",
       "stats": { "tech": 88, "finance": 65, "manipulation": 94, "erosion": 80, "kingmaking": 94, "system": 88, "arsenal": 82, "legitimacy": 58 },
@@ -816,7 +816,7 @@
       "name": "Von der Leyen",
       "title": "EU Commission",
       "faction": "Bureaucracy Apparatus",
-      "gti": 94,
+      "gti": 90,
       "type": "std",
       "bio": "Zentralisierung als Ziel.",
       "stats": { "tech": 75, "finance": 88, "manipulation": 85, "erosion": 85, "kingmaking": 90, "system": 90, "arsenal": 45, "legitimacy": 58 },
@@ -926,7 +926,7 @@
       "name": "Janet Yellen",
       "title": "US Treasury",
       "faction": "Bureaucracy Apparatus",
-      "gti": 94,
+      "gti": 91,
       "type": "std",
       "bio": "Die fiskalische Architektin.",
       "stats": { "tech": 55, "finance": 92, "manipulation": 78, "erosion": 88, "kingmaking": 88, "system": 92, "arsenal": 8, "legitimacy": 88 },
@@ -1110,8 +1110,8 @@
       "type": "apex",
       "year": "2009",
       "bio": "Die Dezentralisierung des Vertrauens.",
-      "stats": { "tech": 100, "finance": 96, "manipulation": 60, "erosion": 95, "kingmaking": 85, "system": 98, "arsenal": 0, "legitimacy": 0 },
-      "passiveBuff": { "stat": "finance", "val": 20 },
+      "stats": { "tech": 100, "finance": 96, "manipulation": 60, "erosion": 95, "kingmaking": 91, "system": 98, "arsenal": 0, "legitimacy": 0 },
+      "passiveBuff": { "stat": "finance", "val": 25 },
       "backText": "Er hat das Fundament der Finanzwelt gesprengt, ohne jemals sein Gesicht zu zeigen."
     },
     {
@@ -1221,7 +1221,7 @@
       "name": "John D. Rockefeller",
       "title": "Oil Founder",
       "faction": "Finance Elite",
-      "gti": 99,
+      "gti": 97,
       "type": "legacy",
       "year": "1911",
       "bio": "Der Mann, der das Monopol erfand.",
@@ -1233,7 +1233,7 @@
       "name": "Sun Tzu",
       "title": "Art of War",
       "faction": "Shadow Power",
-      "gti": 99,
+      "gti": 95,
       "type": "legacy",
       "year": "500 BC",
       "bio": "Kriege werden gewonnen, bevor sie beginnen.",
@@ -1245,7 +1245,7 @@
       "name": "Julius Caesar",
       "title": "Dictator",
       "faction": "Hegemony",
-      "gti": 98,
+      "gti": 96,
       "type": "legacy",
       "year": "44 BC",
       "bio": "Veni, Vidi, Vici.",
@@ -1257,7 +1257,7 @@
       "name": "Alexander the Great",
       "title": "King of Macedon",
       "faction": "Hegemony",
-      "gti": 97,
+      "gti": 96,
       "type": "legacy",
       "year": "323 BC",
       "bio": "Bis an den Rand der Welt.",
@@ -1281,7 +1281,7 @@
       "name": "Pablo Escobar",
       "title": "Medellin Cartel",
       "faction": "Shadow Power",
-      "gti": 94,
+      "gti": 92,
       "type": "legacy",
       "year": "1993",
       "bio": "Plata o Plomo.",
@@ -1363,7 +1363,7 @@
       "name": "Mao Zedong",
       "title": "1958",
       "faction": "Hegemony",
-      "gti": 98,
+      "gti": 96,
       "type": "legacy",
       "bio": "Architekt des roten Sturms.",
       "stats": { "tech": 35, "finance": 22, "manipulation": 94, "erosion": 91, "kingmaking": 88, "system": 95, "arsenal": 85, "legitimacy": 89 },
@@ -1426,7 +1426,7 @@
     },
     { "id": "c125",
       "name": "Lisa Tzwu-Fang Su",
-      "title": "AMP CEO",
+      "title": "AMD CEO",
       "faction": "Tech Cartel",
       "gti": 85,
       "type": "std",
@@ -1437,7 +1437,7 @@
     { "id": "c126",
     "name": "Mansa Musa I.",
     "title": "1337", "faction": "Finance Elite",
-    "gti": 96, "type": "legacy",
+    "gti": 87, "type": "legacy",
     "bio": "Zenith of Mali’s power and prestige.",
     "stats": { "tech": 23, "finance": 99, "manipulation": 74, "erosion": 72, "kingmaking": 73, "system": 84, "arsenal": 85, "legitimacy": 87 }, 
       "backText": "Musa galt als der reichste Mann seiner Zeit. Legendär wurde sein Haddsch, die traditionelle muslimische Pilgerfahrt nach Mekka, mit einer Länge von circa 7000 km in den Jahren 1324/25. Der reiche König gab auf der Reise so viel Gold aus, dass es in Aegypten den Wert des Goldes auf zehn Jahre hinaus ruinierte." 
@@ -1451,7 +1451,216 @@
     "bio": "Founder and first Khan of the Mongol Empire",
     "stats": { "tech": 0, "finance": 79, "manipulation": 82, "erosion": 95, "kingmaking": 65, "system": 90, "arsenal": 92, "legitimacy": 77 },
     "backText": "Er vereinte die mongolischen Stämme zu einem Großreich und führte sie zum Sieg über viele benachbarte Völker und Ländereien" 
-    }
+    },
+    {
+      "id": "c128",
+      "name": "Napoleon Bonaparte",
+      "title": "1807",
+      "faction": "Hegemony",
+      "gti": 91,
+      "type": "legacy",
+      "bio": "Das Recht liegt auf der Seite der meisten Bataillone.",
+      "stats": {
+        "tech": 30,
+        "finance": 81,
+        "manipulation": 82,
+        "erosion": 93,
+        "kingmaking": 77,
+        "system": 90,
+        "arsenal": 93,
+        "legitimacy": 81
+      },
+      "backText": "Ein taktisches Genie, dessen Algorithmus der Eroberung das alte System der Aristokratie in Schutt und Asche legte. Er definierte die Parameter des totalen Krieges neu und krönte sich selbst zum absoluten Administrator eines neuen Netzwerks."
+    },
+
+{
+      "id": "c129",
+      "name": "Martin Luther King",
+      "title": "Buergerrechtler",
+      "faction": "Narrative Matrix",
+      "gti": 83,
+      "type": "std",
+      "bio": "I have a dream",
+      "stats": {
+        "tech": 32,
+        "finance": 66,
+        "manipulation": 76,
+        "erosion": 37,
+        "kingmaking": 84,
+        "system": 83,
+        "arsenal": 35,
+        "legitimacy": 98
+      },
+      "backText": "Hermit king."
+    },
+
+{
+      "id": "c130",
+      "name": "Christopher Columbus",
+      "title": "Buergerrechtler",
+      "faction": "Narrative Matrix",
+      "gti": 82,
+      "type": "legacy",
+      "bio": "Explorer of the New World",
+      "stats": {
+        "tech": 23,
+        "finance": 72,
+        "manipulation": 73,
+        "erosion": 82,
+        "kingmaking": 84,
+        "system": 81,
+        "arsenal": 80,
+        "legitimacy": 91
+      },
+      "backText": "Pionier der physischen Netzerweiterung, dessen Navigations-Fehler zur Entdeckung gigantischer Ressourcen-Nodes führte. Ein High-Risk-Agent, der maximale Finanzmacht durch radikale Erosion lokaler Sektoren erzwang."
+    },
+
+    {
+      "id": "c131",
+      "name": "Isaac Newton",
+      "title": "Physiker",
+      "faction": "Scientist",
+      "gti": 82,
+      "type": "std",
+      "bio": "Father of Gravity",
+      "stats": {
+        "tech": 89,
+        "finance": 71,
+        "manipulation": 75,
+        "erosion": 22,
+        "kingmaking": 66,
+        "system": 76,
+        "arsenal": 21,
+        "legitimacy": 91
+      },
+      "backText": "Wegbereiter der klassischen Physik, der mit den Gravitationsgesetzen das moderne naturwissenschaftliche Weltbild begründete. Er entwickelte die Infinitesimalrechnung und lieferte durch seine Arbeit in der Optik und Mechanik den entscheidenden Tech-Hebel für die industrielle und wissenschaftliche Revolution."
+    },
+
+{
+      "id": "c132",
+      "name": "Nikolaus Romanow II.",
+      "title": "1917",
+      "faction": "Hegemony",
+      "gti": 85,
+      "type": "legacy",
+      "bio": "last tsar of russia",
+      "stats": {
+        "tech": 35,
+        "finance": 86,
+        "manipulation": 86,
+        "erosion": 72,
+        "kingmaking": 76,
+        "system": 86,
+        "arsenal": 82,
+        "legitimacy": 73
+      },
+      "backText": "Letzter Herrscher der Romanow-Dynastie, dessen Unfähigkeit zu politischen Reformen angesichts revolutionärer Umbrüche zum Sturz der Monarchie führte. Sein Zögern und die Last des Ersten Weltkriegs besiegelten das Ende der imperialen Ordnung in Russland."
+    },
+
+    {
+      "id": "c133",
+      "name": "Otto von Bismarck",
+      "title": "1878",
+      "faction": "Hegemony",
+      "gti": 86,
+      "type": "legacy",
+      "bio": "Eiserner Kanzler",
+      "stats": {
+        "tech": 41,
+        "finance": 84,
+        "manipulation": 86,
+        "erosion": 76,
+        "kingmaking": 77,
+        "system": 85,
+        "arsenal": 84,
+        "legitimacy": 88
+      },
+      "backText": "HArchitekt der deutschen Einheit, der durch eine Politik von 'Blut und Eisen' sowie geschickte Diplomatie das europäische Gleichgewicht dominierte. Er begründete den modernen Sozialstaat, um innere Spannungen durch strategische Reformen zu befrieden."
+    },
+
+{
+      "id": "c134",
+      "name": "Katharina II.",
+      "title": "1785",
+      "faction": "Hegemony",
+      "gti": 88,
+      "type": "legacy",
+      "bio": "Katharina the great, Tarist of russia",
+      "stats": {
+        "tech": 23,
+        "finance": 89,
+        "manipulation": 85,
+        "erosion": 70,
+        "kingmaking": 79,
+        "system": 83,
+        "arsenal": 73,
+        "legitimacy": 90
+      },
+      "backText": "Aufgeklärte Monarchin, die Russland durch tiefgreifende Reformen und massive territoriale Expansion zur europäischen Großmacht transformierte. Sie festigte die autokratische Macht, während sie Kunst, Wissenschaft und die kulturelle Anbindung an den Westen forcierte."
+    },
+
+{
+      "id": "c135",
+      "name": "Konrad Adenauer",
+      "title": "1951",
+      "faction": "Hegemony",
+      "gti": 86,
+      "type": "legacy",
+      "bio": "first Chancellor of the BRD",
+      "stats": {
+        "tech": 65,
+        "finance": 78,
+        "manipulation": 76,
+        "erosion": 18,
+        "kingmaking": 84,
+        "system": 85,
+        "arsenal": 32,
+        "legitimacy": 93
+      },
+      "backText": "Erster Bundeskanzler der Bundesrepublik, der Deutschland durch Westbindung und europäische Integration aus den Trümmern des Krieges zurück in die Weltgemeinschaft führte. Er schuf das Fundament für das 'Wirtschaftswunder' und die langfristige demokratische Stabilität."
+    },
+
+   {
+      "id": "c136",
+      "name": "Albert Einstein",
+      "title": "Physiker",
+      "faction": "Scientist",
+      "gti": 85,
+      "type": "legacy",
+      "bio": "Zeit ist relativ.",
+      "stats": {
+        "tech": 90,
+        "finance": 71,
+        "manipulation": 76,
+        "erosion": 15,
+        "kingmaking": 85,
+        "system": 81,
+        "arsenal": 24,
+        "legitimacy": 94
+      },
+      "backText": "Begründer der modernen theoretischen Physik, der mit der Relativitätstheorie unser Verständnis von Raum, Zeit und Materie revolutionierte. Seine Arbeit schuf die theoretische Grundlage für die Nutzung der Kernenergie und lieferte einen beispiellosen Tech-Hebel für das 20. Jahrhundert, während er gleichzeitig als prominenter Verfechter für Frieden und globale Legitimität eintrat."
+    },
+
+   {
+      "id": "c137",
+      "name": "Barack Obama",
+      "title": "44TH US President",
+      "faction": "Hegemony",
+      "gti": 96,
+      "type": "legendary",
+      "bio": "Yes we can!",
+      "stats": {
+        "tech": 91,
+        "finance": 90,
+        "manipulation": 91,
+        "erosion": 82,
+        "kingmaking": 81,
+        "system": 90,
+        "arsenal": 92,
+        "legitimacy": 94
+      },
+      "backText": "Hermit king."
+    } 
 
   ],
   "effects": [
@@ -1505,6 +1714,9 @@
     },
     {
       "id": "e16", "name": "Epstein Files", "type": "effect", "gti": 96, "cost": 5, "stat": "manipulation", "buff": 40, "syn": ["Prince Andrew", "Donald Trump", "Ghislaine Maxwell"], "synBuff": 0, "desc": "Blackmail-Informationen.", "backText": "Das Netzwerk der Schande ist das mächtigste Kontrollinstrument der Welt."
+    },
+    {
+      "id": "e17", "name": "Apfel", "type": "effect", "gti": 70, "cost": 1, "stat": "tech", "buff": 1, "syn": ["Isaac Newton"], "synBuff": 30, "desc": "just an Apple.", "backText": "Der Apfel fällt nicht weit vom Stamm."
     }
   ]
 }

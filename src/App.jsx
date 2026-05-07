@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import CyberBackground from './components/CyberBackground';
 import MatchEngine from './components/MatchEngine';
 import Card from './components/Card';
 import Market from './components/Market';
@@ -59,6 +60,136 @@ const DIFFICULTY_CONFIG = {
   3: { name: 'EXECUTIVE', color: 'var(--r-epi)', reward: 500, loseReward: 100, lvl: 3, desc: "Gnadenlos. Spart Energie für tödliche All-In Combos. Karten auf MAX Level." },
   4: { name: 'ARCHITECT', color: 'var(--lose)', reward: 1000, loseReward: 250, lvl: 3, desc: "Unfair. Boss-Buff (+15 Stats). Die KI liest deine Karten und wählt Hard-Counter aus dem ultimativen Meta-Deck." }
 };
+
+function RoguelikeEventScreen({ nodeObj, roguelikeRun, avatarCard, cardsData, onComplete }) {
+  const [step, setStep] = useState('intro');
+  const [selectedCard, setSelectedCard] = useState(null);
+  const [resultMsg, setResultMsg] = useState('');
+  const [resultColor, setResultColor] = useState('var(--win)');
+  const [pendingUpdates, setPendingUpdates] = useState(null);
+
+  const isSafehouse = nodeObj.type === 'safehouse';
+  const isLeak = nodeObj.type === 'dataleak';
+  const isMarket = nodeObj.type === 'blackmarket';
+
+  const processEvent = () => {
+    playSound('upgrade');
+    let nextRun = { ...roguelikeRun };
+    let nextAvatar = { ...avatarCard };
+    let msg = '';
+    let col = 'var(--win)';
+
+    if (isSafehouse) {
+      const heal = Math.floor(nextRun.maxHP * 0.20);
+      nextRun.currentHP = Math.min(nextRun.maxHP, nextRun.currentHP + heal);
+      msg = `SYSTEM RECOVERY: +${heal} HP WIEDERHERGESTELLT.`;
+      col = '#00ff44';
+    } else if (isLeak) {
+      nextRun.currentHP = Math.max(1, nextRun.currentHP - 50);
+      nextAvatar.sp = (nextAvatar.sp || 0) + 2;
+      msg = `DATA LEAK: +2 SP EXTRAHIERT // -50 HP SCHADEN ERLITTEN.`;
+      col = '#ff0055';
+    } else if (isMarket) {
+      if (!selectedCard) return;
+      const cIdx = nextRun.runDeck.chars.findIndex(c => c.name === selectedCard.name);
+      if (cIdx > -1) nextRun.runDeck.chars.splice(cIdx, 1);
+      else {
+        const eIdx = nextRun.runDeck.effs.findIndex(c => c.name === selectedCard.name);
+        if (eIdx > -1) nextRun.runDeck.effs.splice(eIdx, 1);
+      }
+      const legacies = cardsData.characters.filter(c => c.type === 'legacy');
+      const reward = legacies[Math.floor(Math.random() * legacies.length)];
+      nextRun.runDeck.chars.push({ ...reward, level: 1, isNew: true });
+      msg = `SHADOW BROKER: [${selectedCard.name}] GEOPFERT. LEGACY ASSET [${reward.name}] ERHALTEN.`;
+      col = 'var(--legacy-sepia)';
+    }
+
+    let newNode = nextRun.node + 1;
+    let newSec = nextRun.sector;
+    if (newNode > 5) { newNode = 1; newSec++; }
+    nextRun.node = newNode;
+    nextRun.sector = newSec;
+
+    setResultMsg(msg);
+    setResultColor(col);
+    setPendingUpdates({ nextRun, nextAvatar });
+    setStep('result');
+  };
+
+  if (step === 'intro') {
+    return (
+      <div className="screen active" style={{ justifyContent: 'center', alignItems: 'center' }}>
+        <div className="glass-panel animate-panel-in" style={{ width: '100%', maxWidth: '600px', padding: '40px', textAlign: 'center' }}>
+           <div style={{ fontSize: '4rem', marginBottom: '10px' }}>
+             {isSafehouse ? '⛺' : isLeak ? '🔓' : '🛒'}
+           </div>
+           <h2 style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: '2.5rem', color: isSafehouse ? '#00ff44' : isLeak ? '#ff0055' : 'var(--legacy-sepia)', letterSpacing: '4px', margin: '0 0 20px 0' }}>
+             {isSafehouse ? 'SAFEHOUSE' : isLeak ? 'DATA LEAK' : 'BLACK MARKET'}
+           </h2>
+           <p className="mono" style={{ color: '#ccc', marginBottom: '30px', lineHeight: '1.6' }}>
+             {isSafehouse ? 'Sichere Zone. Repariert beschädigten Code und stellt 20% deiner maximalen HP wieder her.' :
+              isLeak ? 'Du entwendest wertvolle Skill Points, das System kontert jedoch mit permanentem Schaden (-50 HP).' :
+              'Schattensystem-Händler. Opfere eine Karte aus deinem Deck für ein mächtiges Legacy-Asset.'}
+           </p>
+           {isMarket ? (
+             <button className="menu-btn btn-play modern-btn" onClick={() => { playSound('click'); setStep('market_select'); }}>KARTEN TAUSCHEN ▸</button>
+           ) : (
+             <button className="menu-btn btn-play modern-btn" onClick={processEvent}>EVENT AUSFÜHREN ▸</button>
+           )}
+        </div>
+      </div>
+    );
+  }
+
+  if (step === 'market_select') {
+     return (
+       <div className="screen active" style={{ display: 'block', padding: '30px', overflowY: 'auto' }}>
+         <div className="top-bar" style={{ marginBottom: '30px' }}>
+           <div className="game-title-small" style={{ color: 'var(--legacy-sepia)' }}>🛒 SHADOW BROKER</div>
+           <button className="btn-back" onClick={() => setStep('intro')}>ZURÜCK</button>
+         </div>
+         <div className="mono" style={{ textAlign: 'center', marginBottom: '30px', color: '#ccc', letterSpacing: '2px' }}>▸ WÄHLE EINE KARTE ZUM OPFERN (Avatar ist geschützt)</div>
+         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', justifyContent: 'center' }}>
+            {[...roguelikeRun.runDeck.chars, ...roguelikeRun.runDeck.effs].map((c, i) => {
+               const isAv = i === 0 && roguelikeRun.runDeck.chars.includes(c);
+               if (isAv) return null;
+               const isSelected = selectedCard?.name === c.name;
+               return (
+                 <div key={i} onClick={() => { playSound('click'); setSelectedCard(c); }} style={{ cursor: 'pointer', outline: isSelected ? '3px solid var(--lose)' : 'none', outlineOffset: '3px', transform: isSelected ? 'translateY(-10px)' : 'none', transition: '0.2s', borderRadius: '6px' }}>
+                    <div style={{ width: '150px', height: '210px', overflow: 'hidden', borderRadius: '6px', border: '1px solid #333' }}>
+                      <div style={{ transform: 'scale(0.416)', transformOrigin: 'top left', width: '360px', height: '504px', pointerEvents: 'none' }}>
+                         <Card card={c} context="inventory" />
+                      </div>
+                    </div>
+                 </div>
+               )
+            })}
+         </div>
+         <div style={{ textAlign: 'center', marginTop: '50px' }}>
+            <button className="menu-btn" style={{ borderColor: selectedCard ? 'var(--lose)' : '#333', color: selectedCard ? 'var(--lose)' : '#555', maxWidth: '400px', margin: '0 auto' }} disabled={!selectedCard} onClick={processEvent}>
+              {selectedCard ? `[${selectedCard.name}] OPFERN` : 'KARTE AUSWÄHLEN'}
+            </button>
+         </div>
+       </div>
+     )
+  }
+
+  if (step === 'result') {
+    return (
+      <div className="screen active" style={{ justifyContent: 'center', alignItems: 'center' }}>
+        <div className="glass-panel animate-panel-in" style={{ width: '100%', maxWidth: '600px', padding: '40px', textAlign: 'center', borderColor: resultColor }}>
+           <div style={{ fontSize: '4rem', marginBottom: '10px' }}>✓</div>
+           <h2 style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: '2.5rem', color: resultColor, letterSpacing: '4px', margin: '0 0 20px 0' }}>EVENT ABGESCHLOSSEN</h2>
+           <div className="mono" style={{ color: '#fff', fontSize: '1rem', marginBottom: '40px', lineHeight: '1.6', padding: '15px', background: 'rgba(0,0,0,0.5)', borderLeft: `3px solid ${resultColor}` }}>{resultMsg}</div>
+           <button className="menu-btn btn-play modern-btn" onClick={() => onComplete(pendingUpdates.nextRun, pendingUpdates.nextAvatar)}>
+             WEITER ZUR MAP ▸
+           </button>
+        </div>
+      </div>
+    );
+  }
+  return null;
+}
 
 const InspectorModal = ({ card, onClose }) => {
   const [gyroActive, setGyroActive] = useState(true);
@@ -128,7 +259,20 @@ export default function App() {
   const [inventory, setInventory] = useState(() => {
     const savedInv = localStorage.getItem('aoc_inventory');
     if (savedInv !== null) {
-      const parsedInv = JSON.parse(savedInv);
+      let parsedInv = JSON.parse(savedInv);
+      
+      // NEU: Auto-Sync mit der JSON-Datei!
+      // Wenn du Stats in der cards.json änderst, werden diese hier ins Savegame übernommen
+      const allBaseCards = [...cardsData.characters, ...(cardsData.effects || [])];
+      parsedInv = parsedInv.map(savedCard => {
+        const baseCard = allBaseCards.find(c => c.name === savedCard.name);
+        if (baseCard) {
+          // Basis-Stats aus JSON nehmen, aber Spieler-Fortschritt (Level, isNew, SP) behalten
+          return { ...baseCard, level: savedCard.level, isNew: savedCard.isNew, sp: savedCard.sp };
+        }
+        return savedCard;
+      });
+
       const savedDecks = localStorage.getItem('aoc_decks');
       if (savedDecks) {
         const parsedDecks = JSON.parse(savedDecks);
@@ -233,10 +377,43 @@ export default function App() {
 
       if (p) {
         if (p.credits != null && !isNaN(p.credits)) setCredits(p.credits);
-        if (p.inventory?.length) setInventory(p.inventory);
-        if (p.decks?.length) setDecks(p.decks);
         
-        if (p.avatar_card !== undefined) setAvatarCard(p.avatar_card);
+        // NEU: Auto-Sync für Cloud-Daten. 
+        // Wir nehmen die Namen aus der DB, aber die Stats frisch aus der cards.json.
+        const allBaseCards = [...cardsData.characters, ...(cardsData.effects || [])];
+
+        if (p.inventory?.length) {
+          const syncedInv = p.inventory.map(savedCard => {
+            const baseCard = allBaseCards.find(c => c.name === savedCard.name);
+            // Falls die Karte in der JSON existiert, überschreibe Stats, behalte Level/SP
+            return baseCard ? { ...baseCard, level: savedCard.level, isNew: savedCard.isNew, sp: savedCard.sp } : savedCard;
+          });
+          setInventory(syncedInv);
+          localStorage.setItem('aoc_inventory', JSON.stringify(syncedInv));
+        }
+
+        if (p.decks?.length) {
+          const syncedDecks = p.decks.map(deck => ({
+            ...deck,
+            chars: (deck.chars || []).map(savedCard => {
+              const baseCard = allBaseCards.find(c => c.name === savedCard.name);
+              return baseCard ? { ...baseCard, level: savedCard.level, isNew: savedCard.isNew, sp: savedCard.sp } : savedCard;
+            }),
+            effs: (deck.effs || []).map(savedCard => {
+              const baseCard = allBaseCards.find(c => c.name === savedCard.name);
+              return baseCard ? { ...baseCard, level: savedCard.level, isNew: savedCard.isNew, sp: savedCard.sp } : savedCard;
+            })
+          }));
+          setDecks(syncedDecks);
+          localStorage.setItem('aoc_decks', JSON.stringify(syncedDecks));
+        }
+        
+        if (p.avatar_card) {
+          const baseAvatar = allBaseCards.find(c => c.name === p.avatar_card.name);
+          setAvatarCard(baseAvatar ? { ...baseAvatar, sp: p.avatar_card.sp } : p.avatar_card);
+        } else if (p.avatar_card === null) {
+          setAvatarCard(null);
+        }
         if (p.active_run !== undefined) setRoguelikeRun(p.active_run);
         if (p.meta_stats !== undefined) setMetaStats(p.meta_stats || {});
 
@@ -275,13 +452,21 @@ export default function App() {
     if (session && !avatarCard) return;
 
     const t = setTimeout(() => {
+      // NEU: Packs und einzigartige Karten dynamisch fürs Leaderboard erfassen
+      const uniqueCardsCount = new Set(inventory.map(c => c.name)).size;
+      const syncedMeta = {
+        ...metaStats,
+        packs_opened: stats.packsOpened || 0,
+        cards_collected: uniqueCardsCount
+      };
+
       saveToCloud({ 
         credits, 
         inventory, 
         decks, 
         avatar_card: avatarCard, 
         active_run: roguelikeRun,
-        meta_stats: metaStats
+        meta_stats: syncedMeta
       });
     }, 1500);
 
@@ -333,45 +518,52 @@ export default function App() {
 
   // ── PHASE 2: Roguelike Match-Logik ────────────────────────────────────────
   const [roguelikeMatchData, setRoguelikeMatchData] = useState(null); 
-  const [rewardData,         setRewardData]         = useState(null);   
+  const [rewardData,         setRewardData]         = useState(null);
+  const [roguelikeEventData, setRoguelikeEventData] = useState(null);
 
-  const generateAIDeck = (node, sector) => {
-    const isBoss = node === 5;
-    const level  = isBoss ? 3 : Math.max(1, Math.min(2, sector));
-    const diff   = isBoss ? 4 : Math.min(3, sector);
-    
-    // Archetypen Logik (Zufall, basierend auf Node)
-    const rand = Math.random();
-    let archetype = 'standard';
+  const startRoguelikeEvent = (nodeObj) => {
+    setRoguelikeEventData(nodeObj);
+    setCurrentView('roguelikeevent');
+  };   
+
+  const generateAIDeck = (nodeObj, sector) => {
+    // 1. HP STRIKT NACH NODE-TYP SETZEN
     let aHP = 500;
-    let charPool = [...cardsData.characters];
+    if (nodeObj.type === 'elite') aHP = 700;
+    else if (nodeObj.type === 'boss') aHP = 1200;
 
-    if (isBoss) {
-      aHP = 1200; // Boss ist jetzt viel tankier!
-      archetype = 'boss';
-    } else if (rand > 0.6) {
-      archetype = 'tank';
-      aHP = 2500;
-      charPool = charPool.filter(c => (c.gti || 0) < 80); // Tank nutzt nur schwächere Karten
-    } else if (rand > 0.3) {
-      archetype = 'assassin';
-      aHP = 400;
-      // Assassin bekommt garantiert eine sehr starke Karte an Pos 1
+    // 2. THREAT-LEVEL KORREKT BERECHNEN
+    let diff = 1;
+    if (nodeObj.type === 'standard') diff = Math.min(3, sector);
+    else if (nodeObj.type === 'elite') diff = Math.min(4, sector + 1);
+    else if (nodeObj.type === 'boss') diff = 4;
+
+    // 3. KARTEN-LEVEL BERECHNEN
+    const finalLevel = nodeObj.type === 'boss' ? 3 : Math.max(1, Math.min(2, sector));
+
+    // 4. DECK ZUSAMMENSTELLEN (Archetypen für Karten, ABER ohne verbuggte HP-Änderungen!)
+    let charPool = [...cardsData.characters];
+    const rand = Math.random();
+    let archetype = nodeObj.type;
+
+    if (nodeObj.type !== 'boss' && rand > 0.7) {
+      archetype = 'assassin'; 
       const apexCards = charPool.filter(c => c.type === 'apex' || c.type === 'legacy');
       if (apexCards.length > 0) {
         charPool = [apexCards[Math.floor(Math.random() * apexCards.length)], ...charPool];
       }
+    } else if (nodeObj.type !== 'boss' && rand > 0.4) {
+      archetype = 'tank'; 
+      charPool = charPool.filter(c => (c.gti || 0) < 85);
     }
 
     const shuffledChars = shuffle(charPool);
-    // Assassin bekommt Level 3 Karten, egal welcher Sektor!
-    const finalLevel = archetype === 'assassin' ? 3 : level; 
-    
     const aiChars = shuffledChars.slice(0, 4).map(c => ({ ...c, level: finalLevel }));
+    
     const effs = cardsData.effects || [];
     const aiEffs = effs.length > 0 ? [{ ...effs[Math.floor(Math.random() * effs.length)], level: 1 }] : [];
     
-    return { aiChars, aiEffs, difficulty: diff, initialAHP: aHP, archetype };
+    return { aiChars, aiEffs, difficulty: diff, initialAHP: aHP, archetype, node: nodeObj };
   };
 
   const startRoguelikeRunWithDeck = (selectedChars, selectedEffs) => {
@@ -393,9 +585,10 @@ export default function App() {
     setCurrentView('roguelikesquad');
   };
 
-  const startRoguelikeMatch = () => {
-    if (!roguelikeRun) return;
-    const data = generateAIDeck(roguelikeRun.node, roguelikeRun.sector);
+  // FIX: Nimmt jetzt das nodeObj von der RoguelikeMap entgegen!
+  const startRoguelikeMatch = (nodeObj) => {
+    if (!roguelikeRun || !nodeObj) return;
+    const data = generateAIDeck(nodeObj, roguelikeRun.sector);
     setRoguelikeMatchData(data);
     setCurrentView('match');
   };
@@ -410,7 +603,14 @@ export default function App() {
       if (matchData) {
         next.total_damage_dealt = (next.total_damage_dealt || 0) + (matchData.dmgDealt || 0);
         next.total_damage_taken = (next.total_damage_taken || 0) + (matchData.dmgTaken || 0);
-        if ((matchData.dmgDealt || 0) > (next.highest_crit || 0)) next.highest_crit = matchData.dmgDealt;
+        // FIX: Höchsten Einzel-Hit statt Gesamtschaden speichern!
+        if ((matchData.highestHit || 0) > (next.highest_crit || 0)) next.highest_crit = matchData.highestHit;
+      }
+      
+      // NEU: Weitesten Ghost Node Run tracken (Berechnung: Sektor * 10 + Node)
+      if (roguelikeRun) {
+        const runScore = (roguelikeRun.sector * 10) + roguelikeRun.node;
+        next.furthest_run_score = Math.max(next.furthest_run_score || 0, runScore);
       }
       
       // Sieg/Niederlagen Zähler
@@ -490,7 +690,11 @@ export default function App() {
     setRoguelikeMatchData(null);
 
     // 4. ZUM DRAFT-SCREEN LEITEN
-    setRewardData({ draft: draftPool });
+    setRewardData({ 
+      draft: draftPool,
+      hpUpdate: { next: Math.max(0, remainingHP), max: roguelikeRun.maxHP },
+      loot: { sp: spGain, credits: earnedCredits }
+    });
     setCurrentView('roguelikereward');
     
     saveToCloud({ 
@@ -712,86 +916,22 @@ export default function App() {
   if (!session && !guestMode) return <Auth onGuestLogin={handleGuestLogin} />;
 
   // ════════════════════════════════════════════════════════════════════════════
-  // ── ROGUELIKE STRICT ROUTING ──
+  // ── ROGUELIKE STRICT ROUTING (Jetzt als Render-Funktion) ──
   // ════════════════════════════════════════════════════════════════════════════
 
-  if (currentView === 'ghostnodemenu') return (
-    <GhostNodeMenu
-      avatarCard={avatarCard}
-      updateAvatar={updateAvatar} /* <--- DAS HIER IST NEU */
-      roguelikeRun={roguelikeRun}
-      onGoToLab={() => setCurrentView('avatarlab')}
-      onGoToSquad={() => setCurrentView('roguelikesquad')}
-      onGoToMap={() => setCurrentView('roguelikemap')}
-      onBack={() => setCurrentView('menu')}
-    />
-  );
-
-  if (currentView === 'avatarlab') return (
-    <AvatarLab
-      avatarCard={avatarCard}
-      updateAvatar={updateAvatar}
-      onBack={() => setCurrentView('ghostnodemenu')}
-      onGoToMission={() => {
-        if (roguelikeRun) setCurrentView('roguelikemap');
-        else setCurrentView('roguelikesquad');
-      }}
-      allFactions={allFactions}
-    />
-  );
-
-  if (currentView === 'roguelikesquad') return (
-    <RoguelikeSquad
-      avatarCard={avatarCard}
-      inventory={inventory}
-      onConfirm={startRoguelikeRunWithDeck}
-      onBack={() => setCurrentView('ghostnodemenu')}
-    />
-  );
-
-  if (currentView === 'roguelikemap') {
-    if (!roguelikeRun) {
-      return (
-        <div className="screen active" style={{ justifyContent: 'center', alignItems: 'center' }}>
-          <div className="mono" style={{ color: 'var(--ep)', fontSize: '1.2rem', animation: 'pulse 1s infinite' }}>INITIALISIERE THE GRID...</div>
-        </div>
-      );
+  const renderRoguelikeView = () => {
+    if (currentView === 'ghostnodemenu') return <GhostNodeMenu avatarCard={avatarCard} updateAvatar={updateAvatar} roguelikeRun={roguelikeRun} onGoToLab={() => setCurrentView('avatarlab')} onGoToSquad={() => setCurrentView('roguelikesquad')} onGoToMap={() => setCurrentView('roguelikemap')} onBack={() => setCurrentView('menu')} />;
+    if (currentView === 'avatarlab') return <AvatarLab avatarCard={avatarCard} updateAvatar={updateAvatar} onBack={() => setCurrentView('ghostnodemenu')} onGoToMission={() => { if (roguelikeRun) setCurrentView('roguelikemap'); else setCurrentView('roguelikesquad'); }} allFactions={allFactions} />;
+    if (currentView === 'roguelikesquad') return <RoguelikeSquad avatarCard={avatarCard} inventory={inventory} onConfirm={startRoguelikeRunWithDeck} onBack={() => setCurrentView('ghostnodemenu')} />;
+    if (currentView === 'roguelikemap') {
+      if (!roguelikeRun) return <div className="screen active" style={{ justifyContent: 'center', alignItems: 'center' }}><div className="mono" style={{ color: 'var(--ep)', fontSize: '1.2rem', animation: 'pulse 1s infinite' }}>INITIALISIERE THE GRID...</div></div>;
+      return <RoguelikeMap avatarCard={avatarCard} roguelikeRun={roguelikeRun} onStartRun={startRoguelikeRun} onStartBattle={startRoguelikeMatch} onStartEvent={startRoguelikeEvent} onBack={() => setCurrentView('ghostnodemenu')} onGoToLab={() => setCurrentView('avatarlab')} />;
     }
-    return (
-      <RoguelikeMap
-        avatarCard={avatarCard}
-        roguelikeRun={roguelikeRun}
-        onStartRun={startRoguelikeRun}
-        onStartBattle={startRoguelikeMatch}
-        onBack={() => setCurrentView('ghostnodemenu')}
-        onGoToLab={() => setCurrentView('avatarlab')}
-      />
-    );
-  }
-
-  if (currentView === 'roguelikereward') return (
-    <RoguelikeReward
-      rewardData={rewardData}
-      roguelikeRun={roguelikeRun}
-      onApplyDraft={applyRoguelikeDraft}
-      onSkip={() => { setRewardData(null); setCurrentView('roguelikemap'); }}
-    />
-  );
-
-  if (currentView === 'roguelikefailed') return (
-    <div className="screen active" style={{ justifyContent: 'center', alignItems: 'center' }}>
-      <div className="glass-panel" style={{ width: '100%', maxWidth: '520px', padding: '50px 40px', textAlign: 'center', borderColor: 'var(--lose)' }}>
-        <div style={{ fontSize: '3rem', marginBottom: '16px' }}>💀</div>
-        <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: '2.5rem', fontWeight: 900, letterSpacing: '6px', color: 'var(--lose)', textShadow: '0 0 30px rgba(255,0,50,0.5)', marginBottom: '8px' }}>RUN FAILED</div>
-        <div className="mono" style={{ color: '#ff6680', fontSize: '0.72rem', letterSpacing: '3px', marginBottom: '26px' }}>AGENT KOMPROMITTIERT — SYSTEM COLLAPSED</div>
-        <div style={{ padding: '14px', background: 'rgba(255,0,50,0.05)', border: '1px solid rgba(255,0,50,0.15)', borderLeft: '3px solid var(--lose)', marginBottom: '26px' }}>
-          <div className="mono" style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.35)', letterSpacing: '2px' }}>AVATAR-KARTE BLEIBT ERHALTEN — UPGRADES PERSISTENT</div>
-          {avatarCard && <div className="mono" style={{ color: 'var(--ep)', marginTop: '6px', fontWeight: 700 }}>{avatarCard.name} // SP: {avatarCard.sp ?? 0}</div>}
-        </div>
-        <button className="menu-btn btn-play modern-btn" onClick={() => setCurrentView('ghostnodemenu')}>ZURÜCK ZUM HUB</button>
-      </div>
-    </div>
-  );
+    if (currentView === 'roguelikeevent' && roguelikeEventData) return <RoguelikeEventScreen nodeObj={roguelikeEventData} roguelikeRun={roguelikeRun} avatarCard={avatarCard} cardsData={cardsData} onComplete={(nextRun, nextAvatar) => { playSound('click'); setRoguelikeRun(nextRun); setAvatarCard(nextAvatar); saveToCloud({ active_run: nextRun, avatar_card: nextAvatar }); setRoguelikeEventData(null); setCurrentView('roguelikemap'); }} />;
+    if (currentView === 'roguelikereward') return <RoguelikeReward rewardData={rewardData} roguelikeRun={roguelikeRun} onApplyDraft={applyRoguelikeDraft} onSkip={() => { setRewardData(null); setCurrentView('roguelikemap'); }} />;
+    if (currentView === 'roguelikefailed') return <div className="screen active" style={{ justifyContent: 'center', alignItems: 'center' }}><div className="glass-panel" style={{ width: '100%', maxWidth: '520px', padding: '50px 40px', textAlign: 'center', borderColor: 'var(--lose)' }}><div style={{ fontSize: '3rem', marginBottom: '16px' }}>💀</div><div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: '2.5rem', fontWeight: 900, letterSpacing: '6px', color: 'var(--lose)', textShadow: '0 0 30px rgba(255,0,50,0.5)', marginBottom: '8px' }}>RUN FAILED</div><div className="mono" style={{ color: '#ff6680', fontSize: '0.72rem', letterSpacing: '3px', marginBottom: '26px' }}>AGENT KOMPROMITTIERT — SYSTEM COLLAPSED</div><div style={{ padding: '14px', background: 'rgba(255,0,50,0.05)', border: '1px solid rgba(255,0,50,0.15)', borderLeft: '3px solid var(--lose)', marginBottom: '26px' }}><div className="mono" style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.35)', letterSpacing: '2px' }}>AVATAR-KARTE BLEIBT ERHALTEN — UPGRADES PERSISTENT</div>{avatarCard && <div className="mono" style={{ color: 'var(--ep)', marginTop: '6px', fontWeight: 700 }}>{avatarCard.name} // SP: {avatarCard.sp ?? 0}</div>}</div><button className="menu-btn btn-play modern-btn" onClick={() => setCurrentView('ghostnodemenu')}>ZURÜCK ZUM HUB</button></div></div>;
+    return null;
+  };
 
   // ════════════════════════════════════════════════════════════════════════════
 
@@ -819,8 +959,21 @@ export default function App() {
 
   const aiDeck = getAIDeck();
 
+  // Globale Theme-Farbe für den Matrix-Hintergrund bestimmen
+  const getThemeColor = (view) => {
+    if (view === 'ghostnodemenu' || view === 'avatarlab') return '#ff2244'; // Rötlich — Ghost Node
+    return '#00e5ff'; // Einheitliches Cyan für alle anderen Screens
+  };
+
   return (
-    <>
+    <div style={{ '--matrix-col': getThemeColor(currentView), minHeight: '100vh', position: 'relative' }}>
+      
+      {/* GLOBALE CYBER-BACKGROUND (Matrix Rain + Grid) */}
+      <CyberBackground color={getThemeColor(currentView)} />
+
+      {/* HIER WERDEN DIE ROGUELIKE-VIEWS JETZT GELADEN (ohne den Hintergrund zu blockieren!) */}
+      {renderRoguelikeView()}
+
       {floats.map(ft => (
          <div key={ft.id} className="money-popup" style={{ left: ft.x, top: ft.y }}>{ft.text}</div>
       ))}
@@ -1050,28 +1203,65 @@ export default function App() {
         <Leaderboard onBack={() => setCurrentView('menu')} />
       )}
       {currentView === 'lexicon' && (
-        <div className="screen active lex-screen" style={{ display: 'block', padding: '30px' }}>
-          <div className="top-bar">
-            <div className="game-title-small">ARCHIV: LEXIKON</div>
+        <div className="screen active lex-screen" style={{ display: 'block', padding: '0 30px 30px 30px' }}>
+          {/* Sticky Top-Bar */}
+          <div className="top-bar" style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(5, 5, 8, 0.95)', padding: '30px 0 20px 0', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+            
+            {/* NEU: Anklickbare Tabs statt statischem Titel */}
+            <div style={{ display: 'flex', gap: '30px', alignItems: 'center' }}>
+              <div 
+                className="game-title-small" 
+                style={{ cursor: 'pointer', opacity: lexFaction !== 'EFFECTS' ? 1 : 0.4, transition: '0.2s' }}
+                onClick={(e) => { e.nativeEvent.stopImmediatePropagation(); playSound('click'); setLexFaction('ALL'); }}
+              >
+                AGENTEN
+              </div>
+              <div 
+                className="game-title-small" 
+                style={{ cursor: 'pointer', opacity: lexFaction === 'EFFECTS' ? 1 : 0.4, transition: '0.2s', color: 'var(--eff-col)', textShadow: lexFaction === 'EFFECTS' ? '0 0 10px var(--eff-col)' : 'none' }}
+                onClick={(e) => { e.nativeEvent.stopImmediatePropagation(); playSound('click'); setLexFaction('EFFECTS'); }}
+              >
+                TAKTIKEN
+              </div>
+            </div>
+            
             <div className="lex-top-controls" style={{ display: 'flex', gap: '15px' }}>
               <input type="text" placeholder="Suche..." value={lexSearch} onChange={e => setLexSearch(e.target.value)} className="mono" style={{ padding: '8px', background: '#000', border: '1px solid #444', color: '#fff' }} />
-              <select value={lexFaction} onChange={e => setLexFaction(e.target.value)} className="mono" style={{ padding: '8px', background: '#000', border: '1px solid #444', color: '#fff' }}>
-                <option value="ALL">ALLE FRAKTIONEN</option>
-                {allFactions.map(f => <option key={f} value={f}>{f}</option>)}
-              </select>
-              <button className="btn-info" onClick={() => { playSound('click'); setShowGlobalRules(true); }}>RULES</button>
+              
+              {/* Dropdown nur einblenden, wenn wir bei den Agenten sind */}
+              {lexFaction !== 'EFFECTS' && (
+                <select value={lexFaction} onChange={e => setLexFaction(e.target.value)} className="mono" style={{ padding: '8px', background: '#000', border: '1px solid #444', color: '#fff' }}>
+                  <option value="ALL">ALLE FRAKTIONEN</option>
+                  {allFactions.map(f => <option key={f} value={f}>{f}</option>)}
+                </select>
+              )}
+              
               <button className="btn-back" onClick={() => setCurrentView('menu')}>ZURÜCK</button>
             </div>
           </div>
           <div className="card-grid">
-            {cardsData.characters
-              .filter(c => (c.name || '').toLowerCase().includes(lexSearch.toLowerCase()) && (lexFaction === 'ALL' || c.faction === lexFaction))
+            {[...cardsData.characters, ...(cardsData.effects || [])]
+              .filter(c => {
+                 const matchSearch = (c.name || '').toLowerCase().includes(lexSearch.toLowerCase());
+                 const isEffect = c.type === 'effect' || c.buff !== undefined;
+                 
+                 let matchFaction = false;
+                 // Trennt Agenten und Effekte strikt voneinander
+                 if (lexFaction === 'EFFECTS') matchFaction = isEffect;
+                 else if (lexFaction === 'ALL') matchFaction = !isEffect;
+                 else matchFaction = c.faction === lexFaction && !isEffect;
+                 
+                 return matchSearch && matchFaction;
+              })
               .sort((a,b) => (b.gti || 0) - (a.gti || 0))
-              .map((c, i) => (
-                <div key={i} className="card-grid-cell" onClick={() => { playSound('click'); setLexiconInspectCard(c); }}>
-                  <Card card={c} context="lexicon" />
-                </div>
-              ))
+              .map((c, i) => {
+                const isOwned = inventory.some(inv => inv.name === c.name);
+                return (
+                  <div key={i} className={`card-grid-cell ${!isOwned ? 'card-unowned' : ''}`} onClick={() => { playSound('click'); setLexiconInspectCard(c); }}>
+                    <Card card={c} context="lexicon" />
+                  </div>
+                );
+              })
             }
           </div>
         </div>
@@ -1101,7 +1291,6 @@ export default function App() {
           {/* Top Bar (Credits & Logout) bleibt erhalten */}
           <div style={{ position: 'absolute', top: '20px', right: '30px', display: 'flex', gap: '15px', alignItems: 'center', zIndex: 100 }}>
              <div className="mono" style={{ fontSize: '1.2rem', color: '#fff', marginRight: '10px', textShadow: '0 0 10px var(--ep)' }}><span style={{color: 'var(--ep)'}}>{credits}</span> 💳</div>
-             <button className="btn-info" onClick={() => { playSound('click'); setShowGlobalRules(true); }}>RULES</button>
              {session ? (
                <button className="btn-back" style={{borderColor:'var(--win)',color:'var(--win)'}} onClick={handleLogout}>
                  {session.user?.user_metadata?.username || 'LOGOUT'} ⏻
@@ -1171,11 +1360,6 @@ export default function App() {
                   {hasClaimableMissions && <div className="notif-dot" style={{ background: 'var(--win)' }}></div>}
                </button>
                
-               <button className="dash-btn-module" onClick={() => { setPlayMenuOpen(false); setCurrentView('stats'); }}>
-                  <div className="mod-icon">📊</div>
-                  <div className="mod-text">STATISTIKEN</div>
-               </button>
-
                <button className="dash-btn-module" onClick={() => { setPlayMenuOpen(false); setCurrentView('lexicon'); }}>
                   <div className="mod-icon">📖</div>
                   <div className="mod-text">LEXIKON</div>
@@ -1190,6 +1374,6 @@ export default function App() {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

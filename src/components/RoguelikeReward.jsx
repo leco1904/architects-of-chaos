@@ -54,42 +54,61 @@ function LootSummaryStage({ rewardData, roguelikeRun, onNext }) {
   useEffect(() => {
     setTimeout(() => playSound('upgrade'), 300);
     setTimeout(() => playSound('upgrade'), 600);
-    // Auto-advance
-    const t = setTimeout(onNext, 4500);
+    const t = setTimeout(onNext, 5000);
     return () => clearTimeout(t);
   }, []);
 
+  const pods = [
+    { label: 'AVATAR HP', value: `${hpUpdate.next} / ${hpUpdate.max}`, icon: '❤️', color: hpPct > 25 ? 'var(--win)' : 'var(--lose)', delay: 0.1 },
+    { label: 'SKILL POINTS (SP)', value: `+${loot.sp}`, icon: '⏫', color: '#bc13fe', delay: 0.2 },
+    { label: 'CREDITS OBTAINED', value: `+${loot.credits} 💳`, icon: '💳', color: 'var(--ep)', delay: 0.3 },
+  ];
+  if (loot.pack) pods.push({
+    label: 'PACK REWARD', value: loot.pack.name || 'DATA CACHE', icon: '📦', color: 'var(--apex-pink)', delay: 0.4
+  });
+
   return (
-    <div style={{position:'relative', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:'100vh', gap:'20px', padding: '20px'}}>
+    <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', gap: '24px', padding: '20px' }}>
       <CyberConfetti />
-      
-      <div className="glass-panel animate-panel-in" style={{ borderColor:'var(--win)', padding:'25px', textAlign:'center', width:'100%', maxWidth:'600px' }}>
-        <Corners color="var(--win)"/>
-        <div className="mono" style={{ fontSize:'0.7rem', color:'rgba(0,229,255,0.4)', letterSpacing:'4px', marginBottom:'5px' }}>▸ CONFLICT RESOLVED</div>
-        <h1 style={{ fontFamily:"'Rajdhani',sans-serif", fontSize:'clamp(1.8rem, 5vw, 2.5rem)', fontWeight:900, color:'#fff', letterSpacing:'6px', margin:0, textShadow:'0 0 20px rgba(0,229,255,0.4)' }}>
-           NODE CLEARED
+
+      {/* Title panel */}
+      <div className="glass-panel animate-panel-in" style={{ borderColor: 'var(--win)', padding: '30px 40px', textAlign: 'center', width: '100%', maxWidth: '640px', position: 'relative' }}>
+        <Corners color="var(--win)" size={10}/>
+        <div className="mono" style={{ fontSize: '0.7rem', color: 'rgba(0,229,255,0.4)', letterSpacing: '5px', marginBottom: '8px' }}>▸ CONFLICT RESOLVED</div>
+        <h1 style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 'clamp(2rem, 5vw, 3rem)', fontWeight: 900, color: '#fff', letterSpacing: '8px', margin: '0 0 8px', textShadow: '0 0 30px rgba(0,229,255,0.5)' }}>
+          NODE {node}/5 CLEARED
         </h1>
-        <div className="mono" style={{ fontSize:'0.8rem', color:'#fff', marginTop:'3px' }}>SEKTOR {sector} // GHOST PROTOCOL STATUS: ONLINE</div>
+        <div className="mono" style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)' }}>SEKTOR {sector} // GHOST PROTOCOL STATUS: ONLINE</div>
       </div>
 
-      <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:'15px', width:'100%', maxWidth:'600px'}}>
-        {[
-          { label: 'AVATAR HP', value: `${hpUpdate.next} / ${hpUpdate.max}`, icon:'❤️', color: hpPct>25?'var(--win)':'var(--lose)', delay: 0.1 },
-          { label: 'SKILL POINTS (SP)', value: `+${loot.sp}`, icon:'⏫', color:'#bc13fe', delay: 0.2 },
-          { label: 'CREDITS OBTAINED', value: `+${loot.credits} 💳`, icon:'💳', color:'var(--ep)', delay: 0.3 }
-        ].map((pod, i) => (
-          <div key={i} className="glass-panel animate-panel-in" style={{ borderColor:`${pod.color}44`, padding:'15px', textAlign:'center', animationDelay:`${pod.delay}s` }}>
-            <div className="mono" style={{fontSize:'0.5rem', color:`${pod.color}aa`, letterSpacing:'2px', marginBottom:'5px'}}>{pod.label}</div>
-            <div style={{display:'flex', alignItems:'center', justifyContent:'center', gap:'8px'}}>
-               <span style={{fontSize:'1.3rem'}}>{pod.icon}</span>
-               <span className="mono" style={{fontWeight:900, fontSize:'1.2rem', color:pod.color}}>{pod.value}</span>
+      {/* Reward pods */}
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${pods.length}, minmax(130px, 180px))`, gap: '14px', width: '100%', maxWidth: '800px', justifyContent: 'center' }}>
+        {pods.map((pod, i) => (
+          <div key={i} className="glass-panel animate-panel-in" style={{ borderColor: `${pod.color}55`, padding: '18px 14px', textAlign: 'center', animationDelay: `${pod.delay}s`, position: 'relative' }}>
+            <Corners color={`${pod.color}66`} size={6}/>
+            <div className="mono" style={{ fontSize: '0.48rem', color: `${pod.color}aa`, letterSpacing: '2px', marginBottom: '8px' }}>{pod.label}</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '1.4rem' }}>{pod.icon}</span>
+              <span className="mono" style={{ fontWeight: 900, fontSize: '1.1rem', color: pod.color, letterSpacing: '1px' }}>{pod.value}</span>
             </div>
           </div>
         ))}
       </div>
 
-      <button className="menu-btn animate-panel-in" style={{ borderColor:'var(--win)', color:'var(--win)', marginTop:'20px', animationDelay:'0.5s', maxWidth: '400px' }} onClick={onNext}>
-         NEXT: DEPLOY NEW ASSET ▸
+      {/* Pack reward highlighted box if present */}
+      {loot.pack && (
+        <div className="glass-panel animate-panel-in" style={{ borderColor: 'var(--apex-pink)', borderLeft: '4px solid var(--apex-pink)', padding: '14px 24px', maxWidth: '500px', width: '100%', display: 'flex', alignItems: 'center', gap: '16px', animationDelay: '0.5s', background: 'rgba(255,0,127,0.06)' }}>
+          <span style={{ fontSize: '2rem' }}>📦</span>
+          <div>
+            <div className="mono" style={{ fontSize: '0.55rem', color: 'var(--apex-pink)', letterSpacing: '3px', marginBottom: '3px' }}>PACK REWARD ERHALTEN</div>
+            <div style={{ fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: '1.1rem', color: '#fff' }}>{loot.pack.name || 'DATA CACHE'}</div>
+            <div className="mono" style={{ fontSize: '0.5rem', color: 'rgba(255,255,255,0.4)', marginTop: '2px' }}>Wird automatisch zu deinen Gratis-Packs hinzugefügt</div>
+          </div>
+        </div>
+      )}
+
+      <button className="menu-btn animate-panel-in" style={{ borderColor: 'var(--win)', color: 'var(--win)', maxWidth: '420px', animationDelay: '0.6s' }} onClick={onNext}>
+        NEXT: DEPLOY NEW ASSET ▸
       </button>
     </div>
   );
@@ -143,124 +162,127 @@ function CardDraftStage({ rewardData, roguelikeRun, onApplyDraft, onSkip }) {
       </div>
 
       {step === 1 && (
-        <div>
-          <div className="mono" style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.3)', letterSpacing: '3px', marginBottom: '14px', textAlign: 'center' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
+          <div className="mono" style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.3)', letterSpacing: '3px', textAlign: 'center' }}>
             ▸ EINE KARTE IN DAS RUN-DECK AUFNEHMEN
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', justifyItems: 'center' }}>
-            {draftCards.map((card, i) => (
-              <div key={i} onClick={() => { playSound('click'); setChosenCard(card); }}
-                style={{
-                  cursor: 'pointer', transform: chosenCard?.name === card.name ? 'translateY(-8px) scale(1.05)' : 'none',
-                  transition: 'transform 0.2s ease',
-                  outline: chosenCard?.name === card.name ? '3px solid var(--win)' : '3px solid transparent',
-                  outlineOffset: '4px',
-                  borderRadius: '2px',
-                }}
-              >
-                <div style={{ transform: 'scale(0.6)', transformOrigin: 'top center', width: '360px', height: '504px', marginBottom: '-200px', pointerEvents: 'none' }}>
-                   <Card card={card} context="inventory" />
+
+          {/* Big card grid — scale 0.78 with correct wrapper sizing */}
+          <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            {draftCards.map((card, i) => {
+              const W = 360, H = 504, S = 0.78;
+              const vw = Math.round(W * S), vh = Math.round(H * S);
+              const selected = chosenCard?.name === card.name;
+              return (
+                <div key={i} onClick={() => { playSound('click'); setChosenCard(card); }}
+                  style={{ cursor: 'pointer', position: 'relative', transition: 'transform 0.2s, box-shadow 0.2s',
+                    transform: selected ? 'translateY(-10px)' : 'none',
+                    boxShadow: selected ? '0 0 30px rgba(0,229,255,0.5)' : 'none',
+                  }}>
+                  {/* Sized to visual dimensions so grid packs tight */}
+                  <div style={{ width: vw, height: vh, overflow: 'hidden', borderRadius: '8px',
+                    outline: selected ? '3px solid var(--win)' : '3px solid transparent', outlineOffset: '3px' }}>
+                    <div style={{ width: W, height: H, transform: `scale(${S})`, transformOrigin: 'top left', pointerEvents: 'none' }}>
+                      <Card card={card} context="inventory" />
+                    </div>
+                  </div>
+                  {selected && (
+                    <div style={{ position: 'absolute', bottom: 8, left: '50%', transform: 'translateX(-50%)',
+                      background: 'var(--win)', color: '#000', padding: '5px 14px', borderRadius: '4px', zIndex: 5 }}>
+                      <span className="mono" style={{ fontSize: '0.6rem', fontWeight: 900 }}>✓ AUSGEWÄHLT</span>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
-          <div style={{ marginTop: '28px', display: 'flex', justifyContent: 'center' }}>
-            <button
-              onClick={() => { playSound('click'); chosenCard && setStep(2); }}
-              disabled={!chosenCard}
-              style={{
-                padding: '13px 40px',
-                background: chosenCard ? 'rgba(0,229,255,0.08)' : 'transparent',
-                border: `1px solid ${chosenCard ? 'var(--win)' : '#2a3a4a'}`,
-                color: chosenCard ? 'var(--win)' : '#2a3a4a',
-                fontFamily: "'Roboto Mono',monospace", fontSize: '0.85rem', fontWeight: 700,
-                letterSpacing: '4px', cursor: chosenCard ? 'pointer' : 'not-allowed',
-              }}
-            >
-              {chosenCard ? `▸ ${chosenCard.name} AUFNEHMEN` : 'KARTE AUSWÄHLEN'}
-            </button>
-          </div>
+
+          <button onClick={() => { playSound('click'); chosenCard && setStep(2); }} disabled={!chosenCard}
+            style={{ padding: '14px 50px', background: chosenCard ? 'rgba(0,229,255,0.1)' : 'transparent',
+              border: `1px solid ${chosenCard ? 'var(--win)' : '#2a3a4a'}`,
+              color: chosenCard ? 'var(--win)' : '#2a3a4a',
+              fontFamily: "'Roboto Mono',monospace", fontSize: '0.85rem', fontWeight: 700,
+              letterSpacing: '4px', cursor: chosenCard ? 'pointer' : 'not-allowed',
+            }}>
+            {chosenCard ? `▸ ${chosenCard.name} AUFNEHMEN` : 'KARTE AUSWÄHLEN'}
+          </button>
         </div>
       )}
 
       {step === 2 && (
-        <div>
-          <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'center' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-              <div className="mono" style={{ fontSize: '0.58rem', color: 'var(--win)', letterSpacing: '3px' }}>▸ NEUE KARTE</div>
-              <div style={{ transform: 'scale(0.65)', transformOrigin: 'top center', width: '360px', height: '504px', marginBottom: '-170px' }}>
-                <Card card={chosenCard} context="inventory" />
+        <div style={{ display: 'flex', gap: '28px', alignItems: 'flex-start', height: 'calc(100vh - 160px)', overflow: 'hidden' }}>
+
+          {/* Left: chosen new card */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+            <div className="mono" style={{ fontSize: '0.58rem', color: 'var(--win)', letterSpacing: '3px' }}>▸ NEUE KARTE</div>
+            {(() => { const S=0.72, W=360, H=504; return (
+              <div style={{ width: Math.round(W*S), height: Math.round(H*S), overflow:'hidden', borderRadius:'8px', border:'2px solid var(--win)', boxShadow:'0 0 20px rgba(0,229,255,0.3)' }}>
+                <div style={{ width:W, height:H, transform:`scale(${S})`, transformOrigin:'top left', pointerEvents:'none' }}>
+                  <Card card={chosenCard} context="inventory"/>
+                </div>
               </div>
+            ); })()}
+          </div>
+
+          {/* Right: replacement grid */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '14px', minWidth: 0, overflow: 'hidden' }}>
+            <div className="mono" style={{ fontSize: '0.58rem', color: 'rgba(255,255,255,0.35)', letterSpacing: '3px' }}>
+              ▸ WELCHE KARTE ERSETZEN? (Avatar ist geschützt)
             </div>
 
-            <div style={{ flex: 1, minWidth: '280px', maxWidth: '600px' }}>
-              <div className="mono" style={{ fontSize: '0.58rem', color: 'rgba(255,255,255,0.3)', letterSpacing: '3px', marginBottom: '12px' }}>
-                ▸ WELCHE KARTE ERSETZEN? (Avatar ist geschützt)
-              </div>
-
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '14px', justifyContent: 'center' }}>
-                {(deck.chars || []).map((card, i) => {
-                  const isAv = i === 0;
-                  const isSelected = replaceIn==='chars' && replaceIdx===i;
-                  const tc = card.type==='apex'?'var(--apex-pink)':card.type==='legacy'?'var(--legacy-sepia)':card.type==='effect'?'var(--eff-col)':'var(--win)';
-                  return (
-                    <div key={i} onClick={isAv?undefined:()=>selectSlot(i,'chars')}
-                      style={{position:'relative',cursor:isAv?'not-allowed':'pointer',opacity:isAv?0.45:1,
-                        transform:isSelected?'translateY(-6px)':'none',
-                        outline:isSelected?`2px solid var(--lose)`:`2px solid ${isAv?'transparent':'transparent'}`,
-                        outlineOffset:'2px',transition:'all 0.2s',
-                        filter:isAv?'grayscale(40%)':'none',borderRadius:'4px',
-                      }}>
-                      <div style={{width:'126px',height:'176px',overflow:'hidden',borderRadius:'4px',border:`1px solid ${isSelected?'var(--lose)':tc+'33'}`}}>
-                        <div style={{transform:'scale(0.35)',transformOrigin:'top left',width:'360px',height:'504px',pointerEvents:'none'}}>
-                          <Card card={card} context="inventory"/>
-                        </div>
+            {/* Cards in 4-col grid, bigger scale 0.5 */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, max-content)', gap: '12px', overflow: 'auto' }}>
+              {[...(deck.chars||[]), ...(deck.effs||[]).map(e=>({...e,_isEff:true}))].map((card, i) => {
+                const isAv = i === 0 && !card._isEff;
+                const inList = card._isEff ? 'effs' : 'chars';
+                const idx    = card._isEff ? (deck.effs||[]).findIndex(e=>e.name===card.name) : i;
+                const isSelected = replaceIn===inList && replaceIdx===idx;
+                const tc = card.type==='apex'?'var(--apex-pink)':card.type==='legacy'?'#b8860b':card._isEff?'var(--eff-col)':'var(--win)';
+                const S=0.5, W=360, H=504;
+                return (
+                  <div key={i} onClick={isAv?undefined:()=>selectSlot(idx,inList)}
+                    style={{ position:'relative', cursor:isAv?'not-allowed':'pointer', opacity:isAv?0.4:1,
+                      transform:isSelected?'translateY(-6px)':'none', transition:'all 0.18s',
+                      borderRadius:'6px', flexShrink: 0,
+                    }}>
+                    <div style={{ width:Math.round(W*S), height:Math.round(H*S), overflow:'hidden', borderRadius:'6px',
+                      border:`2px solid ${isSelected?'var(--lose)':isAv?'#222':tc+'44'}`,
+                      boxShadow:isSelected?'0 0 16px rgba(255,0,50,0.4)':'none',
+                    }}>
+                      <div style={{width:W, height:H, transform:`scale(${S})`, transformOrigin:'top left', pointerEvents:'none'}}>
+                        <Card card={card} context="inventory"/>
                       </div>
-                      {isSelected && !isAv && <div style={{position:'absolute',bottom:'6px',left:'50%',transform:'translateX(-50%)',background:'var(--lose)',padding:'4px 10px',borderRadius:'2px'}}><span className="mono" style={{fontSize:'0.45rem',color:'#000',fontWeight:700}}>✕ ERSETZEN</span></div>}
                     </div>
-                  );
-                })}
-                {(deck.effs || []).map((card, i) => {
-                  const isSelected = replaceIn==='effs' && replaceIdx===i;
-                  const tc = 'var(--eff-col)';
-                  return (
-                    <div key={'e'+i} onClick={()=>selectSlot(i,'effs')}
-                      style={{position:'relative',cursor:'pointer',
-                        transform:isSelected?'translateY(-6px)':'none',
-                        outline:isSelected?`2px solid var(--lose)`:'2px solid transparent',
-                        outlineOffset:'2px',transition:'all 0.2s',borderRadius:'4px',
-                      }}>
-                      <div style={{width:'126px',height:'176px',overflow:'hidden',borderRadius:'4px',border:`1px solid ${isSelected?'var(--lose)':tc+'33'}`}}>
-                        <div style={{transform:'scale(0.35)',transformOrigin:'top left',width:'360px',height:'504px',pointerEvents:'none'}}>
-                          <Card card={card} context="inventory"/>
-                        </div>
+                    {isSelected && !isAv && (
+                      <div style={{position:'absolute',bottom:6,left:'50%',transform:'translateX(-50%)',background:'var(--lose)',padding:'4px 10px',borderRadius:'3px',zIndex:5}}>
+                        <span className="mono" style={{fontSize:'0.5rem',color:'#fff',fontWeight:700}}>✕ ERSETZEN</span>
                       </div>
-                      {isSelected && <div style={{position:'absolute',bottom:'6px',left:'50%',transform:'translateX(-50%)',background:'var(--lose)',padding:'4px 10px',borderRadius:'2px'}}><span className="mono" style={{fontSize:'0.45rem',color:'#000',fontWeight:700}}>✕ ERSETZEN</span></div>}
-                    </div>
-                  );
-                })}
-              </div>
+                    )}
+                    {isAv && (
+                      <div style={{position:'absolute',top:6,right:6,background:'rgba(0,0,0,0.7)',padding:'2px 6px',borderRadius:'3px'}}>
+                        <span className="mono" style={{fontSize:'0.45rem',color:'#555'}}>AVATAR</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
 
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button onClick={() => { playSound('click'); setStep(1); setReplaceIdx(null); setReplaceIn(null); }}
-                  style={{ padding: '10px 20px', background: 'transparent', border: '1px solid #2a3a4a', color: '#667', fontFamily: "'Roboto Mono',monospace", fontSize: '0.7rem', letterSpacing: '2px', cursor: 'pointer' }}>
-                  ← ZURÜCK
-                </button>
-                <button
-                  onClick={confirmDraft}
-                  disabled={replaceIdx === null || replaceIn === null}
-                  style={{
-                    flex: 1, padding: '12px',
-                    background: (replaceIdx !== null && replaceIn !== null) ? 'rgba(0,229,255,0.08)' : 'transparent',
-                    border: `1px solid ${(replaceIdx !== null && replaceIn !== null) ? 'var(--win)' : '#2a3a4a'}`,
-                    color: (replaceIdx !== null && replaceIn !== null) ? 'var(--win)' : '#2a3a4a',
-                    fontFamily: "'Roboto Mono',monospace", fontSize: '0.8rem', fontWeight: 700,
-                    letterSpacing: '3px', cursor: (replaceIdx !== null && replaceIn !== null) ? 'pointer' : 'not-allowed',
-                  }}
-                >
-                  {(replaceIdx !== null && replaceIn !== null) ? '▸ DRAFT BESTÄTIGEN' : 'KARTE ZUM ERSETZEN WÄHLEN'}
-                </button>
-              </div>
+            <div style={{ display:'flex', gap:'10px', marginTop:'auto' }}>
+              <button onClick={()=>{playSound('click');setStep(1);setReplaceIdx(null);setReplaceIn(null);}}
+                style={{padding:'10px 20px',background:'transparent',border:'1px solid #2a3a4a',color:'#667',
+                  fontFamily:"'Roboto Mono',monospace",fontSize:'0.7rem',letterSpacing:'2px',cursor:'pointer'}}>
+                ← ZURÜCK
+              </button>
+              <button onClick={confirmDraft} disabled={replaceIdx===null||replaceIn===null}
+                style={{flex:1,padding:'12px',
+                  background:(replaceIdx!==null&&replaceIn!==null)?'rgba(0,229,255,0.08)':'transparent',
+                  border:`1px solid ${(replaceIdx!==null&&replaceIn!==null)?'var(--win)':'#2a3a4a'}`,
+                  color:(replaceIdx!==null&&replaceIn!==null)?'var(--win)':'#2a3a4a',
+                  fontFamily:"'Roboto Mono',monospace",fontSize:'0.8rem',fontWeight:700,
+                  letterSpacing:'3px',cursor:(replaceIdx!==null&&replaceIn!==null)?'pointer':'not-allowed'}}>
+                {(replaceIdx!==null&&replaceIn!==null)?'▸ DRAFT BESTÄTIGEN':'KARTE ZUM ERSETZEN WÄHLEN'}
+              </button>
             </div>
           </div>
         </div>

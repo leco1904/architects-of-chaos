@@ -32,8 +32,8 @@ export default function Market({
 
     if (packType === 'apex') {
       if (roll < 0.015) selectedCardType = 'anomaly';
-      else if (roll < 0.265) selectedCardType = 'apex';
-      else if (roll < 0.715) selectedCardType = 'legacy';
+      else if (roll < 0.365) selectedCardType = 'apex';
+      else if (roll < 0.765) selectedCardType = 'legacy';
       else selectedCardType = 'std';
     } else if (packType === 'premium') {
       if (roll < 0.004) selectedCardType = 'anomaly';
@@ -43,9 +43,9 @@ export default function Market({
       else selectedCardType = 'std';
     } else {
       if (roll < 0.001) selectedCardType = 'anomaly';
-      else if (roll < 0.011) selectedCardType = 'apex';
-      else if (roll < 0.061) selectedCardType = 'legacy';
-      else if (roll < 0.311) selectedCardType = 'effect';
+      else if (roll < 0.006) selectedCardType = 'apex';
+      else if (roll < 0.046) selectedCardType = 'legacy';
+      else if (roll < 0.296) selectedCardType = 'effect';
       else selectedCardType = 'std';
     }
 
@@ -246,11 +246,11 @@ export default function Market({
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               {[
                 { name: 'BASIC DATACACHE', icon: '💾', cost: 250, cards: 3,
-                  rates: [['ANOMALY','#ff00ff','0.1%'],['APEX','var(--apex-pink)','1.0%'],['LEGACY','#b8860b','5.0%'],['EFFEKT','var(--eff-col)','25.0%'],['STANDARD','#888','68.9%']] },
+                  rates: [['ANOMALY','#ff00ff','0.1%'],['APEX','var(--apex-pink)','0.5%'],['LEGACY','#b8860b','3.0%'],['EFFEKT','var(--eff-col)','25.0%'],['STANDARD','#888','70.4%']] },
                 { name: 'EXECUTIVE ARCHIVE', icon: '🗄️', cost: 1000, cards: 5,
                   rates: [['ANOMALY','#ff00ff','0.4%'],['APEX','var(--apex-pink)','4.0%'],['LEGACY','#b8860b','10.0%'],['EFFEKT','var(--eff-col)','25.0%'],['STANDARD','#888','60.6%']] },
                 { name: 'BLACK MARKET OVERRIDE', icon: '👑', cost: 3500, cards: 1,
-                  rates: [['ANOMALY','#ff00ff','1.5%'],['APEX','var(--apex-pink)','25.0%'],['LEGACY','#b8860b','45.0%'],['EFFEKT','var(--eff-col)','—'],['STANDARD','#888','28.5%']] },
+                  rates: [['ANOMALY','#ff00ff','1.5%'],['APEX','var(--apex-pink)','35.0%'],['LEGACY','#b8860b','40.0%'],['EFFEKT','var(--eff-col)','—'],['STANDARD','#888','23.5%']] },
               ].map(pack => (
                 <div key={pack.name} style={{ border: '1px solid rgba(255,255,255,0.07)', padding: '16px 18px', background: 'rgba(0,0,0,0.3)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>

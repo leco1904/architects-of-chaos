@@ -305,6 +305,16 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
       const newPHP = Math.max(0, pHP - dmgP - recoilP);
       const newAHP = Math.max(0, aHP - dmgA - recoilA);
 
+      // --- NEU: MATCH STATS TRACKING FÜR LEADERBOARD ---
+      const totalDmgToAi = dmgA + recoilA;
+      setMatchStats(prev => ({
+        ...prev,
+        dmgDealt: prev.dmgDealt + totalDmgToAi,
+        highestHit: Math.max(prev.highestHit || 0, totalDmgToAi),
+        turns: prev.turns + 1
+      }));
+      // -------------------------------------------------
+
       const getCost = (act, effObj) => {
           let c = act === 'std' ? 2 : act === 'allin' ? 8 : act === 'konter' ? 6 : 0;
           if (effObj) c += effObj.cost;
@@ -737,7 +747,7 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
 
       {clashData && !showCrisisIntro && (
         <div className="glass-overlay active" style={{zIndex: 25000}}>
-          <div className="clash-scale-wrapper" style={{transformOrigin:'center center', display:'flex', flexDirection:'column', alignItems:'center', width:'100%'}}>
+          <div className="clash-scale-wrapper" style={{zoom: 0.72, transformOrigin:'center center', display:'flex', flexDirection:'column', alignItems:'center', width:'100%'}}>
           <div className="clash-title">SYSTEM RESOLUTION</div>
           
           <div className="clash-hp-container">
@@ -786,6 +796,12 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
                   <div className="clash-badge" style={{ position: 'absolute', top: '-20px', left: '50%', transform: 'translateX(-50%)', background: '#000', color: 'var(--ep)', padding: '8px 20px', border: '2px solid #555', fontWeight: '900', fontSize: '1.2rem', zIndex: 30, letterSpacing: '2px' }}>
    {clashData.pAct}
 </div>
+                  {/* NEU: Taktik-Boost Indikator für den Spieler */}
+                  {clashData.pEffObj && clashData.pEffObj.stat === clashData.categoryKey && (
+                     <div style={{ position: 'absolute', top: '-60px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(0, 255, 204, 0.15)', color: 'var(--eff-col)', border: '1px solid var(--eff-col)', padding: '6px 15px', borderRadius: '4px', fontWeight: '900', fontSize: '1rem', zIndex: 30, whiteSpace: 'nowrap', boxShadow: '0 0 15px rgba(0, 255, 204, 0.2)', letterSpacing: '1px', backdropFilter: 'blur(5px)' }}>
+                       +{(clashData.pEffObj.buff || 0) + (clashData.pEffObj.syn?.includes(clashData.pc.name) ? (clashData.pEffObj.synBuff || 0) : 0)} // {clashData.pEffObj.name.toUpperCase()}
+                     </div>
+                  )}
                </div>
                {clashAnim && clashData.dmgP > 0 && <div className="dmg-popup dmg-neg show">-{clashData.dmgP}</div>}
             </div>
@@ -812,6 +828,12 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
                   <div className="clash-badge" style={{ position: 'absolute', top: '-20px', left: '50%', transform: 'translateX(-50%)', background: '#000', color: 'var(--ep)', padding: '8px 20px', border: '2px solid #555', fontWeight: '900', fontSize: '1.2rem', zIndex: 30, letterSpacing: '2px' }}>
    {clashData.aAct}
 </div>
+                  {/* NEU: Taktik-Boost Indikator für den Gegner */}
+                  {clashData.aEffObj && clashData.aEffObj.stat === clashData.categoryKey && (
+                     <div style={{ position: 'absolute', top: '-60px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(0, 255, 204, 0.15)', color: 'var(--eff-col)', border: '1px solid var(--eff-col)', padding: '6px 15px', borderRadius: '4px', fontWeight: '900', fontSize: '1rem', zIndex: 30, whiteSpace: 'nowrap', boxShadow: '0 0 15px rgba(0, 255, 204, 0.2)', letterSpacing: '1px', backdropFilter: 'blur(5px)' }}>
+                       +{(clashData.aEffObj.buff || 0) + (clashData.aEffObj.syn?.includes(clashData.ac.name) ? (clashData.aEffObj.synBuff || 0) : 0)} // {clashData.aEffObj.name.toUpperCase()}
+                     </div>
+                  )}
                </div>
                {clashAnim && clashData.dmgA > 0 && <div className="dmg-popup dmg-neg show">-{clashData.dmgA}</div>}
             </div>

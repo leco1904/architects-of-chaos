@@ -4,9 +4,11 @@ import { playSound } from '../logic/audio';
 
 const CATEGORIES = [
   { id: 'highest_crit', label: 'HÖCHSTER CRIT', suffix: ' DMG' },
-  { id: 'nodes_cleared_total', label: 'GHOST NODES', suffix: ' NODES' },
-  { id: 'total_wins', label: 'GESAMT SIEGE', suffix: ' WINS' },
-  { id: 'total_damage_dealt', label: 'SCHADEN GESAMT', suffix: ' DMG' }
+  { id: 'total_damage_dealt', label: 'SCHADEN GESAMT', suffix: ' DMG' },
+  { id: 'furthest_run_score', label: 'WEITESTER RUN', suffix: '', format: (val) => `SEKTOR ${Math.floor(val/10)} // NODE ${val%10}` },
+  { id: 'total_wins', label: 'SIEGE', suffix: ' WINS' },
+  { id: 'packs_opened', label: 'PACKS', suffix: ' GEÖFFNET' },
+  { id: 'cards_collected', label: 'KARTEN', suffix: ' UNIQUE' }
 ];
 
 export default function Leaderboard({ onBack }) {
@@ -118,8 +120,8 @@ export default function Leaderboard({ onBack }) {
                           <span className="mono" style={{ color: '#444', fontSize: '0.7rem' }}>KEIN AVATAR</span>
                         )}
                       </td>
-                      <td className="mono" style={{ textAlign: 'right', fontWeight: 900, color: index === 0 ? 'var(--ep)' : 'var(--win)', fontSize: '1.1rem' }}>
-                        {player.meta_stats[category].toLocaleString()} <span style={{ fontSize: '0.6rem', opacity: 0.6 }}>{activeCatObj.suffix}</span>
+                      <td className="mono" style={{ textAlign: 'right', fontWeight: 900, color: index === 0 ? 'var(--ep)' : 'var(--win)', fontSize: '1.1rem', whiteSpace: 'nowrap' }}>
+                        {activeCatObj.format ? activeCatObj.format(player.meta_stats[category]) : player.meta_stats[category].toLocaleString()} <span style={{ fontSize: '0.6rem', opacity: 0.6 }}>{activeCatObj.suffix}</span>
                       </td>
                     </tr>
                   );

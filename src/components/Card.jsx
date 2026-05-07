@@ -60,6 +60,17 @@ const getSmartFileName = (name) => {
     || 'unknown';
 };
 
+// Wandelt den Kartennamen in deinen Dateinamen um (z.B. "Zero-Day Exploit" -> "zerodayexploit")
+const getSafeImageName = (name) => {
+  if (!name) return 'default';
+  return name.toLowerCase()
+    .replace(/ö/g, 'oe')
+    .replace(/ä/g, 'ae')
+    .replace(/ü/g, 'ue')
+    .replace(/ß/g, 'ss')
+    .replace(/[^a-z0-9]/g, ''); // Entfernt Leerzeichen, Bindestriche etc.
+};
+
 export default function Card({
   card, context = 'deck', activeEffect = null, apexBuffs = {}, activeCrisis = null,
   curCategory = '', isPlayerTurn = true, onStatClick, isInspecting = false,
@@ -186,7 +197,8 @@ export default function Card({
   const isApex    = card.type === 'apex';
   const isLegacy  = card.type === 'legacy';
   const isAnomaly = card.type === 'anomaly';
-  const isEffect  = card.type === 'effect';
+  // FIX: Erkennt Effekte jetzt auch, wenn in der JSON das "type" Feld fehlt (jeder Effekt hat einen "buff" oder "cost")!
+  const isEffect  = card.type === 'effect' || card.buff !== undefined || card.cost !== undefined;
   const isAvatar  = card.id === 'avatar'; // Exklusive Vivid-Purple Identität
 
   // ── Rarity & Farben ───────────────────────────────────────────────────────
@@ -219,15 +231,23 @@ export default function Card({
   const currentLevel = card.level || 1;
   const newClass     = card.isNew ? 'is-new-glow' : '';
 
+  // GTI color shifts with level: default rarity color → cyan (lvl2) → gold (lvl3+)
+  const gtiColor = currentLevel >= 3 ? 'var(--ep)' : currentLevel === 2 ? 'var(--win)' : themeColor;
+
   const levelBadge = currentLevel > 1 ? (
     <div className={`level-badge mono lvl-${Math.min(currentLevel, 3)}`}>LVL {currentLevel}</div>
   ) : null;
 
   // ── Foto ──────────────────────────────────────────────────────────────────
-  const fileName  = getSmartFileName(card.name);
+  // Effekte nutzen den kompletten Dateinamen (z.B. "boersencrash"), Agenten den Nachnamen
+  const fileName  = isEffect ? getSafeImageName(card.name) : getSmartFileName(card.name);
   const base      = (typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL) ? import.meta.env.BASE_URL : '/';
   const cleanBase = base.endsWith('/') ? base.slice(0, -1) : base;
-  const photoSrc  = `${cleanBase}/photos/${fileName}${currentExt}`;
+  
+  // Effekte werden in /photos/effects/ gesucht, Agenten im Hauptordner
+  const photoSrc  = isEffect 
+    ? `${cleanBase}/photos/effects/${fileName}${currentExt}`
+    : `${cleanBase}/photos/${fileName}${currentExt}`;
 
   const handleImgError = () => {
     if (currentExt === '.png') {
@@ -298,13 +318,13 @@ export default function Card({
             ) : (card.backText || card.bio || '— Keine weiteren Informationen verfügbar —')}
           </div>
           <div className="cb-datapad-footer mono">
-            <span>NODE_{initials}</span><span>▸▸▸</span><span>AUTH: GRANTED</span>
+            <span>NODE_SYS</span><span>▸▸▸</span><span>AUTH: GRANTED</span>
           </div>
         </div>
 
         {/* Footer */}
         <div className="cb-footer mono">
-          <span>GTI <b style={{ color: themeColor }}>{card.gti}</b></span>
+          <span>GTI <b style={{ color: gtiColor }}>{card.gti}</b></span>
           <span className="cb-footer-mid">// ARCHITECTS OF CHAOS //</span>
           <span style={{ color: themeColor }}>{rarityLabel}</span>
         </div>
@@ -366,18 +386,29 @@ export default function Card({
           {card.isMaxLevelRefund && <div className="refund-tag">MAX LVL (+{card.gti >= 90 ? 100 : 50}💳)</div>}
         </div>
 
-        <div className="gti-core parallax-layer" style={{ '--gti-color': themeColor }}>
-          <div className="gti-label">RATING</div>
-          <div className="gti-value mono" style={{ color: themeColor }}>{card.gti}</div>
-          <div className="gti-bracket"></div>
-        </div>
+        {/* GTI Rating (für Agenten) ODER Energie-Kosten (für Effekte) */}
+        {!isEffect ? (
+          <div className="gti-core parallax-layer" style={{ '--gti-color': gtiColor }}>
+            <div className="gti-label">RATING</div>
+            <div className="gti-value mono" style={{ color: gtiColor }}>{card.gti}</div>
+            <div className="gti-bracket"></div>
+          </div>
+        ) : (
+          <div className="gti-core parallax-layer" style={{ '--gti-color': 'var(--ep)' }}>
+            <div className="gti-label" style={{ letterSpacing: '1px' }}>KOSTEN</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
+              <div style={{ fontSize: '1.1rem', filter: 'drop-shadow(0 0 5px var(--ep))', transform: 'translateY(-1px)' }}>⚡</div>
+              <div className="gti-value mono" style={{ color: 'var(--ep)' }}>{card.cost}</div>
+            </div>
+          </div>
+        )}
 
         <div className="type-badge parallax-layer">
           {isAvatar ? '⬡ GHOST AGENT' : isAnomaly ? 'SYSTEM ANOMALY' : isApex ? 'APEX UNIT' : isLegacy ? 'LEGACY ASSET' : isEffect ? 'TAKTIK KARTE' : 'SYSTEM AGENT'}
         </div>
 
         <div className="card-header parallax-layer">
-          {isFailed && <div className="card-avatar frame-break-avatar">{initials}</div>}
+          {isFailed && <div className="card-avatar frame-break-avatar" />}
           <div className="card-info" style={{ textAlign: 'left' }}>
             <div className="card-name"  style={!isFailed ? { textShadow: '0 2px 10px rgba(0,0,0,1), 0 0 15px rgba(0,0,0,0.8)' } : {}}>{card.name}</div>
             <div className="card-title" style={!isFailed ? { textShadow: '0 2px 8px rgba(0,0,0,1)' } : {}}>{displayTitle}</div>
@@ -397,13 +428,12 @@ export default function Card({
                 <small>PASSIV-KOMPETENZ</small>
               </div>
             ) : isEffect ? (
-              <div className="apex-passive-info" style={{ gap: '8px' }}>
-                <b style={{ color: 'var(--eff-col)', fontSize: '1.1rem' }}>
+              <div className="apex-passive-info" style={{ gap: '10px' }}>
+                <b style={{ color: 'var(--eff-col)', fontSize: '1.3rem' }}>
                   +{card.buff} {CAT_CONFIG[card.stat]?.name}
                 </b>
-                <small style={{ color: 'var(--ep)' }}>KOSTEN: {card.cost}⚡</small>
                 {card.syn && (
-                  <small style={{ color: '#aaa' }}>
+                  <small style={{ color: '#aaa', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '5px', width: '100%' }}>
                     SYN: {Array.isArray(card.syn) ? card.syn.join(', ') : card.syn}
                   </small>
                 )}
@@ -483,7 +513,7 @@ export default function Card({
         </div>
         )}
 
-        <div className="card-micro-data mono parallax-layer">LOC: {initials}_NODE // AUTH: GRANTED</div>
+        <div className="card-micro-data mono parallax-layer">LOC: SYS_NODE // AUTH: GRANTED</div>
       </div>
         </>
       )}
