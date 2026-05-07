@@ -178,10 +178,10 @@ export default function RoguelikeSquad({ avatarCard, inventory = [], onConfirm, 
         <div style={{ height: '100%', width: `${progress}%`, background: ready ? 'var(--win)' : '#bc13fe', borderRadius: '2px', transition: 'width 0.3s', boxShadow: `0 0 10px ${ready ? 'var(--win)' : '#bc13fe'}` }}/>
       </div>
 
-      <div style={{ display: 'flex', gap: '24px', height: 'calc(100vh - 165px)', overflow: 'hidden' }}>
+      <div className="rl-squad-layout" style={{ display: 'flex', gap: '24px', height: 'calc(100vh - 165px)', overflow: 'hidden' }}>
 
         {/* ── Left: Squad preview (WIDER & BIGGER) ──────────────────── */}
-        <div style={{ width: '340px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', paddingRight: '10px' }}>
+        <div className="rl-squad-sidebar" style={{ width: '340px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', paddingRight: '10px' }}>
           
           {/* Avatar locked */}
           <div className="mono" style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', padding: '4px 0' }}>▸ GHOST AGENT</div>

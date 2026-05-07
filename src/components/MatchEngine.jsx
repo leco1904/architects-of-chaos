@@ -39,6 +39,45 @@ const formatActionName = (act) => {
   return act.toUpperCase();
 };
 
+// ── Nachziehstapel (Draw Pile) ────────────────────────────────────────────
+function DrawPile({ charCount, effCount }) {
+  const chars = Math.min(5, Math.max(1, charCount));
+  const effs  = Math.min(3, effCount);
+  return (
+    <div className="draw-pile-panel">
+      <div className="mono draw-pile-heading">▸ NACHZIEHSTAPEL</div>
+      {/* Character deck */}
+      <div className="draw-pile-group">
+        <div className="draw-pile-stack" style={{height: 156 + chars*4}}>
+          {Array.from({length: charCount > 0 ? chars : 1}).map((_, i) => (
+            <div key={i} className={`dp-card dp-char ${charCount === 0 ? 'dp-empty' : ''}`}
+              style={{bottom: i*4, left: i*3, zIndex: i,
+                      opacity: charCount === 0 ? 0.2 : (0.5 + i*0.12)}}/>
+          ))}
+        </div>
+        <div className="mono draw-pile-count" style={{color: charCount > 0 ? 'var(--win)' : '#444'}}>
+          {charCount}
+        </div>
+        <div className="mono draw-pile-sub">CHARAKTERE</div>
+      </div>
+      {/* Effect deck */}
+      <div className="draw-pile-group" style={{marginTop:20}}>
+        <div className="draw-pile-stack" style={{height: 156 + Math.min(2,effs)*4}}>
+          {Array.from({length: effCount > 0 ? Math.min(2,effs) : 1}).map((_, i) => (
+            <div key={i} className={`dp-card dp-eff ${effCount === 0 ? 'dp-empty' : ''}`}
+              style={{bottom: i*4, left: i*3, zIndex: i,
+                      opacity: effCount === 0 ? 0.2 : (0.5 + i*0.25)}}/>
+          ))}
+        </div>
+        <div className="mono draw-pile-count" style={{color: effCount > 0 ? 'var(--eff-col)' : '#444'}}>
+          {effCount}
+        </div>
+        <div className="mono draw-pile-sub">TAKTIKEN</div>
+      </div>
+    </div>
+  );
+}
+
 export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, difficulty = 1, isOnline = false, isHost = false, conn = null, onEndGame, onShowRules, initialPHP = 1000, initialAHP = 1000, isRoguelike = false, contextLabel = '' }) {
   // Shuffle ONCE, then split — avoids duplicates across hand/deck (Bug #011)
   const _sc = React.useRef(shuffle([...playerChars])).current;
@@ -46,6 +85,13 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
 
   const [pHP, setPHP] = useState(initialPHP);
   const [aHP, setAHP] = useState(initialAHP);
+  // NEU: Lokale Kampf-Stats
+  const [matchStats, setMatchStats] = useState({
+    dmgDealt: 0,
+    dmgTaken: 0,
+    turns: 0,
+    energySpent: 0
+  });
   const [pEP, setPEP] = useState(10);
   const [aEP, setAEP] = useState(10);
   
@@ -71,6 +117,7 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
   const [clashData, setClashData] = useState(null);
   const [clashAnim, setClashAnim] = useState(false);
   const [showCrisisIntro, setShowCrisisIntro] = useState(null);
+  const [justDrawnIdx, setJustDrawnIdx] = useState(null);
 
   // --- ONLINE / OFFLINE ACTION STATE ---
   const [waiting, setWaiting] = useState(false);
@@ -329,6 +376,7 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
           if (!isOnline) currentDeck = shuffle(currentDeck);
       }
       if (currentDeck.length > 0) nextHand.push(currentDeck[0]);
+      const drawnAt = currentDeck.length > 0 ? nextHand.length - 1 : null;
 
       let currentAiDeck = [...aDeck];
       const idx = currentAiDeck.findIndex(c => c.name === remoteCardName);
@@ -343,6 +391,10 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
 
       setPHand(nextHand); setPDeck(currentDeck.slice(1));
       setADeck(currentAiDeck); setActiveIdx(0); setPTurn(!pTurn); setCurK('');
+      if (drawnAt !== null) {
+        setJustDrawnIdx(drawnAt);
+        setTimeout(() => setJustDrawnIdx(null), 800);
+      }
 
       let nextActiveCrisis = activeCrisis ? { ...activeCrisis } : null;
       if (nextActiveCrisis) {
@@ -379,7 +431,18 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
 
     if (finalPHP <= 0 || finalAHP <= 0) {
       const isWin = finalAHP <= 0 && finalPHP > 0;
-      onEndGame({ isWin, sarcasmNews: getSarcasticNews(isWin), ...(isRoguelike ? { remainingHP: finalPHP } : {}) });
+      onEndGame({ 
+        isWin, 
+        sarcasmNews: getSarcasticNews(isWin), 
+        ...(isRoguelike ? { remainingHP: finalPHP } : {}),
+        // NEU: Alle gesammelten Daten mitschicken
+        matchData: {
+          ...matchStats,
+          finalPHP: finalPHP,
+          finalAHP: finalAHP,
+          difficulty
+        }
+      });
       return; 
     }
 
@@ -505,6 +568,10 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
       </div>
 
       <div className="cockpit-layout">
+        {/* ── Draw pile — gleiche Breite wie Action-Column → zentriert Karte ── */}
+        <div className="cockpit-draw-column">
+          <DrawPile charCount={pDeck.length} effCount={pEffDeck.length}/>
+        </div>
         <div className="cockpit-arena-column">
 
           {/* ── HP-Leisten oben (horizontal) ─────────────────────────── */}
@@ -579,33 +646,19 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
 
           {/* HANDKARTEN UNTER DER ARENA */}
           <div className="hand-hub">
-            <div className="hand-grid" style={{ display: 'flex', gap: '15px' }}>
+            <div className="hand-grid">
               {pHand.map((c, i) => {
                 const isActive = i === activeIdx;
                 return (
                   <div
                     key={i}
-                    className={`hand-card-scaled ${isActive ? 'active' : ''}`}
+                    className={`hand-card-wrapper ${isActive ? 'active' : ''} ${justDrawnIdx === i ? 'card-just-drawn' : ''}`}
                     onClick={() => { playSound('click'); setActiveIdx(i); }}
-                    style={{
-                      width: '102px', height: '145px', position: 'relative',
-                      cursor: 'pointer', transition: 'transform 0.2s',
-                      transform: isActive ? 'translateY(-10px)' : 'none'
-                    }}
                   >
-                    <div style={{
-                      transform: 'scale(0.285)', transformOrigin: 'top left',
-                      width: '360px', height: '510px', pointerEvents: 'none'
-                    }}>
+                    <div className="hand-card-inner">
                       <Card card={c} context="hand" />
                     </div>
-                    {isActive && (
-                      <div style={{
-                        position: 'absolute', inset: '-3px',
-                        border: '2px solid var(--win)', borderRadius: '4px',
-                        boxShadow: '0 0 15px var(--win)', zIndex: 10
-                      }} />
-                    )}
+                    {isActive && <div className="hand-card-glow-char" />}
                   </div>
                 );
               })}
@@ -616,31 +669,17 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
             <div className="tactic-grid">
               {pEffHand[0] ? (
                 <div
-                  className={`hand-card-scaled ${activeEffObj ? 'active' : ''}`}
+                  className={`hand-card-wrapper ${activeEffObj ? 'active' : ''}`}
                   onClick={handleToggleEffect}
-                  style={{
-                    width: '102px', height: '145px', position: 'relative',
-                    cursor: 'pointer', transition: 'transform 0.2s',
-                    transform: activeEffObj ? 'translateY(-10px)' : 'none'
-                  }}
                 >
-                  <div style={{
-                    transform: 'scale(0.285)', transformOrigin: 'top left',
-                    width: '360px', height: '510px', pointerEvents: 'none'
-                  }}>
+                  <div className="hand-card-inner">
                     <Card card={pEffHand[0]} context="hand" />
                   </div>
-                  {activeEffObj && (
-                    <div style={{
-                      position: 'absolute', inset: '-3px',
-                      border: '2px solid var(--eff-col)', borderRadius: '4px',
-                      boxShadow: '0 0 15px var(--eff-col)', zIndex: 10
-                    }} />
-                  )}
+                  {activeEffObj && <div className="hand-card-glow-eff" />}
                 </div>
               ) : (
-                <div style={{ width: '102px', height: '145px', background: '#050505', border: '1px dashed #333', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span className="mono" style={{ color: '#333', fontSize: '0.6rem' }}>LEER</span>
+                <div className="empty-tactic-slot">
+                  <span className="mono">LEER</span>
                 </div>
               )}
             </div>
@@ -698,7 +737,7 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
 
       {clashData && !showCrisisIntro && (
         <div className="glass-overlay active" style={{zIndex: 25000}}>
-          <div style={{transform:'scale(0.9)', transformOrigin:'center center', display:'flex', flexDirection:'column', alignItems:'center', width:'100%'}}>
+          <div className="clash-scale-wrapper" style={{transformOrigin:'center center', display:'flex', flexDirection:'column', alignItems:'center', width:'100%'}}>
           <div className="clash-title">SYSTEM RESOLUTION</div>
           
           <div className="clash-hp-container">

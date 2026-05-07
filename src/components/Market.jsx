@@ -17,6 +17,7 @@ export default function Market({
   const [isOpening, setIsOpening] = useState(false);
   const [pulledCards, setPulledCards] = useState([]);
   const [showFlash, setShowFlash] = useState(false);
+  const [showOdds, setShowOdds] = useState(false); // NEU: State für das Modal
 
   const packs = [
     { id: 'basic', name: 'BASIC DATACACHE', cost: 250, icon: '💾', num: 3, desc: 'Enthält 3 Karten. Standard-Dropraten. Gut für den Start.' },
@@ -113,6 +114,7 @@ export default function Market({
           <div className="mono" style={{ fontSize: '1.5rem', color: '#fff', textShadow: '0 0 10px var(--ep)' }}>
             <span style={{color: 'var(--ep)'}}>{credits}</span> 💳
           </div>
+          <button className="btn-info" style={{ pointerEvents: 'auto', zIndex: 100 }} onClick={() => setShowOdds(true)}>📊 ODDS</button>
           <button className="btn-info" onClick={onShowRules}>RULES</button>
           <button className="btn-back" onClick={onBack}>ZURÜCK</button>
         </div>
@@ -203,7 +205,84 @@ export default function Market({
               </div>
             ))}
           </div>
-          <button className="menu-btn btn-primary" style={{ marginTop: '50px', maxWidth: '300px' }} onClick={closeReveal}>ÜBERNEHMEN</button>
+          <button className="menu-btn btn-primary" style={{ marginTop: '20px', maxWidth: '300px', zIndex: 100 }} onClick={closeReveal}>ÜBERNEHMEN</button>
+        </div>
+      )}
+      {/* ODDS MODAL */}
+      {showOdds && (
+        <div onClick={() => setShowOdds(false)} style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(6px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <style>{`.odds-modal::-webkit-scrollbar { display: none; }`}</style>
+          <div onClick={e => e.stopPropagation()} className="odds-modal" style={{
+            background: 'rgba(5,5,12,0.98)', border: '1px solid rgba(0,229,255,0.2)',
+            borderTop: '3px solid var(--win)', padding: '32px 36px',
+            width: 'min(780px, 94vw)', maxHeight: '85vh', overflowY: 'auto',
+            scrollbarWidth: "none", msOverflowStyle: "none",
+            boxShadow: '0 0 60px rgba(0,229,255,0.08)',
+            fontFamily: "'Roboto Mono', monospace",
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
+              <div>
+                <div style={{ fontSize: '1.5rem', fontFamily: "'Rajdhani',sans-serif", fontWeight: 900, letterSpacing: '4px', color: 'var(--win)' }}>📊 DROPRATEN</div>
+                <div className="mono" style={{ fontSize: '0.58rem', color: 'rgba(255,255,255,0.3)', letterSpacing: '3px', marginTop: 4 }}>// WAHRSCHEINLICHKEITEN PRO KARTE</div>
+              </div>
+              <button onClick={() => setShowOdds(false)} style={{ background: 'transparent', border: '1px solid #333', color: '#666', padding: '6px 12px', cursor: 'pointer', fontFamily: "'Roboto Mono',monospace", fontSize: '0.7rem', letterSpacing: '2px' }}>✕ SCHLIESSEN</button>
+            </div>
+
+            {/* Rarity legend */}
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 24 }}>
+              {[['ANOMALY','#ff00ff'],['APEX','var(--apex-pink)'],['LEGACY','#b8860b'],['EFFEKT','var(--eff-col)'],['STANDARD','#888']].map(([name, col]) => (
+                <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', background: 'rgba(255,255,255,0.04)', border: `1px solid ${col}44` }}>
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: col }} />
+                  <span className="mono" style={{ fontSize: '0.52rem', color: col, letterSpacing: '1px' }}>{name}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Pack tables */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              {[
+                { name: 'BASIC DATACACHE', icon: '💾', cost: 250, cards: 3,
+                  rates: [['ANOMALY','#ff00ff','0.1%'],['APEX','var(--apex-pink)','1.0%'],['LEGACY','#b8860b','5.0%'],['EFFEKT','var(--eff-col)','25.0%'],['STANDARD','#888','68.9%']] },
+                { name: 'EXECUTIVE ARCHIVE', icon: '🗄️', cost: 1000, cards: 5,
+                  rates: [['ANOMALY','#ff00ff','0.4%'],['APEX','var(--apex-pink)','4.0%'],['LEGACY','#b8860b','10.0%'],['EFFEKT','var(--eff-col)','25.0%'],['STANDARD','#888','60.6%']] },
+                { name: 'BLACK MARKET OVERRIDE', icon: '👑', cost: 3500, cards: 1,
+                  rates: [['ANOMALY','#ff00ff','1.5%'],['APEX','var(--apex-pink)','25.0%'],['LEGACY','#b8860b','45.0%'],['EFFEKT','var(--eff-col)','—'],['STANDARD','#888','28.5%']] },
+              ].map(pack => (
+                <div key={pack.name} style={{ border: '1px solid rgba(255,255,255,0.07)', padding: '16px 18px', background: 'rgba(0,0,0,0.3)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: '1.3rem' }}>{pack.icon}</span>
+                      <div>
+                        <div style={{ fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: '0.95rem', letterSpacing: '2px', color: '#fff' }}>{pack.name}</div>
+                        <div className="mono" style={{ fontSize: '0.52rem', color: 'rgba(255,255,255,0.3)' }}>{pack.cards} KARTE{pack.cards > 1 ? 'N' : ''} PRO ÖFFNUNG</div>
+                      </div>
+                    </div>
+                    <div className="mono" style={{ fontSize: '1.1rem', color: 'var(--ep)', fontWeight: 900 }}>{pack.cost} 💳</div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                    {pack.rates.map(([rarity, color, pct]) => (
+                      <div key={rarity} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div className="mono" style={{ width: 70, fontSize: '0.52rem', color, letterSpacing: '1px', flexShrink: 0 }}>{rarity}</div>
+                        <div style={{ flex: 1, height: 6, background: 'rgba(255,255,255,0.05)', borderRadius: 3, overflow: 'hidden' }}>
+                          {pct !== '—' && <div style={{ height: '100%', width: pct, background: color, borderRadius: 3, boxShadow: `0 0 6px ${color}66` }} />}
+                        </div>
+                        <div className="mono" style={{ width: 42, fontSize: '0.6rem', color, textAlign: 'right', fontWeight: 700, flexShrink: 0 }}>{pct}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mono" style={{ fontSize: '0.5rem', color: 'rgba(255,255,255,0.18)', marginTop: 20, letterSpacing: '1px', lineHeight: 1.8 }}>
+              * Jeder Ziehvorgang ist unabhängig. Dropraten gelten pro einzelner Karte.<br/>
+              * EFFEKT-Karten sind im BLACK MARKET OVERRIDE nicht enthalten.
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -126,6 +126,12 @@ export default function GhostNodeMenu({ avatarCard, roguelikeRun, updateAvatar, 
     const u = { ...working, [stat]:(working[stat]||0)+2, sp:(working.sp||0)-cost };
     u.gti = calcGTI(u);
     setWorking(u);
+    
+    // NEU: Automatischer Cloud-Sync bei jedem Klick
+    if (updateAvatar) {
+      updateAvatar(u);
+      committedRef.current = { ...u };
+    }
   };
 
   const handleSave = () => {
@@ -162,14 +168,20 @@ export default function GhostNodeMenu({ avatarCard, roguelikeRun, updateAvatar, 
           <button className="btn-back" onClick={onBack}>ZURÜCK</button>
         </div>
 
-        <div style={{display:'flex',gap:'32px',alignItems:'flex-start',flexWrap:'wrap',justifyContent:'center'}}>
+        {/* Wir nutzen die CSS-Klasse aus der index.css für sauberes Mobile-Stacking */}
+        <div className="gn-main-layout">
 
           {/* Left: Avatar card + upgrade controls */}
           <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:'10px',flexShrink:0}}>
             {displayCard ? (
               <>
                 {/* Bug 1 fix: onStatClick={handleUpgrade} only active when showUpgrade */}
-                <div style={{filter:'drop-shadow(0 0 24px rgba(188,19,254,0.45))'}}>
+                <div className="gn-card-wrapper" style={{
+                  filter:'drop-shadow(0 0 24px rgba(188,19,254,0.45))',
+                  position: 'relative', 
+                  zIndex: 50, 
+                  pointerEvents: 'auto'
+                }}>
                   <Card
                     card={displayCard}
                     context="deck"

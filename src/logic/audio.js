@@ -1,126 +1,115 @@
 // src/logic/audio.js
 
 let audioCtx = null;
-
-// Timer-Variablen, um überlappende Sounds und unsaubere Fade-Outs zu stoppen
-let decryptTimeout = null;
-let alarmFadeInterval = null;
+const audioBuffers = {};
+const activeNodes = {}; // Speichert laufende Sounds für Fade-Outs
 
 const basePath = import.meta.env.BASE_URL || '/';
 
-const audioFiles = {
-  packOpen: new Audio(basePath + 'sounds/pack_open.wav'),
-  packThud: new Audio(basePath + 'sounds/pack_thud.wav'),
-  thudLoss: new Audio(basePath + 'sounds/thud_loss.wav'),
-  crisis: new Audio(basePath + 'sounds/crisis.wav'),
-  matchIntro: new Audio(basePath + 'sounds/match_intro.wav'),
-  patt: new Audio(basePath + 'sounds/patt.wav'),
-  heavy_impact: new Audio(basePath + 'sounds/heavy_impact.mp3')
+const filesToLoad = {
+  packOpen: 'sounds/pack_open.wav',
+  packThud: 'sounds/pack_thud.wav',
+  thudLoss: 'sounds/thud_loss.wav',
+  crisis: 'sounds/crisis.wav',
+  matchIntro: 'sounds/match_intro.wav',
+  patt: 'sounds/patt.wav',
+  heavy_impact: 'sounds/heavy_impact.mp3' // Hier ist dein neuer Sound
 };
-
-// Zero-Latency Preload
-Object.values(audioFiles).forEach(audio => {
-  audio.preload = 'auto';
-  audio.load(); 
-});
 
 export function initAudio() {
   if (!audioCtx) {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    // Asynchrones Laden aller Audio-Dateien in Web Audio API Buffers
+    // Dadurch blockiert das Handy nicht mehr Spotify/YouTube!
+    Object.entries(filesToLoad).forEach(async ([key, path]) => {
+      try {
+        const response = await fetch(basePath + path);
+        const arrayBuffer = await response.arrayBuffer();
+        const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+        audioBuffers[key] = audioBuffer;
+      } catch (e) {
+        console.error(`Error loading audio ${key}:`, e);
+      }
+    });
   }
   if (audioCtx.state === 'suspended') {
     audioCtx.resume();
   }
 }
 
+// Hilfsfunktion zum Abspielen von Buffern
+function playBuffer(key, volume = 1.0) {
+  if (!audioCtx || !audioBuffers[key]) return null;
+  
+  const source = audioCtx.createBufferSource();
+  source.buffer = audioBuffers[key];
+  
+  const gainNode = audioCtx.createGain();
+  gainNode.gain.value = volume;
+  
+  source.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+  
+  source.start(0);
+  return { source, gainNode };
+}
+
+let lastClickTime = 0;
+
 export function playSound(type) {
   try {
     initAudio();
     const t = audioCtx.currentTime;
 
-    // --- ECHTE .WAV DATEIEN ABSPIELEN ---
+    // --- WEB AUDIO API BUFFERS ---
     
-    // Pack wird geöffnet (65% Volume + Anti-Overlap-Logik)
     if (type === 'decrypt') {
-      if (decryptTimeout) clearTimeout(decryptTimeout); // Stoppt alte Timeouts
-      
-      audioFiles.packOpen.pause(); // Erzwingt Stille
-      audioFiles.packOpen.currentTime = 0; // Setzt Spule auf 0
-      audioFiles.packOpen.volume = 0.65; // Exakt 65% Lautstärke
-      
-      audioFiles.packOpen.play().catch(e => console.warn(e));
-      
-      decryptTimeout = setTimeout(() => { 
-        audioFiles.packOpen.pause(); 
+      if (activeNodes.decrypt) activeNodes.decrypt.source.stop();
+      activeNodes.decrypt = playBuffer('packOpen', 0.65);
+      setTimeout(() => {
+        if (activeNodes.decrypt) {
+          activeNodes.decrypt.source.stop();
+          activeNodes.decrypt = null;
+        }
       }, 2000);
       return;
     }
 
-    // Karte erscheint
-    if (type === 'reveal') {
-      audioFiles.packThud.pause();
-      audioFiles.packThud.currentTime = 0;
-      audioFiles.packThud.volume = 0.8;
-      audioFiles.packThud.play().catch(e => console.warn(e));
-      return;
-    }
+    if (type === 'reveal') { playBuffer('packThud', 0.8); return; }
+    if (type === 'lose' || type === 'roundLose') { playBuffer('thudLoss', 0.8); return; }
+    if (type === 'matchIntro') { playBuffer('matchIntro', 0.8); return; }
+    if (type === 'patt') { playBuffer('patt', 0.7); return; }
     
-    // Spiel verloren oder Runde verloren
-    if (type === 'lose' || type === 'roundLose') {
-      audioFiles.thudLoss.pause();
-      audioFiles.thudLoss.currentTime = 0;
-      audioFiles.thudLoss.volume = 0.8;
-      audioFiles.thudLoss.play().catch(e => console.warn(e));
-      return;
-    }
+    // HIER IST DEIN HEAVY IMPACT FIX!
+    if (type === 'heavy_impact') { playBuffer('heavy_impact', 1.0); return; }
 
-    // Krise bricht aus (Mit sauberem Fade-Out)
     if (type === 'crisis') {
-      if (alarmFadeInterval) clearInterval(alarmFadeInterval); // Verhindert doppelte Fade-Outs
+      if (activeNodes.crisis) activeNodes.crisis.source.stop();
+      const node = playBuffer('crisis', 0.6);
+      activeNodes.crisis = node;
       
-      const alarmAudio = audioFiles.crisis;
-      alarmAudio.pause();
-      alarmAudio.currentTime = 0;
-      alarmAudio.volume = 0.6; 
-      alarmAudio.play().catch(e => console.warn(e));
-
-      // Startet den Fade-Out nach 3.5 Sekunden
-      setTimeout(() => {
-        alarmFadeInterval = setInterval(() => {
-          if (alarmAudio.volume > 0.05) {
-            alarmAudio.volume -= 0.05;
-          } else {
-            clearInterval(alarmFadeInterval);
-            alarmAudio.pause();
-            alarmAudio.currentTime = 0;
-          }
-        }, 50); 
-      }, 3500); 
-
+      if (node) {
+         // Sanfter Fade-Out über die Web Audio API
+         node.gainNode.gain.setValueAtTime(0.6, t + 3.5);
+         node.gainNode.gain.linearRampToValueAtTime(0.001, t + 4.5);
+         setTimeout(() => {
+            if (activeNodes.crisis === node) {
+                node.source.stop();
+                activeNodes.crisis = null;
+            }
+         }, 4600);
+      }
       return;
     }
 
-    // Match lädt
-    if (type === 'matchIntro') {
-      audioFiles.matchIntro.pause();
-      audioFiles.matchIntro.currentTime = 0;
-      audioFiles.matchIntro.volume = 0.8; 
-      audioFiles.matchIntro.play().catch(e => console.warn(e));
-      return;
-    }
-
-    // Schaden geblockt (Patt)
-    if (type === 'patt') {
-      audioFiles.patt.pause();
-      audioFiles.patt.currentTime = 0;
-      audioFiles.patt.volume = 0.7; 
-      audioFiles.patt.play().catch(e => console.warn(e));
-      return;
-    }
-
-    // --- GENERIERTE UI-SOUNDS (Für Klicks und kleine UI-Feedbacks) ---
+    // --- GENERIERTE UI-SOUNDS (Oscillators) ---
     
     if (type === 'click') {
+      // ERHÖHTER DEBOUNCE: 150ms blockieren garantiert alle doppelten Sounds (Event-Bubbling)!
+      if (t - lastClickTime < 0.15) return; 
+      lastClickTime = t;
+      
       const o = audioCtx.createOscillator(), g = audioCtx.createGain();
       o.connect(g); g.connect(audioCtx.destination);
       o.type = 'sine';

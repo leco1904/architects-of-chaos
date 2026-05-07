@@ -180,34 +180,158 @@ body, html, #root {
 @keyframes floatUpMoney { 0% { opacity: 0; transform: translateY(0) scale(0.5); } 20% { opacity: 1; transform: translateY(-20px) scale(1.2); } 100% { opacity: 0; transform: translateY(-60px) scale(0.8); } }
 
 /* ========================================= */
-/* --- 3. MAIN MENU & STATS (PC/FLEX) ---    */
+/* --- 3. MAIN MENU (DASHBOARD LAYOUT) ---   */
 /* ========================================= */
-.menu-title { padding-top: 20px; color: #fff; font-size: 4rem; font-weight: 700; text-align: center; letter-spacing: 12px; margin-bottom: 5px; text-shadow: 0 0 30px rgba(255,255,255,0.2); }
-.menu-subtitle { color: var(--win); font-size: 1.2rem; font-weight: 600; letter-spacing: 8px; margin-bottom: 40px; text-transform: uppercase; text-align: center; }
 
-.main-menu-container { width: 100%; max-width: 800px; margin: 0 auto; position: relative; z-index: 10; }
-.main-menu-grid { display: grid !important; grid-template-columns: 1fr 1fr; gap: 20px; width: 100%; }
-.play-menu-subgrid { display: flex; flex-direction: column; gap: 15px; width: 100%; max-width: 400px; margin: 0 auto; }
-.main-menu-grid .menu-btn { margin: 0 !important; height: 100%; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; text-align: center; padding: 20px 10px !important; }
-.menu-btn-hero { grid-column: 1 / -1; min-height: 100px; font-size: 1.8rem !important; border-width: 3px !important; clip-path: polygon(25px 0, 100% 0, 100% calc(100% - 25px), calc(100% - 25px) 100%, 0 100%, 0 25px) !important; }
-.menu-btn-card { min-height: 160px; aspect-ratio: 1 / 0.8; clip-path: polygon(20px 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%, 0 20px) !important; }
-.menu-icon { font-size: 3rem; margin-bottom: 15px; filter: drop-shadow(0 0 10px currentColor); }
-.menu-btn-wide { grid-column: 1 / -1; min-height: 70px; flex-direction: row !important; gap: 15px; background: rgba(0, 229, 255, 0.05) !important; font-size: 1.2rem !important; }
-.menu-btn-small { min-height: 60px; font-size: 1rem !important; border-color: rgba(255,255,255,0.1) !important; color: #888 !important; background: rgba(255,255,255,0.02) !important; }
-.menu-btn-small:hover { color: #fff !important; border-color: var(--win) !important; background: rgba(0,229,255,0.1) !important; }
+.dash-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 1200px; /* Begrenzt die maximale Breite! */
+  margin: 0 auto;
+  gap: 60px;
+  z-index: 10;
+}
 
-/* Stats Dashboard */
-.stats-dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 30px; }
-.stat-pod { background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.1); border-left: 4px solid var(--pod-color); padding: 20px; border-radius: 4px; display: flex; flex-direction: column; justify-content: center; }
-.stat-pod-wide { grid-column: 1 / -1; }
-.stat-pod-title { font-size: 0.75rem; letter-spacing: 2px; color: #aaa; margin-bottom: 8px; text-transform: uppercase; font-weight: bold; }
-.stat-pod-val { font-size: 2.2rem; font-family: 'Roboto Mono', monospace; font-weight: 900; color: var(--pod-color); text-shadow: 0 0 15px var(--pod-color); line-height: 1; }
-.stat-progress-bg { width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; margin-top: 15px; overflow: hidden; }
-.stat-progress-fill { height: 100%; border-radius: 3px; box-shadow: 0 0 10px var(--pod-color); }
+/* Linke Seite: Titel & Haupt-Action */
+.dash-left {
+  flex: 1.2;
+  display: flex;
+  flex-direction: column;
+}
 
-/* Lexikon Controls */
-.lex-top-controls { display: flex; gap: 15px; flex-wrap: wrap; align-items: center; justify-content: flex-start; width: 100%; }
-.lex-top-controls input, .lex-top-controls select { flex: 1 1 150px; min-width: 150px; }
+.dash-title {
+  color: #fff;
+  font-size: 4.5rem;
+  font-weight: 900;
+  line-height: 1.1;
+  letter-spacing: 12px;
+  text-shadow: 0 0 30px rgba(255,255,255,0.2);
+  margin-bottom: 10px;
+}
+
+.dash-subtitle {
+  color: var(--win);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 8px;
+  margin-bottom: 50px;
+  text-transform: uppercase;
+}
+
+.dash-main-actions, .dash-play-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  max-width: 450px;
+}
+
+/* Fette Hero Buttons (Start & Ghost Node) */
+.dash-btn-hero {
+  position: relative;
+  background: transparent;
+  border: 2px solid var(--win);
+  color: var(--win);
+  padding: 25px 30px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 900;
+  letter-spacing: 4px;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+  clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px));
+}
+
+.dash-btn-hero .hero-bg {
+  position: absolute; inset: 0; background: var(--win); opacity: 0.1; transition: 0.3s;
+}
+.dash-btn-hero:hover .hero-bg { opacity: 0.25; }
+.dash-btn-hero:hover { transform: translateX(10px); box-shadow: -10px 0 30px rgba(0,229,255,0.2); }
+.dash-btn-hero .hero-text { position: relative; z-index: 2; }
+
+.ghost-node-btn { border-color: var(--apex-pink); color: var(--apex-pink); }
+.ghost-node-btn .hero-bg { background: var(--apex-pink); opacity: 0.05; }
+.ghost-node-btn:hover .hero-bg { opacity: 0.15; }
+.ghost-node-btn:hover { box-shadow: -10px 0 30px rgba(255,0,127,0.2); }
+
+.ghost-tags {
+  position: absolute; top: 15px; right: 20px; display: flex; flex-direction: column; align-items: flex-end; gap: 5px; font-size: 0.6rem; z-index: 2;
+}
+.tag-new { background: var(--ep); color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; }
+.tag-active { background: var(--apex-pink); color: #fff; padding: 2px 6px; border-radius: 3px; font-weight: bold; box-shadow: 0 0 10px var(--apex-pink); animation: pulse 2s infinite; }
+
+/* Rechte Seite: System Module Grid */
+.dash-right {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+
+.dash-btn-module {
+  position: relative;
+  background: rgba(15, 15, 20, 0.6);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.1);
+  padding: 30px 15px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  font-family: 'Rajdhani', sans-serif;
+  color: #aaa;
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+}
+
+.dash-btn-module:hover {
+  background: rgba(0, 229, 255, 0.05);
+  border-color: var(--win);
+  color: #fff;
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+}
+
+.mod-icon { font-size: 2.2rem; filter: drop-shadow(0 0 8px currentColor); }
+.mod-text { font-size: 0.95rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+
+.highlight-module { border-color: rgba(255,215,0,0.3); color: var(--ep); }
+.highlight-module:hover { background: rgba(255,215,0,0.08); border-color: var(--ep); }
+
+.notif-dot {
+  position: absolute; top: 12px; right: 12px; width: 10px; height: 10px;
+  border-radius: 50%; box-shadow: 0 0 10px currentColor; animation: pulse 1.5s infinite;
+}
+
+/* === MOBILE ANPASSUNG FÜR DAS NEUE DASHBOARD === */
+@media (max-width: 900px) {
+  .dash-container {
+    flex-direction: column;
+    gap: 40px;
+    padding-top: 40px;
+  }
+  .dash-left {
+    align-items: center;
+    text-align: center;
+  }
+  .dash-title { font-size: 3rem; letter-spacing: 6px; }
+  .dash-subtitle { font-size: 0.8rem; letter-spacing: 4px; margin-bottom: 30px; }
+  .dash-main-actions { align-items: center; max-width: 100%; }
+  .dash-btn-hero { width: 100%; text-align: center; padding: 20px; font-size: 1.2rem; }
+  .ghost-tags { position: static; flex-direction: row; justify-content: center; margin-top: 8px; }
+  .dash-right { width: 100%; }
+  .dash-btn-module { padding: 20px 10px; }
+  .mod-icon { font-size: 1.8rem; }
+  .mod-text { font-size: 0.8rem; }
+}
 
 /* ========================================= */
 /* --- 4. MATCH ARENA & CLASH (PC) ---       */
@@ -225,8 +349,89 @@ body, html, #root {
 .ep-bg { background: var(--ep); box-shadow: 0 0 15px var(--ep); } .crisis-bg { background: var(--crisis); box-shadow: 0 0 15px var(--crisis); }
 
 .cockpit-action-column { display: flex; flex-direction: column; width: 320px; }
+/* Draw pile — mirrors action column width to center the card */
+.cockpit-draw-column { width: 320px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+/* Prevent in-game scrolling (Fix 5) */
+#game-ui { overflow: hidden; max-height: 100vh; }
+
+/* ── NACHZIEHSTAPEL ──────────────────────────────────────────────────── */
+.draw-pile-panel { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 16px 20px; }
+.draw-pile-heading { font-size: 0.58rem; color: rgba(255,255,255,0.25); letter-spacing: 3px; margin-bottom: 10px; text-align: center; }
+.draw-pile-group { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.draw-pile-stack { position: relative; width: 100px; }
+/* Large card backs */
+.dp-card {
+  width: 88px; height: 124px;
+  position: absolute;
+  border-radius: 6px;
+  clip-path: polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);
+}
+.dp-char {
+  background: linear-gradient(150deg, #0d0d22 0%, #070710 60%, #0a0a1a 100%);
+  border: 1px solid rgba(0,229,255,0.22);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.7), inset 0 0 20px rgba(0,229,255,0.06);
+}
+.dp-char::after {
+  content: '⬡';
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%,-50%);
+  font-size: 1.8rem; color: rgba(0,229,255,0.15);
+}
+.dp-eff {
+  background: linear-gradient(150deg, #0a1210 0%, #060d0a 60%, #08100c 100%);
+  border: 1px solid rgba(0,255,204,0.22);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.7), inset 0 0 20px rgba(0,255,204,0.06);
+}
+.dp-eff::after {
+  content: '◈';
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%,-50%);
+  font-size: 1.5rem; color: rgba(0,255,204,0.15);
+}
+.dp-empty { background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.07); opacity: 0.3; }
+.draw-pile-count { font-size: 1.8rem; font-weight: 900; line-height: 1; }
+.draw-pile-sub { font-size: 0.5rem; letter-spacing: 2px; color: rgba(255,255,255,0.22); }
+
+/* ── Card draw animation — flies from draw pile (left) to hand ────────── */
+/* The draw pile is ~320px to the left of the hand card position */
+@keyframes cardDrawFromPile {
+  0%   { opacity: 0; transform: translateX(-340px) translateY(-160px) scale(0.55) rotate(-12deg); filter: brightness(2.5) blur(2px); }
+  30%  { opacity: 1; filter: brightness(1.5) blur(0px); }
+  65%  { transform: translateX(5px) translateY(4px) scale(1.05) rotate(1deg); filter: brightness(1.2); }
+  100% { opacity: 1; transform: translateX(0) translateY(0) scale(1) rotate(0deg); filter: brightness(1); }
+}
+.card-just-drawn {
+  animation: cardDrawFromPile 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+  position: relative; z-index: 30;
+}
+
 .action-container { display: flex; flex-direction: column; gap: 15px; }
 .hand-hub { display: flex; justify-content: center; align-items: center; gap: 15px; margin-top: 30px; }
+/* ── GAME ARENA — base classes (mobile default, desktop overridden in media query) ── */
+.game-arena {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-areas: "left right" "center center";
+  gap: 8px;
+  padding: 8px 10px;
+  flex: 1;
+  min-height: 0;
+}
+.arena-left   { grid-area: left;   display: flex; flex-direction: column; gap: 8px; }
+.arena-center { grid-area: center; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.arena-right  { grid-area: right;  display: flex; flex-direction: column; gap: 8px; }
+.arena-stat-pod { padding: 8px 10px; background: rgba(10,10,15,0.85); border: 1px solid rgba(255,255,255,0.05); border-left: 3px solid var(--bar-col,#444); display: flex; flex-direction: column; gap: 4px; }
+.arena-stat-header { display: flex; justify-content: space-between; align-items: center; }
+.arena-stat-name  { font-size: 0.55rem; letter-spacing: 1px; font-weight: 700; }
+.arena-stat-value { font-size: 0.9rem; font-weight: 900; }
+.arena-stat-bar-bg { height: 6px; background: rgba(0,0,0,0.6); border-radius: 3px; overflow: hidden; }
+.arena-stat-bar-fill { height: 100%; border-radius: 3px; transition: width 0.6s cubic-bezier(0.25, 1, 0.5, 1); }
+.action-row { display: flex; gap: 8px; width: 100%; }
+.action-row .btn-act { flex: 1; min-height: 48px; display: flex; flex-direction: row; justify-content: space-between; align-items: center; padding: 0 12px; }
+.action-row .act-title { font-size: 1rem; letter-spacing: 2px; }
+.action-row .act-cost  { font-size: 0.9rem; }
+/* ─────────────────────────────────────────────────────────────────────── */
+
 .hand-grid, .tactic-grid { display: flex; gap: 15px; }
 .tactic-separator { width: 2px; height: 100px; background: rgba(255,255,255,0.1); }
 .hand-card { width: 95px; height: 135px; background: rgba(12,12,16,0.9); border: 1px solid rgba(255,255,255,0.05); border-top: 3px solid var(--card-color, #444); border-radius: 6px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; transition: all 0.3s; position: relative; overflow: hidden; box-shadow: 0 6px 15px rgba(0,0,0,0.6); }
@@ -249,24 +454,24 @@ body, html, #root {
 @keyframes crisisBannerPulse { 0%,100% { box-shadow: 0 0 8px rgba(255,0,55,0.2); } 50% { box-shadow: 0 0 18px rgba(255,0,55,0.5); } }
 
 /* Overlays / System Resolution */
-.glass-overlay { position: fixed; inset: 0; background: rgba(5,5,10,0.98); z-index: 20000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-.clash-title { font-size: 2.5rem; font-weight: 700; letter-spacing: 6px; color: #fff; margin-bottom: 30px; text-shadow: 0 0 20px rgba(255,255,255,0.3); }
-.clash-hp-container { display: flex; gap: 40px; width: 100%; max-width: 700px; margin-bottom: 30px; }
-.clash-hp-container .bar-box { flex: 1; padding: 15px 20px; }
+.glass-overlay { position: fixed; inset: 0; background: rgba(5,5,10,0.98); z-index: 20000; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow-y: auto; padding: 20px 0; }
+.clash-title { font-size: 2rem; font-weight: 700; letter-spacing: 6px; color: #fff; margin-bottom: 16px; text-shadow: 0 0 20px rgba(255,255,255,0.3); }
+.clash-hp-container { display: flex; gap: 30px; width: 100%; max-width: 640px; margin-bottom: 16px; }
+.clash-hp-container .bar-box { flex: 1; padding: 12px 16px; }
 .bar-box { background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; }
 .bar-box .label { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.85rem; font-weight: 700; color: #aaa; }
 .bar-box .label b { font-size: 1.2rem; color: #fff; }
 .bar-bg { width: 100%; height: 8px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; }
 .bar-fill { height: 100%; border-radius: 4px; transition: width 0.7s cubic-bezier(0.25, 1, 0.5, 1); }
-#clash-category { font-size: 1.8rem; font-weight: 700; color: #fff; letter-spacing: 5px; margin-bottom: 40px; text-transform: uppercase; }
-.clash-news { background: rgba(255,215,0,0.1); border: 1px solid var(--ep); color: var(--ep); padding: 15px 30px; border-radius: 6px; font-weight: 700; font-size: 1.3rem; margin-bottom: 20px; text-transform: uppercase; }
-.clash-cards-wrapper { display: flex; gap: 60px; align-items: center; margin-bottom: 50px; }
+#clash-category { font-size: 1.4rem; font-weight: 700; color: #fff; letter-spacing: 5px; margin-bottom: 16px; text-transform: uppercase; }
+.clash-news { background: rgba(255,215,0,0.1); border: 1px solid var(--ep); color: var(--ep); padding: 10px 24px; border-radius: 6px; font-weight: 700; font-size: 1.1rem; margin-bottom: 12px; text-transform: uppercase; }
+.clash-cards-wrapper { display: flex; gap: 40px; align-items: center; margin-bottom: 20px; }
 .vs-badge { font-size: 3rem; color: #444; font-style: italic; font-weight: 700; margin: 0 20px; }
 .dmg-popup { position: absolute; top: 15%; left: 50%; transform: translateX(-50%); font-size: 3.5rem; font-weight: 900; opacity: 0; pointer-events: none; z-index: 100; }
 .dmg-neg { color: var(--lose); text-shadow: 0 0 20px var(--lose); } .dmg-pos { color: var(--win); text-shadow: 0 0 20px var(--win); }
 .dmg-popup.show { animation: dmgAnim 1.5s forwards; animation-delay: 0.2s; }
 @keyframes dmgAnim { 0% { opacity: 0; transform: translate(-50%, 30px) scale(0.5); } 20% { opacity: 1; transform: translate(-50%, -10px) scale(1.2); } 80% { opacity: 1; transform: translate(-50%, -20px) scale(1); } 100% { opacity: 0; transform: translate(-50%, -50px) scale(0.8); } }
-.modern-btn { max-width: 300px; margin: 40px auto 0; display: block; }
+.modern-btn { max-width: 300px; margin: 16px auto 0; display: block; }
 
 /* ========================================= */
 /* --- 5. INVENTAR, MARKET, LEXIKON      --- */
@@ -303,8 +508,25 @@ body, html, #root {
 .pack-opening-center { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.9); z-index: 30000; }
 .pack-shaking { background: rgba(20,20,30,1); border: 4px solid; border-radius: 12px; padding: 60px; text-align: center; animation: packRumble 2s cubic-bezier(.36,.07,.19,.97) both; }
 .screen-flash { position: fixed; inset: 0; background: rgba(0,255,255,0.4); z-index: 99999; animation: flashFade 0.8s forwards; pointer-events: none; }
-.reveal-container { position: fixed; inset: 0; background: rgba(5,5,10,0.95); z-index: 30000; display: flex; flex-direction: column; align-items: center; padding-top: 10vh; overflow-y: auto;}
-.pull-reveal-grid { display: flex; gap: 30px; justify-content: center; align-items: center; flex-wrap: wrap; transform: scale(0.9); }
+/* Reveal Container Desktop Fix */
+.reveal-container { 
+  position: fixed; inset: 0; background: rgba(5,5,10,0.98); z-index: 30000; 
+  display: flex; flex-direction: column; align-items: center; justify-content: center; 
+  overflow: hidden; padding: 20px;
+}
+.reveal-title { margin-bottom: 0; z-index: 100; }
+.pull-reveal-grid { 
+  display: flex; gap: 30px; justify-content: center; align-items: center; flex-wrap: wrap; 
+  transform: scale(0.85); margin: -20px 0; 
+}
+
+/* Dynamische Höhen-Anpassung für Laptops (verhindert Scrollen) */
+@media (max-height: 850px) {
+  .pull-reveal-grid { transform: scale(0.65); margin: -70px 0; }
+}
+@media (max-height: 650px) {
+  .pull-reveal-grid { transform: scale(0.5); margin: -110px 0; }
+}
 .pulled-card-wrapper { opacity: 0; animation: cardFlipIn 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
 @keyframes packRumble { 0% { transform: translate(0) scale(1); filter: brightness(1); } 50% { transform: translate(-5px, 5px) scale(1.1); filter: brightness(1.5); } 100% { transform: translate(0) scale(1.3); filter: brightness(3); } }
 @keyframes flashFade { 0% { opacity: 1; } 100% { opacity: 0; } }
@@ -707,6 +929,7 @@ body, html, #root {
 /* ========================================================================= */
 @media (max-width: 768px) {
   html, body, #root { overflow-x: hidden; }
+  .cockpit-draw-column { display: none !important; } /* draw pile hidden on mobile */
   
   /* Main Menu */
   .main-menu-grid { gap: 10px !important; }
@@ -741,36 +964,181 @@ body, html, #root {
   .card-grid-cell, .mini-card-wrapper { width: 100% !important; height: 230px !important; border-radius: 8px; overflow: hidden; position: relative; }
   .card-grid-cell .card-3d-wrapper, .mini-card-scaler { transform: scale(0.44) !important; transform-origin: top center !important; margin: 0 auto !important; left: 50% !important; margin-left: -180px !important; }
 
-  /* Pack Opening */
-  .pack-opening-center { position: fixed; inset: 0; z-index: 50000; background: rgba(0,0,0,0.95); display: flex; align-items: center; justify-content: center; }
-  .pack-shaking { transform: scale(0.8); margin-top: -50px; }
-  .pull-reveal-grid { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 10px !important; transform: scale(0.85) !important; margin-top: -30px !important; }
+  /* Pack Opening & Reveal Mobile Fix */
+  .pack-opening-center { 
+    position: fixed !important; top: 0 !important; left: 0 !important; 
+    width: 100vw !important; height: 100dvh !important; 
+    z-index: 99999 !important; background: rgba(0,0,0,0.95) !important; 
+    display: flex !important; align-items: center !important; justify-content: center !important; 
+  }
+  .pack-shaking { 
+    padding: 30px !important; margin: 0 !important; 
+    width: 80% !important; max-width: 300px !important; /* Verkleinerung ohne transform */
+  }
+  .pack-shaking > div:first-child { font-size: 4rem !important; }
+  .pack-shaking h2 { font-size: 1.4rem !important; margin-top: 15px !important; }
+  
+  .reveal-container {
+    position: fixed !important; top: 0 !important; left: 0 !important;
+    width: 100vw !important; height: 100dvh !important;
+    padding-top: 5vh !important; z-index: 99999 !important;
+  }
+  .pull-reveal-grid { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 10px !important; transform: scale(0.9) !important; margin-top: -10px !important; }
   .pulled-card-wrapper { width: 152px !important; height: 213px !important; position: relative; }
   .pulled-card-wrapper .card-3d-wrapper { transform: scale(0.422) !important; transform-origin: top left !important; margin: 0 !important; }
-  .reveal-title { font-size: 1.8rem !important; letter-spacing: 4px !important; text-align: center; }
+  .reveal-title { font-size: 1.8rem !important; letter-spacing: 4px !important; text-align: center; margin-bottom: 10px !important; }
 
-  /* Arena & Combat Flow */
-  #game-ui { padding: 5px !important; height: 100dvh; display: flex; flex-direction: column; justify-content: flex-start !important; gap: 15px; }
-  .cockpit-layout { display: flex !important; flex-direction: column !important; gap: 10px !important; flex: none !important; width: 100% !important; justify-content: flex-start !important; }
-  .cockpit-arena-column { flex: none !important; width: 100% !important; position: relative !important; }
-  .arena-row { position: relative !important; width: 100% !important; height: 290px !important; display: block !important; margin: 0 !important; padding: 0 !important; }
-  .arena-card-wrapper { position: absolute !important; left: 50% !important; top: 50% !important; transform-origin: center center !important; transform: translate(-50%, -50%) scale(0.58) !important; margin: 0 !important; z-index: 50 !important; filter: drop-shadow(0 0 25px rgba(0,0,0,0.95)) drop-shadow(0 0 5px rgba(255,255,255,0.1)) !important; }
-  .arena-side-bars.left-bars { position: absolute !important; left: 0 !important; top: 50% !important; transform: translateY(-50%) !important; height: 240px !important; z-index: 10 !important; margin: 0 !important; display: flex !important; gap: 4px !important; }
-  .arena-side-bars.right-bars { position: absolute !important; right: 0 !important; top: 50% !important; transform: translateY(-50%) !important; height: 240px !important; z-index: 10 !important; margin: 0 !important; display: flex !important; gap: 4px !important; }
-  .bar-pod { height: 100% !important; width: 38px !important; min-width: 38px !important; display: flex !important; flex-direction: column !important; justify-content: space-between !important; align-items: center !important; padding: 6px 0 !important; box-sizing: border-box !important; background: rgba(10,10,15,0.95) !important; border: 1px solid #333 !important; border-radius: 6px !important; }
-  .v-bar-label { position: static !important; margin: 0 !important; font-size: 0.5rem !important; line-height: 1 !important; }
-  .v-bar-val { position: static !important; margin: 0 !important; font-size: 0.65rem !important; line-height: 1 !important; }
-  .vertical-bar-container { position: relative !important; flex: 1 1 auto !important; min-height: 0 !important; width: 8px !important; margin: 4px 0 !important; }
-  .hand-hub { width: 100% !important; margin-top: 5px !important; gap: 4px !important; flex-wrap: nowrap !important; justify-content: center !important; }
-  .hand-card { width: 62px !important; min-width: 62px !important; height: 88px !important; }
-  .hand-name { font-size: 0.55rem !important; } .hand-icon { font-size: 0.85rem !important; margin-bottom: 2px !important; } .hand-syn { font-size: 0.45rem !important; padding: 2px 4px !important; margin-top: 2px !important; }
-  .tactic-separator { height: 50px !important; margin: 0 2px !important; }
-  .cockpit-action-column { width: 100% !important; margin-top: 10px !important; margin-bottom: 10px !important; }
-  .action-container { flex-direction: row !important; gap: 6px !important; }
-  .action-container .btn-act { padding: 10px 4px !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 4px !important; }
-  .act-title { font-size: 0.75rem !important; letter-spacing: 1px !important; }
-  .btn-act .act-cost { display: block !important; font-size: 0.65rem !important; color: var(--ep) !important; font-weight: bold; }
-  
+  /* ================================================================== */
+/* DESKTOP COMBAT OVERHAUL V4 — SKETCH LAYOUT                        */
+/* ================================================================== */
+@media (min-width: 769px) {
+
+  /* 1. MASTER CONTAINER — overflow:hidden prevents scrolling (Fix 5) */
+  #game-ui {
+    padding: 20px 40px !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    overflow: hidden !important;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* 2. TURN INDICATOR — centered relative to viewport (Fix 3) */
+  .top-bar { position: relative; margin-bottom: 20px !important; z-index: 100; }
+  #turn-ind {
+    position: fixed !important;        /* fixed → always centered on viewport */
+    left: 50% !important;
+    top: 0 !important;
+    transform: translateX(-50%) !important;
+    font-size: 1.6rem !important;
+    font-weight: 900 !important;
+    letter-spacing: 12px !important;
+    padding: 18px 70px 22px 70px !important;
+    background: linear-gradient(180deg, rgba(10,5,20,0.98) 0%, rgba(5,2,10,0.8) 100%) !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    border-top: none !important;
+    border-bottom: 3px solid !important;
+    border-radius: 0 0 16px 16px !important;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.8) !important;
+    backdrop-filter: blur(10px);
+    white-space: nowrap; z-index: 9999;
+  }
+  #turn-ind.turn-player { border-bottom-color: var(--win) !important; color: var(--win) !important; text-shadow: 0 0 15px var(--win) !important; }
+  #turn-ind.turn-ai { border-bottom-color: var(--lose) !important; color: var(--lose) !important; text-shadow: 0 0 15px var(--lose) !important; }
+
+  /* 3. GAME ARENA — 3-column grid */
+  .game-arena {
+    display: grid !important;
+    grid-template-columns: minmax(180px, 240px) 1fr minmax(180px, 240px) !important;
+    grid-template-areas: "left center right" !important;
+    gap: 28px !important;
+    padding: 0 !important;
+    flex: 1 !important;
+    align-items: center !important;
+    width: 100% !important;
+  }
+  .arena-left  { grid-area: left !important; }
+  .arena-center { grid-area: center !important; }
+  .arena-right { grid-area: right !important; }
+
+  /* 4. SIDE PANELS — stat pods */
+  .arena-left,
+  .arena-right {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 14px !important;
+    padding-top: 0 !important;
+  }
+  .arena-stat-pod {
+    padding: 14px 18px !important;
+    background: rgba(10,10,15,0.9) !important;
+    border: 1px solid rgba(255,255,255,0.06) !important;
+    border-left: 4px solid var(--bar-col, #444) !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5) !important;
+  }
+  .arena-stat-name {
+    font-size: 0.72rem !important;
+    letter-spacing: 2px !important;
+    font-weight: 700 !important;
+  }
+  .arena-stat-value {
+    font-size: 1.6rem !important;
+    font-weight: 900 !important;
+  }
+  .arena-stat-bar-bg {
+    height: 10px !important;
+  }
+
+  /* 5. CENTER PANEL */
+  .arena-center {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 12px !important;
+  }
+
+  /* 6. HAND CARDS */
+  .hand-hub { margin-top: 0 !important; margin-bottom: 0 !important; }
+  /* 6b. DRAW PILE — desktop sizing */
+  .cockpit-draw-column {
+    width: 320px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    padding-bottom: 20px !important;
+  }
+  .draw-pile-panel { padding: 24px 20px !important; gap: 10px !important; }
+  .dp-card { width: 100px !important; height: 140px !important; }
+  .draw-pile-stack { width: 115px !important; }
+  .draw-pile-count { font-size: 2rem !important; }
+  .draw-pile-heading { font-size: 0.65rem !important; letter-spacing: 4px !important; margin-bottom: 14px !important; }
+  .hand-card-wrapper {
+    width: 130px !important;
+    height: 182px !important;
+  }
+  .hand-card-inner {
+    transform: scale(0.361) !important;
+  }
+  .empty-tactic-slot {
+    width: 130px !important; height: 182px !important;
+  }
+  .empty-tactic-slot span { font-size: 1rem !important; }
+
+  /* 7. ACTION ROW — horizontal buttons at bottom of center */
+  .action-row {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 16px !important;
+    width: 100% !important;
+    justify-content: center !important;
+  }
+  .action-row .btn-act {
+    flex: 1 !important;
+    max-width: 280px !important;
+    height: 72px !important;
+    padding: 0 24px !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    display: flex !important;
+  }
+  .action-row .act-title { font-size: 1.3rem !important; letter-spacing: 4px !important; }
+  .action-row .act-cost  { font-size: 1.3rem !important; }
+
+  /* 8. SCALE ADAPTATION */
+  @media (max-height: 900px) {
+    .arena-card-wrapper .card-3d-wrapper { transform: scale(0.9) !important; transform-origin: top center; margin-bottom: -50px !important; }
+    .hand-hub { transform: scale(0.9); }
+    .action-row .btn-act { height: 60px !important; }
+  }
+  @media (max-height: 780px) {
+    .arena-card-wrapper .card-3d-wrapper { transform: scale(0.78) !important; transform-origin: top center; margin-bottom: -110px !important; }
+    .hand-hub { transform: scale(0.82); }
+    .action-row .btn-act { height: 52px !important; }
+    .arena-stat-value { font-size: 1.2rem !important; }
+  }
+} 
   /* Clash Overlay Protection */
   .glass-overlay.active { justify-content: flex-start !important; overflow-y: auto !important; padding: 10px !important; padding-top: 60px !important; }
   .glass-overlay .menu-btn { width: 100% !important; margin-top: 8px !important; padding: 12px !important; font-size: 0.9rem !important; }
@@ -1033,3 +1401,365 @@ body, html, #root {
 /* Ghost Node sub-menu transition */
 .ghost-submenu-enter { animation: slideDown 0.18s ease-out; }
 @keyframes slideDown { from{opacity:0;transform:translateY(-6px);} to{opacity:1;transform:translateY(0);} }
+
+/* ================================================================== */
+/* LEADERBOARD STYLES                                                */
+/* ================================================================== */
+.leaderboard-tabs { display: flex; gap: 10px; margin-bottom: 25px; flex-wrap: wrap; }
+.leaderboard-table { width: 100%; border-collapse: collapse; text-align: left; }
+.leaderboard-table th { padding: 12px 10px; border-bottom: 2px solid var(--win); color: var(--win); font-size: 0.9rem; letter-spacing: 2px; font-family: 'Rajdhani', sans-serif; }
+.leaderboard-table td { padding: 14px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.leaderboard-table tr:hover td { background: rgba(0,229,255,0.05); }
+.rank-1 { color: var(--ep); font-size: 1.4rem !important; font-weight: 900; text-shadow: 0 0 10px var(--ep); }
+.rank-2 { color: #c0c0c0; font-size: 1.2rem !important; font-weight: 900; text-shadow: 0 0 8px rgba(192,192,192,0.5); }
+.rank-3 { color: #cd7f32; font-size: 1.1rem !important; font-weight: 900; text-shadow: 0 0 8px rgba(205,127,50,0.5); }
+.rank-normal { color: #888; font-size: 0.9rem; }
+/* ================================================================== */
+/* GHOST NODE MOBILE OPTIMIZATION                                     */
+/* ================================================================== */
+.gn-main-layout {
+  display: flex;
+  gap: 50px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  justify-content: center;
+  flex: 1;
+}
+
+/* ================================================================== */
+/* DYNAMISCHE HÖHEN-SKALIERUNG (PC / LAPTOP FIX)                      */
+/* Verhindert, dass die Handkarten auf 1080p abgeschnitten werden     */
+/* ================================================================== */
+@media (min-width: 769px) and (max-height: 950px) {
+  .cockpit-layout { transform: scale(0.85); transform-origin: top center; }
+}
+@media (min-width: 769px) and (max-height: 800px) {
+  .cockpit-layout { transform: scale(0.75); transform-origin: top center; }
+}
+@media (min-width: 769px) and (max-height: 700px) {
+  .cockpit-layout { transform: scale(0.65); transform-origin: top center; }
+}
+
+@media (max-width: 768px) {
+  .gn-main-layout {
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 30px !important;
+  }
+  
+  /* Verkleinert die linke Karte inkl. Stats auf dem Handy */
+  .gn-main-layout > div:first-child {
+    width: 100% !important;
+    max-width: 320px;
+  }
+  
+  /* Command Uplink Panel anpassen */
+  .gn-main-layout > div:last-child {
+    min-width: 100% !important;
+    padding: 20px !important;
+  }
+}
+/* ================================================================== */
+/* MOBILE FIXES FÜR GHOST NODE & MAP                                  */
+/* ================================================================== */
+@media (max-width: 768px) {
+  /* Ghost Node Menü Skalierung */
+  .gn-card-wrapper {
+    transform: scale(0.75);
+    transform-origin: top center;
+    margin-bottom: -110px; /* Entfernt den leeren Raum unter der verkleinerten Karte */
+  }
+
+  /* Roguelike Map Umbruch */
+  .rl-map-layout {
+    flex-direction: column !important;
+    overflow-y: auto !important;
+  }
+  .rl-map-sidebar {
+    width: 100% !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    border-right: none !important;
+    border-bottom: 1px solid rgba(188,19,254,0.12) !important;
+    height: auto !important;
+    max-height: 220px !important;
+    overflow-y: auto !important;
+    gap: 8px !important;
+  }
+  .rl-map-sidebar > div {
+    flex: 1 1 140px; /* Sidebar-Elemente fließen auf dem Handy nebeneinander */
+  }
+  .rl-map-content {
+    padding: 10px !important;
+    overflow-y: visible !important;
+  }
+  /* Map Nodes auf dem Handy umbrechen lassen */
+  .rl-map-content > div:first-child > div:nth-child(2) {
+    flex-wrap: wrap !important;
+    gap: 15px !important;
+  }
+}
+/* ================================================================== */
+/* MOBILE FIXES FÜR SQUAD & MAP (max-width: 768px)                    */
+/* ================================================================== */
+@media (max-width: 768px) {
+  
+  /* --- SQUAD REKRUTIERUNG --- */
+  .rl-squad-layout {
+    flex-direction: column !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .rl-squad-sidebar {
+    width: 100% !important;
+    max-height: 40vh !important; /* Nimmt 40% des Bildschirms ein, scrollbar */
+    border-bottom: 2px solid rgba(188,19,254,0.3) !important;
+    padding-bottom: 15px !important;
+    padding-right: 0 !important;
+  }
+  .rl-squad-content {
+    width: 100% !important;
+    height: 55vh !important; /* Rest des Bildschirms für das Grid */
+  }
+
+  /* --- ROGUELIKE MAP --- */
+  .rl-map-layout {
+    flex-direction: column !important;
+    overflow-y: auto !important;
+  }
+  .rl-map-sidebar {
+    width: 100% !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    border-right: none !important;
+    border-bottom: 1px solid rgba(188,19,254,0.12) !important;
+    height: auto !important;
+    max-height: 250px !important;
+    overflow-y: auto !important;
+    gap: 8px !important;
+  }
+  .rl-map-sidebar > div {
+    flex: 1 1 140px; /* Sidebar-Elemente fließen nebeneinander */
+  }
+  .rl-map-content {
+    padding: 10px !important;
+    overflow-y: visible !important;
+  }
+  /* Bricht die Map-Nodes untereinander um, wenn es zu eng wird */
+  .rl-map-content > div:first-child > div:nth-child(2) {
+    flex-wrap: wrap !important;
+    gap: 15px !important;
+  }
+}
+
+/* ================================================================== */
+/* MOBILE FIXES FÜR GHOST NODE, SQUAD & MAP (max-width: 768px)        */
+/* ================================================================== */
+@media (max-width: 768px) {
+  
+  /* --- GHOST NODE MENU --- */
+  .gn-main-layout {
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 30px !important;
+  }
+  .gn-main-layout > div:first-child {
+    width: 100% !important;
+    max-width: 320px;
+  }
+  .gn-main-layout > div:last-child {
+    min-width: 100% !important;
+    padding: 20px !important;
+  }
+  .gn-card-wrapper {
+    transform: scale(0.75);
+    transform-origin: top center;
+    margin-bottom: -110px;
+  }
+
+  /* --- SQUAD REKRUTIERUNG --- */
+  .rl-squad-layout {
+    flex-direction: column !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .rl-squad-sidebar {
+    width: 100% !important;
+    max-height: 40vh !important;
+    border-bottom: 2px solid rgba(188,19,254,0.3) !important;
+    padding-bottom: 15px !important;
+    padding-right: 0 !important;
+  }
+  .rl-squad-content {
+    width: 100% !important;
+    height: 55vh !important;
+  }
+
+  /* --- ROGUELIKE MAP --- */
+  .rl-map-layout {
+    flex-direction: column !important;
+    overflow-y: auto !important;
+  }
+  .rl-map-sidebar {
+    width: 100% !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    border-right: none !important;
+    border-bottom: 1px solid rgba(188,19,254,0.12) !important;
+    height: auto !important;
+    max-height: 250px !important;
+    overflow-y: auto !important;
+    gap: 8px !important;
+  }
+  .rl-map-sidebar > div {
+    flex: 1 1 140px;
+  }
+  .rl-map-content {
+    padding: 10px !important;
+    overflow-y: visible !important;
+  }
+  .rl-map-content > div:first-child > div:nth-child(2) {
+    flex-wrap: wrap !important;
+    gap: 15px !important;
+  }
+}
+
+/* ================================================================== */
+/* VICTORY & LOOT ANIMATIONS                                         */
+/* ================================================================== */
+
+/* Cyber Confetti */
+@keyframes lootConfetti {
+  0%   { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(200px) scale(0) rotate(720deg); opacity: 0; }
+}
+
+.cyber-confetti {
+  position: absolute; width: 6px; height: 6px; 
+  animation: lootConfetti 1.5s ease-out forwards; 
+  pointer-events: none; zIndex: 1000;
+}
+
+/* Panel Slide-In from Top */
+@keyframes panelSlideIn {
+  0%   { transform: translateY(-50px) scale(0.9); opacity: 0; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.animate-panel-in {
+  animation: panelSlideIn 0.5s ease-out forwards;
+}
+
+/* Pulsing GTI update (like image_15b91a.png) */
+@keyframes gtiUpdatePulse {
+  0%   { text-shadow: 0 0 5px rgba(255,255,255,0.2); transform: scale(1); }
+  50%  { text-shadow: 0 0 20px var(--win); transform: scale(1.1); }
+  100% { text-shadow: 0 0 5px rgba(255,255,255,0.2); transform: scale(1); }
+}
+
+.gti-update-pulse {
+  animation: gtiUpdatePulse 1s ease-in-out;
+}
+
+/* ================================================================== */
+/* MATCH ENGINE HAND CARDS (ART-ONLY & SCALED FIX)                   */
+/* ================================================================== */
+
+.hand-grid { display: flex; gap: 15px; }
+.tactic-grid { display: flex; gap: 15px; }
+
+.hand-card-wrapper {
+  width: 102px; 
+  height: 143px; /* Exakt 504px * 0.2833 */
+  position: relative;
+  cursor: pointer; 
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.hand-card-wrapper.active {
+  transform: translateY(-10px);
+}
+.hand-card-inner {
+  transform: scale(0.2833); 
+  transform-origin: top left;
+  width: 360px; 
+  height: 504px; /* Original-Kartengröße, nicht 510px! Verhindert Overflows */
+  pointer-events: none;
+}
+.hand-card-glow-char, .hand-card-glow-eff {
+  position: absolute; 
+  inset: -2px; 
+  border-radius: 6px; 
+  z-index: 10;
+  pointer-events: none;
+}
+.hand-card-glow-char { border: 2px solid var(--win); box-shadow: 0 0 15px var(--win); }
+.hand-card-glow-eff { border: 2px solid var(--eff-col); box-shadow: 0 0 15px var(--eff-col); }
+
+.empty-tactic-slot {
+  width: 102px; height: 143px; 
+  background: #050505; border: 1px dashed #333; 
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 6px;
+}
+.empty-tactic-slot span { color: #333; font-size: 0.8rem; }
+
+/* === FORCE ART-ONLY MODE FÜR KARTEN IN DER HAND === */
+.hand-card-inner .card-stats,
+.hand-card-inner .c-center-visual,
+.hand-card-inner .type-badge,
+.hand-card-inner .card-micro-data,
+.hand-card-inner .card-tags-container,
+.hand-card-inner .level-badge,
+.hand-card-inner .card-foil,
+.hand-card-inner .card-glare,
+.hand-card-inner .card-scanlines {
+  opacity: 0 !important;
+  display: none !important;
+}
+.hand-card-inner .gti-core { opacity: 1 !important; }
+.hand-card-inner .card-ui > div:first-child {
+  height: 100% !important; /* Bild füllt die ganze Karte */
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 70%, rgba(0,0,0,0.3) 100%) !important;
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 70%, rgba(0,0,0,0.3) 100%) !important;
+}
+.hand-card-inner .card-header {
+  position: absolute !important;
+  bottom: 30px !important;
+  left: 45px !important;
+  right: 20px !important;
+  z-index: 20 !important;
+  margin-bottom: 0 !important;
+}
+.hand-card-inner .card-name {
+  font-size: 1.6rem !important;
+  text-shadow: 0 2px 12px rgba(0,0,0,1), 0 0 30px rgba(0,0,0,0.9) !important;
+}
+
+/* === MOBILE ADJUSTMENTS (Millimeter-Perfekt) === */
+@media (max-width: 768px) {
+  .hand-hub { gap: 6px !important; }
+  .hand-grid { gap: 6px !important; }
+  .tactic-grid { gap: 6px !important; }
+  
+  .hand-card-wrapper {
+    width: 64px !important; 
+    min-width: 64px !important; 
+    height: 90px !important; /* 504px * 0.1777 */
+  }
+  .hand-card-inner {
+    transform: scale(0.1777) !important; 
+  }
+  .hand-card-wrapper.active {
+    transform: translateY(-6px); /* Etwas weniger hochspringen auf Mobile */
+  }
+  .hand-card-glow-char, .hand-card-glow-eff {
+    border-radius: 4px; /* Passt besser zu der kleinen Größe */
+    inset: -1px;
+    border-width: 1px;
+  }
+  .empty-tactic-slot {
+    width: 64px !important; min-width: 64px !important; height: 90px !important;
+    border-radius: 4px;
+  }
+  .empty-tactic-slot span { font-size: 0.5rem !important; }
+}

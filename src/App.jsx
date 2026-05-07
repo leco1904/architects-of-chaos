@@ -8,6 +8,7 @@ import AvatarLab from './components/AvatarLab';
 import RoguelikeMap from './components/RoguelikeMap';
 import RoguelikeReward from './components/RoguelikeReward';
 import RoguelikeSquad from './components/Roguelikesquad';
+import Leaderboard from './components/Leaderboard';
 import GhostNodeMenu from './components/GhostNodeMenu';
 import cardsData from './data/cards.json';
 import { playSound } from './logic/audio';
@@ -161,6 +162,11 @@ export default function App() {
     const s = JSON.parse(localStorage.getItem('aoc_stats') || '{"wins":0, "losses":0}');
     return { packsOpened: 0, upgradesDone: 0, bossDefeats: 0, ...s };
   });
+
+  const [metaStats, setMetaStats] = useState(() => {
+    const saved = localStorage.getItem('aoc_meta_stats');
+    return saved ? JSON.parse(saved) : {};
+  });
   
   const [missions, setMissions] = useState(() => {
     const saved = JSON.parse(localStorage.getItem('aoc_missions') || '[]');
@@ -193,7 +199,8 @@ export default function App() {
     localStorage.setItem('aoc_avatar',    JSON.stringify(avatarCard));
     localStorage.setItem('aoc_run',       JSON.stringify(roguelikeRun));
     localStorage.setItem('aoc_reward_packs', JSON.stringify(rewardPacks));
-  },[credits,inventory,decks,stats,missions,avatarCard,roguelikeRun,rewardPacks]);
+    localStorage.setItem('aoc_meta_stats', JSON.stringify(metaStats));
+  },[credits,inventory,decks,stats,missions,avatarCard,roguelikeRun,rewardPacks,metaStats]);
 
   // ── Supabase Auth ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -231,19 +238,21 @@ export default function App() {
         
         if (p.avatar_card !== undefined) setAvatarCard(p.avatar_card);
         if (p.active_run !== undefined) setRoguelikeRun(p.active_run);
+        if (p.meta_stats !== undefined) setMetaStats(p.meta_stats || {});
 
         localStorage.setItem('aoc_credits', (p.credits || 500).toString());
         localStorage.setItem('aoc_inventory', JSON.stringify(p.inventory || []));
         localStorage.setItem('aoc_decks', JSON.stringify(p.decks || []));
         localStorage.setItem('aoc_avatar', JSON.stringify(p.avatar_card || null));
         localStorage.setItem('aoc_run', JSON.stringify(p.active_run || null));
+        localStorage.setItem('aoc_meta_stats', JSON.stringify(p.meta_stats || {}));
         
       } else {
         const inv = makeStarterInventory();
         const d = makeStarterDecks();
         await supabase.from('profiles').insert({
           id: user.id, username: (user.user_metadata?.username || 'AGENT').toUpperCase(),
-          credits: 500, inventory: inv, decks: d, avatar_card: null, active_run: null
+          credits: 500, inventory: inv, decks: d, avatar_card: null, active_run: null, meta_stats: {}
         });
         setCredits(500); setInventory(inv); setDecks(d);
       }
@@ -271,12 +280,13 @@ export default function App() {
         inventory, 
         decks, 
         avatar_card: avatarCard, 
-        active_run: roguelikeRun 
+        active_run: roguelikeRun,
+        meta_stats: metaStats
       });
     }, 1500);
 
     return () => clearTimeout(t);
-  }, [credits, inventory, decks, avatarCard, roguelikeRun, guestMode, session]);
+  }, [credits, inventory, decks, avatarCard, roguelikeRun, metaStats, guestMode, session]);
 
   const handleGuestLogin = ()=>{ cloudSyncReady.current=true; setGuestMode(true); };
   const handleLogout = async ()=>{
@@ -296,6 +306,29 @@ export default function App() {
     return () => window.removeEventListener('abortRun', handler);
   }, []);
 
+// --- GLOBALES CLICK-AUDIO ---
+  useEffect(() => {
+    const handleGlobalClick = (e) => {
+      // Ignoriere Klicks auf Texteingabefelder (sonst piept es beim Tippen)
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      
+      // Prüfe, ob das geklickte Element ein Button ist oder "cursor: pointer" hat
+      const isButton = e.target.closest('button');
+      let hasPointer = false;
+      try {
+        hasPointer = window.getComputedStyle(e.target).cursor === 'pointer' || 
+                     window.getComputedStyle(e.target.parentElement).cursor === 'pointer';
+      } catch(err) {}
+
+      if (isButton || hasPointer) {
+        playSound('click');
+      }
+    };
+    
+    document.addEventListener('click', handleGlobalClick);
+    return () => document.removeEventListener('click', handleGlobalClick);
+  }, []);
+
   const updateAvatar = (newAvatar) => { setAvatarCard(newAvatar); };
 
   // ── PHASE 2: Roguelike Match-Logik ────────────────────────────────────────
@@ -306,12 +339,39 @@ export default function App() {
     const isBoss = node === 5;
     const level  = isBoss ? 3 : Math.max(1, Math.min(2, sector));
     const diff   = isBoss ? 4 : Math.min(3, sector);
-    const aHP    = isBoss ? 800 : 500;
-    const shuffledChars = [...cardsData.characters].sort(() => Math.random() - 0.5);
-    const aiChars       = shuffledChars.slice(0, 4).map(c => ({ ...c, level }));
-    const effs          = cardsData.effects || [];
-    const aiEffs        = effs.length > 0 ? [{ ...effs[Math.floor(Math.random() * effs.length)], level: 1 }] : [];
-    return { aiChars, aiEffs, difficulty: diff, initialAHP: aHP };
+    
+    // Archetypen Logik (Zufall, basierend auf Node)
+    const rand = Math.random();
+    let archetype = 'standard';
+    let aHP = 500;
+    let charPool = [...cardsData.characters];
+
+    if (isBoss) {
+      aHP = 1200; // Boss ist jetzt viel tankier!
+      archetype = 'boss';
+    } else if (rand > 0.6) {
+      archetype = 'tank';
+      aHP = 2500;
+      charPool = charPool.filter(c => (c.gti || 0) < 80); // Tank nutzt nur schwächere Karten
+    } else if (rand > 0.3) {
+      archetype = 'assassin';
+      aHP = 400;
+      // Assassin bekommt garantiert eine sehr starke Karte an Pos 1
+      const apexCards = charPool.filter(c => c.type === 'apex' || c.type === 'legacy');
+      if (apexCards.length > 0) {
+        charPool = [apexCards[Math.floor(Math.random() * apexCards.length)], ...charPool];
+      }
+    }
+
+    const shuffledChars = shuffle(charPool);
+    // Assassin bekommt Level 3 Karten, egal welcher Sektor!
+    const finalLevel = archetype === 'assassin' ? 3 : level; 
+    
+    const aiChars = shuffledChars.slice(0, 4).map(c => ({ ...c, level: finalLevel }));
+    const effs = cardsData.effects || [];
+    const aiEffs = effs.length > 0 ? [{ ...effs[Math.floor(Math.random() * effs.length)], level: 1 }] : [];
+    
+    return { aiChars, aiEffs, difficulty: diff, initialAHP: aHP, archetype };
   };
 
   const startRoguelikeRunWithDeck = (selectedChars, selectedEffs) => {
@@ -341,7 +401,31 @@ export default function App() {
   };
 
   // --- DIE REPARIERTE LOOT & DRAFT LOGIK ---
-  const handleRoguelikeEndGame = ({ isWin, remainingHP = 0, isAbort = false }) => {
+  const handleRoguelikeEndGame = ({ isWin, remainingHP = 0, isAbort = false, matchData }) => {
+    
+    // 1. GLOBALE LEADERBOARD STATS TRACKEN
+    setMetaStats(prev => {
+      const next = { ...prev };
+      // Schadens-Werte aufaddieren (wenn vorhanden)
+      if (matchData) {
+        next.total_damage_dealt = (next.total_damage_dealt || 0) + (matchData.dmgDealt || 0);
+        next.total_damage_taken = (next.total_damage_taken || 0) + (matchData.dmgTaken || 0);
+        if ((matchData.dmgDealt || 0) > (next.highest_crit || 0)) next.highest_crit = matchData.dmgDealt;
+      }
+      
+      // Sieg/Niederlagen Zähler
+      if (isWin) {
+        next.total_wins = (next.total_wins || 0) + 1;
+        next.nodes_cleared_total = (next.nodes_cleared_total || 0) + 1;
+        if (roguelikeRun?.node >= 5 || roguelikeMatchData?.difficulty >= 4) {
+          next.bosses_defeated = (next.bosses_defeated || 0) + 1;
+        }
+      } else if (!isAbort) {
+        next.total_losses = (next.total_losses || 0) + 1;
+      }
+      return next;
+    });
+
     if (!isWin || isAbort) {
       setRoguelikeMatchData(null);
       setRoguelikeRun(null);
@@ -634,6 +718,7 @@ export default function App() {
   if (currentView === 'ghostnodemenu') return (
     <GhostNodeMenu
       avatarCard={avatarCard}
+      updateAvatar={updateAvatar} /* <--- DAS HIER IST NEU */
       roguelikeRun={roguelikeRun}
       onGoToLab={() => setCurrentView('avatarlab')}
       onGoToSquad={() => setCurrentView('roguelikesquad')}
@@ -961,7 +1046,9 @@ export default function App() {
           </div>
         </div>
       )}
-
+      {currentView === 'leaderboard' && (
+        <Leaderboard onBack={() => setCurrentView('menu')} />
+      )}
       {currentView === 'lexicon' && (
         <div className="screen active lex-screen" style={{ display: 'block', padding: '30px' }}>
           <div className="top-bar">
@@ -1009,9 +1096,11 @@ export default function App() {
       {currentView === 'inventory' && ( <Inventory inventory={inventory} setInventory={setInventory} decks={decks} setDecks={setDecks} allFactions={allFactions} onBack={() => setCurrentView('menu')} onShowRules={() => { playSound('click'); setShowGlobalRules(true); }} onClearNew={clearNewStatus} onCreditGain={handleCreditGain} onMissionAction={(type, amount) => { handleMissionProgress(type, amount); if (type === 'upgrade') handleStatUpdate('upgradesDone', amount); }} /> )}
 
       {currentView === 'menu' && (
-        <div className="screen active" style={{ justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
-          <div style={{ position: 'absolute', top: '20px', right: '20px', display: 'flex', gap: '15px', alignItems: 'center', zIndex: 10 }}>
-             <div className="mono" style={{ fontSize: '1.5rem', color: '#fff', marginRight: '15px', textShadow: '0 0 10px var(--ep)' }}><span style={{color: 'var(--ep)'}}>{credits}</span> 💳</div>
+        <div className="screen active" style={{ justifyContent: 'center', alignItems: 'center', position: 'relative', padding: '20px' }}>
+          
+          {/* Top Bar (Credits & Logout) bleibt erhalten */}
+          <div style={{ position: 'absolute', top: '20px', right: '30px', display: 'flex', gap: '15px', alignItems: 'center', zIndex: 100 }}>
+             <div className="mono" style={{ fontSize: '1.2rem', color: '#fff', marginRight: '10px', textShadow: '0 0 10px var(--ep)' }}><span style={{color: 'var(--ep)'}}>{credits}</span> 💳</div>
              <button className="btn-info" onClick={() => { playSound('click'); setShowGlobalRules(true); }}>RULES</button>
              {session ? (
                <button className="btn-back" style={{borderColor:'var(--win)',color:'var(--win)'}} onClick={handleLogout}>
@@ -1022,59 +1111,82 @@ export default function App() {
              )}
           </div>
 
-          <div className="menu-title">ARCHITECTS<br/>OF CHAOS</div>
-          <div className="menu-subtitle">TCG EDITION V1.0 &nbsp;//&nbsp; THE BOARD IS SET</div>
-          
-          <div className="main-menu-container">
-            {!playMenuOpen ? (
-              <div className="main-menu-grid">
-                <button className="menu-btn btn-primary menu-btn-hero" onClick={() => { playSound('click'); setPlayMenuOpen(true); }}>
-                  MISSION STARTEN
-                </button>
-                
-                <button className="menu-btn menu-btn-card" onClick={() => { setPlayMenuOpen(false); setCurrentView('inventory'); }}>
-                  <div className="menu-icon">🗄️</div>
-                  <span>INVENTAR & DECK</span>
-                  {hasNewCards && <div className="notif-badge" style={{ background: 'var(--win)', boxShadow: '0 0 12px var(--win)' }}></div>}
-                  {!hasNewCards && hasUpgrades && <div className="notif-badge" style={{ background: 'var(--ep)', boxShadow: '0 0 12px var(--ep)' }}></div>}
-                </button>
-                
-                <button className="menu-btn menu-btn-card" onClick={() => { setPlayMenuOpen(false); setCurrentView('market'); }}>
-                  <div className="menu-icon">🛒</div>
-                  <span>SCHWARZMARKT</span>
-                </button>
-                
-                <button className="menu-btn menu-btn-wide" onClick={() => { setPlayMenuOpen(false); setCurrentView('missions'); }}>
-                  MISSIONEN
-                  {hasClaimableMissions && <div className="notif-badge" style={{ background: 'var(--win)', boxShadow: '0 0 15px var(--win)' }}></div>}
-                </button>
-                
-                <button className="menu-btn menu-btn-small" onClick={() => { setPlayMenuOpen(false); setCurrentView('stats'); }}>STATISTIKEN</button>
-                <button className="menu-btn menu-btn-small" onClick={() => { setPlayMenuOpen(false); setCurrentView('lexicon'); }}>LEXIKON</button>
+          {/* NEUES DASHBOARD LAYOUT */}
+          <div className="dash-container">
+            
+            {/* LINKE SEITE: Core Actions & Titel */}
+            <div className="dash-left">
+              <div className="dash-title">ARCHITECTS<br/>OF CHAOS</div>
+              <div className="dash-subtitle">TCG EDITION V1.0 // THE BOARD IS SET</div>
+              
+              {!playMenuOpen ? (
+                <div className="dash-main-actions">
+                  <button className="dash-btn-hero" onClick={() => { playSound('click'); setPlayMenuOpen(true); }}>
+                    <span className="hero-bg"></span>
+                    <span className="hero-text">▶ MISSION STARTEN</span>
+                  </button>
 
-                <button
-                  className="menu-btn menu-btn-wide"
-                  style={{ borderColor:'var(--apex-pink)', color:'var(--apex-pink)', background:'rgba(255,0,127,0.04)', boxShadow:'0 0 20px rgba(255,0,127,0.1)', marginTop:'8px', position:'relative' }}
-                  onClick={() => { playSound('click'); setCurrentView('ghostnodemenu'); }}
-                >
-                  <span style={{ fontSize:'0.8rem', marginRight:'6px' }}>⬡</span>
-                  OPERATION: GHOST NODE
-                  <span style={{ fontSize:'0.65rem', opacity:0.6, marginLeft:'6px' }}>[ROGUELIKE]</span>
-                  {!avatarCard && <div style={{ position:'absolute', top:'3px', right:'8px', fontSize:'0.44rem', letterSpacing:'2px', color:'var(--ep)', fontFamily:"'Roboto Mono',monospace" }}>NEU</div>}
-                  {roguelikeRun && <div style={{ position:'absolute', top:'3px', right:'8px', fontSize:'0.44rem', letterSpacing:'2px', color:'var(--apex-pink)', fontFamily:"'Roboto Mono',monospace" }}>AKTIV</div>}
-                </button>
-              </div>
-            ) : (
-              <div className="play-menu-subgrid">
-                <button className="menu-btn btn-primary" onClick={startMatchFlow}>GEGEN KI SPIELEN</button>
-                <button className="menu-btn" style={{ borderColor: 'var(--ep)', color: 'var(--ep)', background: 'rgba(255,215,0,0.05)', boxShadow: '0 0 15px rgba(255,215,0,0.1)' }} onClick={() => setCurrentView('multiplayer')}>
-                   ONLINE MULTIPLAYER <span style={{fontSize: '0.8rem', opacity: 0.7}}>(BETA)</span>
-                </button>
-                <button className="menu-btn" style={{ borderColor: '#444', color: '#888', marginTop: '20px' }} onClick={() => { playSound('click'); setPlayMenuOpen(false); }}>
-                  ZURÜCK
-                </button>
-              </div>
-            )}
+                  <button className="dash-btn-hero ghost-node-btn" onClick={() => { playSound('click'); setCurrentView('ghostnodemenu'); }}>
+                    <span className="hero-bg"></span>
+                    <span className="hero-text">⬡ OPERATION: GHOST NODE</span>
+                    <div className="ghost-tags">
+                      <span className="mono" style={{ opacity: 0.7 }}>[ROGUELIKE]</span>
+                      {!avatarCard && <span className="mono tag-new">NEU</span>}
+                      {roguelikeRun && <span className="mono tag-active">AKTIV</span>}
+                    </div>
+                  </button>
+                </div>
+              ) : (
+                <div className="dash-play-menu">
+                  <div className="mono" style={{ color: 'var(--win)', letterSpacing: '3px', marginBottom: '15px' }}>▸ MODUS WÄHLEN</div>
+                  <button className="dash-btn-module" style={{ borderColor: 'var(--win)', color: 'var(--win)' }} onClick={startMatchFlow}>
+                    GEGEN KI SPIELEN
+                  </button>
+                  <button className="dash-btn-module" style={{ borderColor: 'var(--ep)', color: 'var(--ep)' }} onClick={() => setCurrentView('multiplayer')}>
+                     ONLINE MULTIPLAYER <span style={{fontSize: '0.7rem', opacity: 0.7}}>(BETA)</span>
+                  </button>
+                  <button className="dash-btn-module" style={{ borderColor: '#444', color: '#888', marginTop: '20px' }} onClick={() => { playSound('click'); setPlayMenuOpen(false); }}>
+                    ← ABBRECHEN
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* RECHTE SEITE: System Module (Grid) */}
+            <div className="dash-right">
+               <button className="dash-btn-module" onClick={() => { setPlayMenuOpen(false); setCurrentView('inventory'); }}>
+                  <div className="mod-icon">🗄️</div>
+                  <div className="mod-text">INVENTAR & DECK</div>
+                  {(hasNewCards || hasUpgrades) && <div className="notif-dot" style={{ background: hasNewCards ? 'var(--win)' : 'var(--ep)' }}></div>}
+               </button>
+               
+               <button className="dash-btn-module" onClick={() => { setPlayMenuOpen(false); setCurrentView('market'); }}>
+                  <div className="mod-icon">🛒</div>
+                  <div className="mod-text">SCHWARZMARKT</div>
+               </button>
+               
+               <button className="dash-btn-module" onClick={() => { setPlayMenuOpen(false); setCurrentView('missions'); }}>
+                  <div className="mod-icon">📜</div>
+                  <div className="mod-text">MISSIONEN</div>
+                  {hasClaimableMissions && <div className="notif-dot" style={{ background: 'var(--win)' }}></div>}
+               </button>
+               
+               <button className="dash-btn-module" onClick={() => { setPlayMenuOpen(false); setCurrentView('stats'); }}>
+                  <div className="mod-icon">📊</div>
+                  <div className="mod-text">STATISTIKEN</div>
+               </button>
+
+               <button className="dash-btn-module" onClick={() => { setPlayMenuOpen(false); setCurrentView('lexicon'); }}>
+                  <div className="mod-icon">📖</div>
+                  <div className="mod-text">LEXIKON</div>
+               </button>
+
+               <button className="dash-btn-module highlight-module" onClick={() => { playSound('click'); setPlayMenuOpen(false); setCurrentView('leaderboard'); }}>
+                  <div className="mod-icon">🏆</div>
+                  <div className="mod-text">LEADERBOARD</div>
+               </button>
+            </div>
+
           </div>
         </div>
       )}
