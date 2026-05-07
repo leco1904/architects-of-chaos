@@ -579,40 +579,68 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
 
           {/* HANDKARTEN UNTER DER ARENA */}
           <div className="hand-hub">
-            <div className="hand-grid">
+            <div className="hand-grid" style={{ display: 'flex', gap: '15px' }}>
               {pHand.map((c, i) => {
-                const rc = getRarityColor(c);
                 const isActive = i === activeIdx;
                 return (
                   <div
                     key={i}
-                    className={`hand-card ${getRarityClass(c.gti)} ${isActive ? 'active' : ''}`}
-                    style={{ '--card-color': rc }}
+                    className={`hand-card-scaled ${isActive ? 'active' : ''}`}
                     onClick={() => { playSound('click'); setActiveIdx(i); }}
+                    style={{
+                      width: '102px', height: '145px', position: 'relative',
+                      cursor: 'pointer', transition: 'transform 0.2s',
+                      transform: isActive ? 'translateY(-10px)' : 'none'
+                    }}
                   >
-                    <div className="hand-name">
-                      {(c?.Nachnamen || c?.name?.split(' ').pop() || '').toUpperCase()}
+                    <div style={{
+                      transform: 'scale(0.285)', transformOrigin: 'top left',
+                      width: '360px', height: '510px', pointerEvents: 'none'
+                    }}>
+                      <Card card={c} context="hand" />
                     </div>
+                    {isActive && (
+                      <div style={{
+                        position: 'absolute', inset: '-3px',
+                        border: '2px solid var(--win)', borderRadius: '4px',
+                        boxShadow: '0 0 15px var(--win)', zIndex: 10
+                      }} />
+                    )}
                   </div>
                 );
               })}
             </div>
+
             <div className="tactic-separator"></div>
+
             <div className="tactic-grid">
-              {/* Taktikkarte & Synergie */}
               {pEffHand[0] ? (
-                <div className={`hand-card type-effect ${activeEffObj ? 'active' : ''}`} style={{ '--card-color': 'var(--eff-col)' }} onClick={handleToggleEffect}>
-                  <div className="hand-icon" style={{ color: 'var(--eff-col)' }}>{pEffHand[0].cost}⚡</div>
-                  <div className="hand-name">{pEffHand[0].name.toUpperCase()}</div>
-                  {pEffHand[0].syn && (
-                    <div className="hand-syn">
-                      SYN: {Array.isArray(pEffHand[0].syn) ? pEffHand[0].syn[0].split(' ').pop() : pEffHand[0].syn.split(' ').pop()}
-                    </div>
+                <div
+                  className={`hand-card-scaled ${activeEffObj ? 'active' : ''}`}
+                  onClick={handleToggleEffect}
+                  style={{
+                    width: '102px', height: '145px', position: 'relative',
+                    cursor: 'pointer', transition: 'transform 0.2s',
+                    transform: activeEffObj ? 'translateY(-10px)' : 'none'
+                  }}
+                >
+                  <div style={{
+                    transform: 'scale(0.285)', transformOrigin: 'top left',
+                    width: '360px', height: '510px', pointerEvents: 'none'
+                  }}>
+                    <Card card={pEffHand[0]} context="hand" />
+                  </div>
+                  {activeEffObj && (
+                    <div style={{
+                      position: 'absolute', inset: '-3px',
+                      border: '2px solid var(--eff-col)', borderRadius: '4px',
+                      boxShadow: '0 0 15px var(--eff-col)', zIndex: 10
+                    }} />
                   )}
                 </div>
               ) : (
-                <div className="hand-card empty" style={{ '--card-color': '#333' }}>
-                  <div className="hand-name" style={{ color: '#555' }}>LEER</div>
+                <div style={{ width: '102px', height: '145px', background: '#050505', border: '1px dashed #333', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span className="mono" style={{ color: '#333', fontSize: '0.6rem' }}>LEER</span>
                 </div>
               )}
             </div>

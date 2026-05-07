@@ -460,13 +460,15 @@ export default function Card({
                     {STAT_ICONS[k]}
                     {CAT_CONFIG[k].name}
                   </span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                  {/* Fixed-width value container so boost badge never shifts the number (#2 #3) */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '3px', flexShrink: 0, minWidth: '44px' }}>
                     {(apexBuffs[k] > 0 || effBuff > 0 || synBonus > 0) && (
-                      <span className="mono" style={{ color: 'var(--eff-col)', fontSize: '0.72rem' }}>
+                      <span className="mono" style={{ color: 'var(--eff-col)', fontSize: '0.62rem', lineHeight: 1 }}>
                         +{(apexBuffs[k] || 0) + effBuff + synBonus}
                       </span>
                     )}
-                    <b className={`mono ${val >= 100 ? 'stat-val-max' : ''}`} style={statStyle}>{val}</b>
+                    <b className={`mono ${val >= 100 ? 'stat-val-max' : ''}`}
+                       style={{ ...statStyle, minWidth: '1.8ch', textAlign: 'right', display: 'inline-block' }}>{val}</b>
                   </div>
                 </div>
                 <div className="stat-bar-bg">

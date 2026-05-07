@@ -111,8 +111,7 @@ const UpgradeModal = ({ group, isEffect, onClose, onConfirm }) => {
             fontSize: '6rem', color: 'var(--win)', textShadow: '0 0 40px var(--win)',
             animation: 'pulse 0.5s infinite', pointerEvents: 'none', zIndex: 20
           }}>
-            ⏫
-          </div>
+                      </div>
         )}
       </div>
       <div style={{ height: '80px', marginTop: '60px', opacity: phase === 'done' ? 1 : 0, transition: 'opacity 0.5s', visibility: phase === 'done' ? 'visible' : 'hidden' }}>
@@ -139,7 +138,7 @@ const UpgradeCard = ({ group, isUpgrading, onInitiateUpgrade, onSell }) => {
   return (
     <div className="upgrade-pod" style={{ position: 'relative' }}>
        <div className="upgrade-card-wrapper" style={{ 
-          transition: 'all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)', 
+          transition: 'all 1s cubic-bezier(0.175, 0.885, 0.32, 1.275)', 
           transform: isUpgrading ? 'translateY(-20px) scale(1.05)' : 'none',
           filter: isUpgrading ? 'drop-shadow(0 0 25px var(--win))' : 'none',
           zIndex: isUpgrading ? 10 : 1
@@ -155,7 +154,7 @@ const UpgradeCard = ({ group, isUpgrading, onInitiateUpgrade, onSell }) => {
               fontSize: '4rem', color: 'var(--win)', textShadow: '0 0 30px var(--win)',
               animation: 'pulse 0.3s infinite', pointerEvents: 'none', zIndex: 20
             }}>
-              ⏫
+              
             </div>
          )}
        </div>

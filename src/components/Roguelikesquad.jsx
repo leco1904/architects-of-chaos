@@ -103,21 +103,31 @@ export default function RoguelikeSquad({ avatarCard, inventory = [], onConfirm, 
   const [search,   setSearch]   = useState('');
   const [tab,      setTab]      = useState('chars'); // 'chars' | 'effs'
 
-  // Filter inventory
+  // NEU: Duplikate filtern (behält immer die Karte mit dem höchsten Level)
+  const uniqueInventory = useMemo(() => {
+    return Object.values((inventory || []).reduce((acc, card) => {
+      if (!acc[card.name] || (card.level || 1) > (acc[card.name].level || 1)) {
+        acc[card.name] = card;
+      }
+      return acc;
+    }, {}));
+  }, [inventory]);
+
+  // Filter inventory (nutzt jetzt uniqueInventory)
   const invChars = useMemo(() => {
     const q = search.toLowerCase();
-    return (inventory || [])
+    return uniqueInventory
       .filter(c => c.type !== 'effect' && c.id !== 'avatar' && c.name !== avatarCard?.name)
       .filter(c => !search || (c.name||'').toLowerCase().includes(q))
       .sort((a,b) => (b.gti||0) - (a.gti||0));
-  }, [inventory, avatarCard, search]);
+  }, [uniqueInventory, avatarCard, search]);
 
   const invEffs = useMemo(() => {
     const q = search.toLowerCase();
-    return (inventory || [])
+    return uniqueInventory
       .filter(c => c.type === 'effect')
       .filter(c => !search || (c.name||'').toLowerCase().includes(q));
-  }, [inventory, search]);
+  }, [uniqueInventory, search]);
 
   // Toggle selection helpers
   const toggleChar = (card) => {
@@ -254,7 +264,7 @@ export default function RoguelikeSquad({ avatarCard, inventory = [], onConfirm, 
                 ? <div className="mono" style={{ gridColumn: '1/-1', color: '#3a4a5a', padding: '40px', textAlign: 'center', fontSize: '0.9rem', letterSpacing: '2px' }}>KEINE CHARAKTERE GEFUNDEN</div>
                 : invChars.map((c, i) => (
                     <DraftCard 
-                      key={c.name || i} card={c}
+                      key={`char-${c.name}-${i}`} card={c}
                       selected={selChars.some(s => s.name === c.name)}
                       disabled={!selChars.some(s => s.name === c.name) && selChars.length >= 5}
                       onToggle={() => toggleChar(c)}
@@ -265,7 +275,7 @@ export default function RoguelikeSquad({ avatarCard, inventory = [], onConfirm, 
                 ? <div className="mono" style={{ gridColumn: '1/-1', color: '#3a4a5a', padding: '40px', textAlign: 'center', fontSize: '0.9rem', letterSpacing: '2px' }}>KEINE EFFEKTE GEFUNDEN</div>
                 : invEffs.map((c, i) => (
                     <DraftCard 
-                      key={c.name || i} card={c}
+                      key={`eff-${c.name}-${i}`} card={c}
                       selected={selEffs.some(s => s.name === c.name)}
                       disabled={!selEffs.some(s => s.name === c.name) && selEffs.length >= 2}
                       onToggle={() => toggleEff(c)}
