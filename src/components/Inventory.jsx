@@ -15,7 +15,7 @@ function getMiniCardColor(card) {
   return 'transparent';
 }
 
-const MiniCard = ({ card, onClick, onRightClick, onHover }) => {
+const MiniCard = ({ card, onClick, onRightClick, onHover, isFactionSynergyActive }) => {
   const rc = getMiniCardColor(card);
   return (
   <div 
@@ -30,13 +30,13 @@ const MiniCard = ({ card, onClick, onRightClick, onHover }) => {
     }}
   >
     <div className="mini-card-scaler">
-      <Card card={card} context="inventory" />
+      <Card card={card} context="inventory" isFactionSynergyActive={isFactionSynergyActive} />
     </div>
   </div>
   );
 };
 
-const InspectorModal = ({ card, isInDeck, isEffect, onClose, onAdd, onRemove }) => {
+const InspectorModal = ({ card, isInDeck, isEffect, onClose, onAdd, onRemove, isFactionSynergyActive }) => {
   const [gyroActive, setGyroActive] = useState(true);
 
   useEffect(() => {
@@ -53,7 +53,7 @@ const InspectorModal = ({ card, isInDeck, isEffect, onClose, onAdd, onRemove }) 
         </button>
         
         <div className="inspector-card-scaler">
-          <Card card={card} context="inventory" isInspecting={gyroActive} interactiveReveal={true} />
+          <Card card={card} context="inventory" isInspecting={gyroActive} interactiveReveal={true} isFactionSynergyActive={isFactionSynergyActive} />
         </div>
 
         <div className="inspector-actions">
@@ -82,6 +82,7 @@ const UpgradeModal = ({ group, isEffect, onClose, onConfirm }) => {
     const t1 = setTimeout(() => {
       playSound('win'); 
       setPhase('upgrading');
+      // FIX: Nur das Level hochziehen, Card.jsx rechnet den Rest
       setSimCard(prev => ({ ...prev, level: (prev.level || 1) + 1 }));
     }, 1200); 
     const t2 = setTimeout(() => {
@@ -258,6 +259,13 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
   const safeEffs = Array.isArray(activeEditDeck?.effs) ? activeEditDeck.effs : [];
   const safeInv = Array.isArray(inventory) ? inventory : [];
 
+  // NEU: Fraktionen für die Synergie im Deck Builder live berechnen
+  const activeFactionsCounts = {};
+  safeChars.forEach(c => {
+    if (c && c.faction && c.type !== 'effect') activeFactionsCounts[c.faction] = (activeFactionsCounts[c.faction] || 0) + 1;
+  });
+  const activeFactions = Object.keys(activeFactionsCounts).filter(f => activeFactionsCounts[f] >= 3);
+
   const stats = {
     apex: safeChars.filter(c => c.type === 'apex').length,
     legacy: safeChars.filter(c => c.type === 'legacy').length,
@@ -359,20 +367,31 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
 
       onMissionAction('upgrade', 1); 
       let removed = 0;
-      const newInv = safeInv.filter(c => {
-          if (c.name === cardName && c !== mainCard && removed < 2) {
-              removed++;
-              return false; 
+      let upgraded = false;
+      
+      // FIX: Wir bauen das Array neu auf, verbrennen exakt 2 Kopien und leveln die 3. auf!
+      const finalInv = safeInv.reduce((acc, c) => {
+          if (c.name === cardName) {
+              if (removed < 2) {
+                  removed++; // Verbrenne diese Kopie
+                  return acc; 
+              }
+              if (!upgraded) {
+                  upgraded = true; // Level diese Kopie auf!
+                  acc.push({ ...c, level: currentLevel + 1 });
+                  return acc;
+              }
           }
-          return true;
-      });
-      const finalInv = newInv.map(c => c === mainCard ? { ...c, level: currentLevel + 1, gti: (c.gti || 0) + 1 } : c);
+          acc.push(c); // Alle anderen Karten unverändert übernehmen
+          return acc;
+      }, []);
+      
       setInventory(finalInv);
 
       setDecks(prev => prev.map(d => ({
           ...d,
-          chars: d.chars.map(c => c.name === cardName ? { ...c, level: currentLevel + 1, gti: (c.gti || 0) + 1 } : c),
-          effs: d.effs.map(c => c.name === cardName ? { ...c, level: currentLevel + 1, gti: (c.gti || 0) + 1 } : c)
+          chars: d.chars.map(c => c.name === cardName ? { ...c, level: currentLevel + 1 } : c),
+          effs: d.effs.map(c => c.name === cardName ? { ...c, level: currentLevel + 1 } : c)
       })));
       
       // NEU: Inline-Animation triggern
@@ -452,6 +471,7 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
           onClose={() => setInspectCard(null)}
           onAdd={handleAddCard}
           onRemove={handleRemoveCard}
+          isFactionSynergyActive={activeFactions.includes(inspectCard.data?.faction)}
         />
       )}
 
@@ -539,6 +559,7 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
                     onClick={() => handleCardClick(c, false, true)} 
                     onRightClick={(evt) => handleCardRightClick(evt, c, false)} 
                     onHover={() => onClearNew(c.name)} 
+                    isFactionSynergyActive={activeFactions.includes(c.faction)}
                   />
                 ))}
               </div>
@@ -587,6 +608,7 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
                     onClick={() => handleCardClick(c, false, false)} 
                     onRightClick={(evt) => handleCardRightClick(evt, c, false)} 
                     onHover={() => onClearNew(c.name)} 
+                    isFactionSynergyActive={activeFactions.includes(c.faction)}
                   />
                 ))}
               </div>

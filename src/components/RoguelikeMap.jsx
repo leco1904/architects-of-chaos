@@ -16,23 +16,42 @@ const EVENT_DETAILS = {
   blackmarket: { title: 'SHADOW BROKER', desc: 'Schattensystem-Händler. Bietet dir an, eine Standardkarte gegen ein mächtiges Legacy-Asset zu tauschen.', reward: 'KARTE TAUSCHEN' }
 };
 
-// ── Map Layout Generator (Fixed Grid per Sector) ─────────────────────────
-const getMapLayout = () => [
-  [ { id: '1-1', step: 1, type: 'standard', target: 'Entry Point' } ],
-  [ 
-    { id: '2-1', step: 2, type: 'standard', target: 'Proxy Server' }, 
-    { id: '2-2', step: 2, type: 'safehouse', target: 'Versteckter Cache' } 
-  ],
-  [ 
-    { id: '3-1', step: 3, type: 'elite', target: 'High-Sec Gateway' }, 
-    { id: '3-2', step: 3, type: 'dataleak', target: 'Korrupter Sektor' } 
-  ],
-  [ 
-    { id: '4-1', step: 4, type: 'standard', target: 'Mainframe Zugang' }, 
-    { id: '4-2', step: 4, type: 'blackmarket', target: 'Unbekanntes Signal' } 
-  ],
-  [ { id: '5-1', step: 5, type: 'boss', target: 'Boss Control Node' } ]
-];
+// ── Map Layout Generator (Procedural per Sector) ─────────────────────────
+const getMapLayout = (sector) => {
+  // Simpler deterministischer Zufall basierend auf dem Sektor
+  const rand = (offset) => {
+    let x = Math.sin(sector * 13.37 + offset * 42.1) * 10000;
+    return x - Math.floor(x);
+  };
+
+  const layout = [];
+  layout.push([ { id: `${sector}-1`, step: 1, type: 'standard', target: 'Entry Point' } ]);
+  
+  const s2Type = rand(2) > 0.5 ? 'safehouse' : 'dataleak';
+  layout.push([ 
+    { id: `${sector}-2-1`, step: 2, type: 'standard', target: 'Proxy Server' }, 
+    { id: `${sector}-2-2`, step: 2, type: s2Type, target: s2Type === 'safehouse' ? 'Versteckter Cache' : 'Korrupter Code' } 
+  ]);
+  
+  const s3Chance = rand(3);
+  const s3Type = s3Chance > 0.7 ? 'blackmarket' : (s3Chance > 0.4 ? 'dataleak' : 'standard');
+  layout.push([ 
+    { id: `${sector}-3-1`, step: 3, type: 'elite', target: 'High-Sec Gateway' }, 
+    { id: `${sector}-3-2`, step: 3, type: s3Type, target: s3Type === 'blackmarket' ? 'Unbekanntes Signal' : (s3Type === 'dataleak' ? 'System Fehler' : 'Mainframe Zugang') } 
+  ]);
+  
+  // Ab Sektor 3 gibt es eine Chance auf brutale Doppel-Elite Nodes!
+  const s4Elite = sector > 2 && rand(4.1) > 0.5;
+  const s4Type1 = s4Elite ? 'elite' : 'standard';
+  const s4Type2 = rand(4.2) > 0.5 ? 'safehouse' : 'blackmarket';
+  layout.push([ 
+    { id: `${sector}-4-1`, step: 4, type: s4Type1, target: s4Type1 === 'elite' ? 'Firewall' : 'Sub-Routing' }, 
+    { id: `${sector}-4-2`, step: 4, type: s4Type2, target: s4Type2 === 'safehouse' ? 'Backup Cache' : 'Shadow Broker' } 
+  ]);
+  
+  layout.push([ { id: `${sector}-5`, step: 5, type: 'boss', target: `Sector ${sector} Architect` } ]);
+  return layout;
+};
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 function Corners({ color='var(--win)', size=8 }) {
@@ -59,6 +78,17 @@ function NodeModal({ nodeObj, sector, currentNode, onClose, onStartBattle, onSta
   const diffNames = ['','TRAINEE','OPERATIVE','EXECUTIVE','ARCHITECT'];
   const diffColors = ['','var(--win)','var(--ep)','var(--r-epi)','var(--lose)'];
 
+  // DYNAMISCHE SCALING BERECHNUNG (entspricht exakt App.jsx)
+  const isBoss = nodeObj.type === 'boss';
+  const isElite = nodeObj.type === 'elite';
+  
+  const hpMultiplier = 1 + ((sector - 1) * 0.4); // +40% HP pro Sektor
+  const displayHp = isBoss ? Math.floor(1200 * hpMultiplier) : isElite ? Math.floor(750 * hpMultiplier) : Math.floor(500 * hpMultiplier);
+
+  const spGain = isBoss ? (3 + Math.floor(sector/3)) : (isElite ? (sector > 3 ? 2 : 1) : 1);
+  const creditGain = Math.floor((isBoss ? 500 : (isElite ? 200 : 75)) * (1 + sector * 0.15));
+  const packReward = isBoss ? '1x SEKTOR-KERN CACHE' : (isElite ? '1x GHOST DATA PACK' : null);
+
   const handleAction = () => {
     onClose();
     if (isEvent) {
@@ -69,9 +99,15 @@ function NodeModal({ nodeObj, sector, currentNode, onClose, onStartBattle, onSta
   };
 
   return (
-    <div style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,0.85)',display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'blur(6px)'}} onClick={onClose}>
-      <div style={{position:'relative',width:'min(580px,92vw)',background:'rgba(5,2,12,0.98)',border:`1px solid ${info.color}44`,borderTop:`3px solid ${info.color}`,padding:'26px',boxShadow:`0 0 60px ${info.glow}`}} onClick={e=>e.stopPropagation()}>
-        <Corners color={info.color}/>
+    /* GANZ WICHTIG: background: '#05020e' versteckt das globale Grid & Matrix-Zahlen jetzt komplett! */
+    <div style={{position:'fixed',inset:0,zIndex:30000,background:'#05020e',display:'flex',alignItems:'center',justifyContent:'center',animation:'backdropFade 0.25s ease-out forwards'}} onClick={onClose}>
+      
+      {/* Sanfter, sphärischer Glow im Hintergrund des Bildschirms, passend zur Node-Farbe */}
+      <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 50% 50%, ${info.color}15 0%, transparent 60%)`, pointerEvents: 'none' }} />
+
+      {/* Das eigentliche Fenster mit smoother Bounce-Animation */}
+      <div style={{position:'relative',width:'min(580px,92vw)',background:'rgba(10,5,20,0.85)',backdropFilter:'blur(12px)',border:`1px solid ${info.color}55`,borderTop:`4px solid ${info.color}`,padding:'32px',boxShadow:`0 20px 60px rgba(0,0,0,0.9), 0 0 50px ${info.glow}`,animation:'modalScaleIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards'}} onClick={e=>e.stopPropagation()}>
+        <Corners color={info.color} size={12}/>
         
         {/* Header */}
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'18px'}}>
@@ -112,12 +148,26 @@ function NodeModal({ nodeObj, sector, currentNode, onClose, onStartBattle, onSta
                  </div>
                  
                  <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:'8px',marginBottom:'16px'}}>
-                  {[['GEGNER HP', nodeObj.type==='boss'?'1200':nodeObj.type==='elite'?'700':'500', info.color],['SEKTOR / NODE',`S${sector}-N${n}`,info.color]].map(([l,v,c])=>(
+                  {[['GEGNER HP', displayHp, info.color],['SEKTOR / NODE',`S${sector}-N${n}`,info.color]].map(([l,v,c])=>(
                     <div key={l} style={{padding:'10px 12px',background:'rgba(0,0,0,0.5)',border:'1px solid rgba(255,255,255,0.05)',textAlign:'center'}}>
                       <div className="mono" style={{fontSize:'0.44rem',color:'rgba(255,255,255,0.25)',letterSpacing:'2px',marginBottom:'3px'}}>{l}</div>
                       <div className="mono" style={{color:c,fontWeight:700,fontSize:'1.05rem'}}>{v}</div>
                     </div>
                   ))}
+                 </div>
+
+                 {/* NEU: REWARD INFO BOX */}
+                 <div style={{padding:'12px 14px',background:'rgba(0,229,255,0.04)',border:'1px solid rgba(0,229,255,0.1)',borderLeft:'3px solid var(--win)',marginBottom:'16px'}}>
+                    <div className="mono" style={{fontSize:'0.5rem',color:'rgba(0,229,255,0.6)',letterSpacing:'2px',marginBottom:'8px'}}>▸ ERWARTETE BELOHNUNG BEI SIEG</div>
+                    <div style={{display:'flex', gap:'15px', flexWrap:'wrap', alignItems: 'center'}}>
+                      <div style={{fontSize:'0.9rem', color:'#fff'}}><b>+{creditGain}</b> 💳</div>
+                      <div style={{fontSize:'0.9rem', color:'#bc13fe'}}><b>+{spGain}</b> SP ⏫</div>
+                      {packReward && (
+                        <div style={{fontSize:'0.85rem', color:'var(--apex-pink)', padding: '2px 8px', background: 'rgba(255,0,127,0.1)', borderRadius: '4px', border: '1px solid rgba(255,0,127,0.3)'}}>
+                          📦 <b>{packReward}</b>
+                        </div>
+                      )}
+                    </div>
                  </div>
                </>
             )}
@@ -232,13 +282,14 @@ export default function RoguelikeMap({ avatarCard, roguelikeRun, onStartRun, onS
   const chars   = runDeck.chars||[];
   const effs    = runDeck.effs||[];
 
-  const layout = getMapLayout();
+  // Generiert das Layout basierend auf dem aktuellen Sektor UND dem einmaligen Run-Seed!
+  const layout = React.useMemo(() => getMapLayout(sector, roguelikeRun.seed || 0), [sector, roguelikeRun.seed]);
 
   return (
     <div style={{position:'fixed',inset:0,overflow:'hidden',background:'#05020e',display:'flex',flexDirection:'column',fontFamily:"'Roboto Mono',monospace"}}>
       
 
-      <div style={{position:'relative',zIndex:2,padding:'10px 18px',display:'flex',justifyContent:'space-between',alignItems:'center',borderBottom:'1px solid rgba(255,0,127,0.15)',background:'rgba(5,0,12,0.8)',backdropFilter:'blur(10px)',flexShrink:0}}>
+      <div style={{position:'relative',zIndex:2,padding:'10px 18px',display:'flex',justifyContent:'space-between',alignItems:'center',borderBottom:'1px solid rgba(255,0,1  27,0.15)',background:'rgba(5,0,12,0.8)',backdropFilter:'blur(10px)',flexShrink:0}}>
         <div>
           <div style={{fontFamily:"'Rajdhani',sans-serif",fontWeight:900,fontSize:'1.05rem',letterSpacing:'4px',color:'var(--apex-pink)',textShadow:'0 0 12px rgba(255,0,127,0.4)'}}>⬡ GHOST NODE</div>
           <div className="mono" style={{fontSize:'0.52rem',color:'rgba(255,255,255,0.28)',letterSpacing:'3px',marginTop:'1px'}}>SEKTOR {sector} // RUN AKTIV</div>

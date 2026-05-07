@@ -27,20 +27,25 @@ const NeuralCore = ({ color }) => (
   </svg>
 );
 
-const TacticCore = ({ color }) => (
-  <svg className="neural-core-svg spin-fast" width="120" height="120" viewBox="0 0 100 100">
-    <polygon points="50,5 95,25 95,75 50,95 5,75 5,25" fill="none" stroke={color} strokeWidth="2" opacity="0.6"/>
-    <circle cx="50" cy="50" r="25" fill="none" stroke={color} strokeWidth="1" strokeDasharray="2 4"/>
-    <path d="M50 20 L50 80 M20 50 L80 50" stroke={color} strokeWidth="1" opacity="0.5"/>
-    <rect x="45" y="45" width="10" height="10" fill={color}/>
-  </svg>
-);
 
 export function getRarityClass(gti) {
   if (gti >= 95) return 'rarity-legendary';
   if (gti >= 88) return 'rarity-epic';
   if (gti >= 80) return 'rarity-rare';
   return 'rarity-common';
+}
+
+// NEU: Deterministischer Fraktions-Boost. Jede Fraktion bekommt automatisch 2 einzigartige Kern-Stats!
+export function getFactionBuffs(faction) {
+  if (!faction) return {};
+  let h = 0;
+  for (let i = 0; i < faction.length; i++) h = Math.imul(31, h) + faction.charCodeAt(i) | 0;
+  h = Math.abs(h);
+  const keys = ['tech','finance','manipulation','erosion','kingmaking','system','arsenal','legitimacy'];
+  return {
+    [keys[h % 8]]: 20,
+    [keys[(h + 3) % 8]]: 15
+  };
 }
 
 // Globaler Cache – vergisst nie, welche Bilder fehlen
@@ -75,13 +80,16 @@ export default function Card({
   card, context = 'deck', activeEffect = null, apexBuffs = {}, activeCrisis = null,
   curCategory = '', isPlayerTurn = true, onStatClick, isInspecting = false,
   lightGyro = false,
-  highlightSynergyStat = null
+  highlightSynergyStat = null,
+  lockedStat = null,
+  isFactionSynergyActive = false /* NEU */
 }) {
   const wrapperRef = useRef(null);
   const cardRef    = useRef(null);
 
-  // Löst einen Re-Render aus, ohne die Karte neu zu mounten
-  const [renderTrigger, setRenderTrigger] = useState(0);
+  // FIX #1: renderTrigger wurde deklariert aber nie gelesen → ESLint no-unused-vars.
+  // Destructure mit _ um klarzumachen dass der Wert absichtlich ignoriert wird.
+  const [, setRenderTrigger] = useState(0);
 
   // ── Flip-Feature (nur in Lexikon & Pack-Opening) ───────────────────────────
   // 0 = Art-Only, 1 = Full Card, 2 = Rückseite
@@ -197,14 +205,17 @@ export default function Card({
   const isApex    = card.type === 'apex';
   const isLegacy  = card.type === 'legacy';
   const isAnomaly = card.type === 'anomaly';
-  // FIX: Erkennt Effekte jetzt auch, wenn in der JSON das "type" Feld fehlt (jeder Effekt hat einen "buff" oder "cost")!
   const isEffect  = card.type === 'effect' || card.buff !== undefined || card.cost !== undefined;
-  const isAvatar  = card.id === 'avatar'; // Exklusive Vivid-Purple Identität
+  const isAvatar  = card.id === 'avatar'; 
+
+  // NEU: Level & Dynamischer GTI (+1 pro Level-Up) zuerst berechnen!
+  const currentLevel = card.level || 1;
+  const dynamicGti = (card.gti || 0) + (currentLevel > 1 ? currentLevel - 1 : 0);
 
   // ── Rarity & Farben ───────────────────────────────────────────────────────
-  const rarityClass = getRarityClass(card.gti || 0);
+  const rarityClass = getRarityClass(dynamicGti);
 
-  const themeColor = isAvatar   ? '#bc13fe'              // ← Vivid Purple für Avatar
+  const themeColor = isAvatar   ? '#bc13fe'
     : isAnomaly  ? '#ff0000'
     : isApex     ? 'var(--apex-pink)'
     : isLegacy   ? 'var(--legacy-sepia)'
@@ -224,12 +235,7 @@ export default function Card({
     : 'edge-common';
 
   // ── Hilfsvariablen ────────────────────────────────────────────────────────
-  const initials = card.name
-    ? card.name.split(' ').map(w => w[0] || '').join('').toUpperCase().slice(0, 3)
-    : '??';
-
-  const currentLevel = card.level || 1;
-  const newClass     = card.isNew ? 'is-new-glow' : '';
+  const newClass = card.isNew ? 'is-new-glow' : '';
 
   // GTI color shifts with level: default rarity color → cyan (lvl2) → gold (lvl3+)
   const gtiColor = currentLevel >= 3 ? 'var(--ep)' : currentLevel === 2 ? 'var(--win)' : themeColor;
@@ -324,7 +330,7 @@ export default function Card({
 
         {/* Footer */}
         <div className="cb-footer mono">
-          <span>GTI <b style={{ color: gtiColor }}>{card.gti}</b></span>
+          <span>GTI <b style={{ color: gtiColor }}>{dynamicGti}</b></span>
           <span className="cb-footer-mid">// ARCHITECTS OF CHAOS //</span>
           <span style={{ color: themeColor }}>{rarityLabel}</span>
         </div>
@@ -332,8 +338,15 @@ export default function Card({
     </div>
   );
 
+  // FIX #2: fBuffs wurde in JEDER der 8 stat-Iterationen neu berechnet
+  // (getFactionBuffs lief 8× mit identischem Ergebnis). Einmal hier berechnen.
+  const fBuffs = isFactionSynergyActive ? getFactionBuffs(card.faction) : {};
+
   return (
-    <div className="card-drop-shadow">
+    <div className={`synergy-aura-host${isFactionSynergyActive ? ' synergy-aura-active' : ''}`}>
+      {/* Golden aura sits behind the card in the DOM — painted beneath card-drop-shadow */}
+      {isFactionSynergyActive && <div className="synergy-aura-glow" aria-hidden="true" />}
+      <div className="card-drop-shadow">
     <div
       className={`card-3d-wrapper ${isFlipContext ? 'is-flip-context' : ''} ${flipState === 0 ? 'flip-art-only' : ''}`}
       ref={wrapperRef}
@@ -390,7 +403,7 @@ export default function Card({
         {!isEffect ? (
           <div className="gti-core parallax-layer" style={{ '--gti-color': gtiColor }}>
             <div className="gti-label">RATING</div>
-            <div className="gti-value mono" style={{ color: gtiColor }}>{card.gti}</div>
+            <div className="gti-value mono" style={{ color: gtiColor }}>{dynamicGti}</div>
             <div className="gti-bracket"></div>
           </div>
         ) : (
@@ -452,6 +465,9 @@ export default function Card({
             val += (currentLevel - 1) * 2;
             val += apexBuffs[k] || 0;
 
+            // fBuffs ist jetzt einmal außerhalb des map() berechnet (FIX #2)
+            val += fBuffs[k] || 0;
+
             let effBuff  = 0;
             let synBonus = 0;
             if (activeEffect && activeEffect.stat === k) {
@@ -473,6 +489,7 @@ export default function Card({
             val = Math.floor(val * crisisMult);
 
             const isSelected    = curCategory === k;
+            const isLocked      = lockedStat === k; // NEU: Checkt, ob dieser Stat Cooldown hat
             const selectedClass = isSelected ? (isPlayerTurn ? 'selected-player' : 'selected-ai') : '';
             const statStyle     = { color: isCrisisAffected ? 'var(--lose)' : '#fff' };
 
@@ -483,18 +500,24 @@ export default function Card({
               <div
                 key={k}
                 className={`card-stat ${selectedClass} ${highlightSynergyStat === k ? 'synergy-active-glow' : ''}`}
-                onClick={() => onStatClick?.(k)}
+                onClick={isLocked ? undefined : () => onStatClick?.(k)}
+                style={{
+                  opacity: isLocked ? 0.3 : 1,
+                  cursor: isLocked ? 'not-allowed' : (onStatClick ? 'pointer' : 'default'),
+                  background: isLocked ? 'rgba(255,0,50,0.15)' : '',
+                  border: isLocked ? '1px solid rgba(255,0,50,0.3)' : '1px solid transparent'
+                }}
               >
                 <div className="stat-header">
                   <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     {STAT_ICONS[k]}
-                    {CAT_CONFIG[k].name}
-                  </span>
+                    {CAT_CONFIG[k].name} {isLocked && '🔒'}
+                  </span> 
                   {/* Fixed-width value container so boost badge never shifts the number (#2 #3) */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '3px', flexShrink: 0, minWidth: '44px' }}>
-                    {(apexBuffs[k] > 0 || effBuff > 0 || synBonus > 0) && (
+                    {(apexBuffs[k] > 0 || effBuff > 0 || synBonus > 0 || fBuffs[k] > 0) && (
                       <span className="mono" style={{ color: 'var(--eff-col)', fontSize: '0.62rem', lineHeight: 1 }}>
-                        +{(apexBuffs[k] || 0) + effBuff + synBonus}
+                        +{(apexBuffs[k] || 0) + effBuff + synBonus + (fBuffs[k] || 0)}
                       </span>
                     )}
                     <b className={`mono ${val >= 100 ? 'stat-val-max' : ''}`}
@@ -517,6 +540,7 @@ export default function Card({
       </div>
         </>
       )}
+    </div>
     </div>
     </div>
   );

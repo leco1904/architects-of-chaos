@@ -126,10 +126,24 @@ function CardDraftStage({ rewardData, roguelikeRun, onApplyDraft, onSkip }) {
 
   useEffect(() => { playSound('matchIntro'); }, []);
 
+  // NEU: Prüfen, ob die Karte schon im Deck ist
+  const existingCard = chosenCard ? [...deck.chars, ...deck.effs].find(c => c.name === chosenCard.name) : null;
+  const isUpgrade = !!existingCard;
+
+  const handleActionClick = () => {
+    playSound('click');
+    if (isUpgrade) {
+      // Überspringt Schritt 2 und wertet die Karte sofort auf!
+      onApplyDraft(chosenCard, null, null, true); 
+    } else {
+      setStep(2);
+    }
+  };
+
   const confirmDraft = () => {
     if (chosenCard && replaceIdx !== null && replaceIn !== null) {
         playSound('click');
-        onApplyDraft(chosenCard, replaceIdx, replaceIn);
+        onApplyDraft(chosenCard, replaceIdx, replaceIn, false);
     } else {
         alert("Bitte wähle zuerst eine Karte zum Ersetzen aus.");
     }
@@ -197,26 +211,30 @@ function CardDraftStage({ rewardData, roguelikeRun, onApplyDraft, onSkip }) {
             })}
           </div>
 
-          <button onClick={() => { playSound('click'); chosenCard && setStep(2); }} disabled={!chosenCard}
-            style={{ padding: '14px 50px', background: chosenCard ? 'rgba(0,229,255,0.1)' : 'transparent',
-              border: `1px solid ${chosenCard ? 'var(--win)' : '#2a3a4a'}`,
-              color: chosenCard ? 'var(--win)' : '#2a3a4a',
-              fontFamily: "'Roboto Mono',monospace", fontSize: '0.85rem', fontWeight: 700,
+          <button onClick={handleActionClick} disabled={!chosenCard}
+            style={{ padding: '14px 50px', 
+              background: chosenCard ? (isUpgrade ? 'rgba(188,19,254,0.1)' : 'rgba(0,229,255,0.1)') : 'transparent',
+              border: `1px solid ${chosenCard ? (isUpgrade ? '#bc13fe' : 'var(--win)') : '#2a3a4a'}`,
+              color: chosenCard ? (isUpgrade ? '#bc13fe' : 'var(--win)') : '#2a3a4a',
+              fontFamily: "'Roboto Mono',monospace", fontSize: '0.85rem', fontWeight: 700,  
               letterSpacing: '4px', cursor: chosenCard ? 'pointer' : 'not-allowed',
+              boxShadow: chosenCard && isUpgrade ? '0 0 20px rgba(188,19,254,0.3)' : 'none'
             }}>
-            {chosenCard ? `▸ ${chosenCard.name} AUFNEHMEN` : 'KARTE AUSWÄHLEN'}
+            {chosenCard 
+              ? (isUpgrade ? `▸ ${chosenCard.name} UPGRADEN (LVL ${existingCard.level + 1})` : `▸ ${chosenCard.name} AUFNEHMEN`) 
+              : 'KARTE AUSWÄHLEN'}
           </button>
         </div>
       )}
 
       {step === 2 && (
-        <div style={{ display: 'flex', gap: '28px', alignItems: 'flex-start', height: 'calc(100vh - 160px)', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', gap: '50px', alignItems: 'flex-start', justifyContent: 'center', height: 'calc(100vh - 160px)', overflow: 'hidden', maxWidth: '1200px', margin: '0 auto' }}>
 
           {/* Left: chosen new card */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-            <div className="mono" style={{ fontSize: '0.58rem', color: 'var(--win)', letterSpacing: '3px' }}>▸ NEUE KARTE</div>
-            {(() => { const S=0.72, W=360, H=504; return (
-              <div style={{ width: Math.round(W*S), height: Math.round(H*S), overflow:'hidden', borderRadius:'8px', border:'2px solid var(--win)', boxShadow:'0 0 20px rgba(0,229,255,0.3)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px', flexShrink: 0 }}>
+            <div className="mono" style={{ fontSize: '0.62rem', color: 'var(--win)', letterSpacing: '3px' }}>▸ NEUE KARTE</div>
+            {(() => { const S=0.75, W=360, H=504; return (
+              <div style={{ width: Math.round(W*S), height: Math.round(H*S), overflow:'hidden', borderRadius:'8px', border:'2px solid var(--win)', boxShadow:'0 0 30px rgba(0,229,255,0.2)' }}>
                 <div style={{ width:W, height:H, transform:`scale(${S})`, transformOrigin:'top left', pointerEvents:'none' }}>
                   <Card card={chosenCard} context="inventory"/>
                 </div>
@@ -225,42 +243,52 @@ function CardDraftStage({ rewardData, roguelikeRun, onApplyDraft, onSkip }) {
           </div>
 
           {/* Right: replacement grid */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '14px', minWidth: 0, overflow: 'hidden' }}>
-            <div className="mono" style={{ fontSize: '0.58rem', color: 'rgba(255,255,255,0.35)', letterSpacing: '3px' }}>
-              ▸ WELCHE KARTE ERSETZEN? (Avatar ist geschützt)
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', minWidth: 0, overflow: 'hidden', height: '100%' }}>
+            <div className="mono" style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.4)', letterSpacing: '3px', textAlign: 'center' }}>
+              ▸ WELCHE KARTE ERSETZEN? {chosenCard?.type === 'effect' || chosenCard?.buff !== undefined ? '(Nur Taktikkarten)' : '(Nur Agenten, Avatar geschützt)'}
             </div>
 
-            {/* Cards in 4-col grid, bigger scale 0.5 */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, max-content)', gap: '12px', overflow: 'auto' }}>
+            {/* Cards in 4-col grid, bigger scale 0.55 */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, max-content)', gap: '16px', overflowY: 'auto', paddingBottom: '20px', justifyContent: 'center' }}>
               {[...(deck.chars||[]), ...(deck.effs||[]).map(e=>({...e,_isEff:true}))].map((card, i) => {
                 const isAv = i === 0 && !card._isEff;
+                const isEff = !!card._isEff;
+                const chosenIsEff = chosenCard?.type === 'effect' || chosenCard?.buff !== undefined;
+                const isWrongType = isEff !== chosenIsEff;
+                const isDisabled = isAv || isWrongType;
+
                 const inList = card._isEff ? 'effs' : 'chars';
                 const idx    = card._isEff ? (deck.effs||[]).findIndex(e=>e.name===card.name) : i;
                 const isSelected = replaceIn===inList && replaceIdx===idx;
                 const tc = card.type==='apex'?'var(--apex-pink)':card.type==='legacy'?'#b8860b':card._isEff?'var(--eff-col)':'var(--win)';
-                const S=0.5, W=360, H=504;
+                const S=0.55, W=360, H=504; // Etwas größer, nutzt den Platz besser
                 return (
-                  <div key={i} onClick={isAv?undefined:()=>selectSlot(idx,inList)}
-                    style={{ position:'relative', cursor:isAv?'not-allowed':'pointer', opacity:isAv?0.4:1,
-                      transform:isSelected?'translateY(-6px)':'none', transition:'all 0.18s',
+                  <div key={i} onClick={isDisabled?undefined:()=>selectSlot(idx,inList)}
+                    style={{ position:'relative', cursor:isDisabled?'not-allowed':'pointer', opacity:isDisabled?0.3:1,
+                      transform:isSelected?'translateY(-8px)':'none', transition:'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
                       borderRadius:'6px', flexShrink: 0,
                     }}>
                     <div style={{ width:Math.round(W*S), height:Math.round(H*S), overflow:'hidden', borderRadius:'6px',
-                      border:`2px solid ${isSelected?'var(--lose)':isAv?'#222':tc+'44'}`,
-                      boxShadow:isSelected?'0 0 16px rgba(255,0,50,0.4)':'none',
+                      border:`2px solid ${isSelected?'var(--lose)':isDisabled?'#222':tc+'44'}`,
+                      boxShadow:isSelected?'0 0 20px rgba(255,0,50,0.4)':'none',
                     }}>
                       <div style={{width:W, height:H, transform:`scale(${S})`, transformOrigin:'top left', pointerEvents:'none'}}>
                         <Card card={card} context="inventory"/>
                       </div>
                     </div>
-                    {isSelected && !isAv && (
-                      <div style={{position:'absolute',bottom:6,left:'50%',transform:'translateX(-50%)',background:'var(--lose)',padding:'4px 10px',borderRadius:'3px',zIndex:5}}>
-                        <span className="mono" style={{fontSize:'0.5rem',color:'#fff',fontWeight:700}}>✕ ERSETZEN</span>
+                    {isSelected && !isDisabled && (
+                      <div style={{position:'absolute',bottom:8,left:'50%',transform:'translateX(-50%)',background:'var(--lose)',padding:'6px 14px',borderRadius:'4px',zIndex:5, boxShadow:'0 4px 10px rgba(0,0,0,0.5)'}}>
+                        <span className="mono" style={{fontSize:'0.6rem',color:'#fff',fontWeight:900}}>✕ ERSETZEN</span>
                       </div>
                     )}
                     {isAv && (
-                      <div style={{position:'absolute',top:6,right:6,background:'rgba(0,0,0,0.7)',padding:'2px 6px',borderRadius:'3px'}}>
-                        <span className="mono" style={{fontSize:'0.45rem',color:'#555'}}>AVATAR</span>
+                      <div style={{position:'absolute',top:8,right:8,background:'rgba(0,0,0,0.8)',padding:'4px 8px',borderRadius:'4px'}}>
+                        <span className="mono" style={{fontSize:'0.5rem',color:'#666', fontWeight: 700}}>AVATAR</span>
+                      </div>
+                    )}
+                    {isWrongType && !isAv && (
+                      <div style={{position:'absolute',top:8,right:8,background:'rgba(0,0,0,0.8)',padding:'4px 8px',borderRadius:'4px', zIndex:5}}>
+                        <span className="mono" style={{fontSize:'0.5rem',color:'#666', fontWeight: 700}}>FALSCHER TYP</span>
                       </div>
                     )}
                   </div>
@@ -268,20 +296,21 @@ function CardDraftStage({ rewardData, roguelikeRun, onApplyDraft, onSkip }) {
               })}
             </div>
 
-            <div style={{ display:'flex', gap:'10px', marginTop:'auto' }}>
+            <div style={{ display:'flex', gap:'15px', marginTop:'auto', justifyContent: 'center', width: '100%', maxWidth: '700px', alignSelf: 'center' }}>
               <button onClick={()=>{playSound('click');setStep(1);setReplaceIdx(null);setReplaceIn(null);}}
-                style={{padding:'10px 20px',background:'transparent',border:'1px solid #2a3a4a',color:'#667',
-                  fontFamily:"'Roboto Mono',monospace",fontSize:'0.7rem',letterSpacing:'2px',cursor:'pointer'}}>
+                style={{padding:'14px 28px',background:'transparent',border:'1px solid #2a3a4a',color:'#667',
+                  fontFamily:"'Roboto Mono',monospace",fontSize:'0.8rem',letterSpacing:'3px',cursor:'pointer', borderRadius: '4px'}}>
                 ← ZURÜCK
               </button>
               <button onClick={confirmDraft} disabled={replaceIdx===null||replaceIn===null}
-                style={{flex:1,padding:'12px',
-                  background:(replaceIdx!==null&&replaceIn!==null)?'rgba(0,229,255,0.08)':'transparent',
+                style={{padding:'14px 40px', flex: 1, maxWidth: '400px',
+                  background:(replaceIdx!==null&&replaceIn!==null)?'rgba(0,229,255,0.1)':'transparent',
                   border:`1px solid ${(replaceIdx!==null&&replaceIn!==null)?'var(--win)':'#2a3a4a'}`,
                   color:(replaceIdx!==null&&replaceIn!==null)?'var(--win)':'#2a3a4a',
-                  fontFamily:"'Roboto Mono',monospace",fontSize:'0.8rem',fontWeight:700,
-                  letterSpacing:'3px',cursor:(replaceIdx!==null&&replaceIn!==null)?'pointer':'not-allowed'}}>
-                {(replaceIdx!==null&&replaceIn!==null)?'▸ DRAFT BESTÄTIGEN':'KARTE ZUM ERSETZEN WÄHLEN'}
+                  fontFamily:"'Roboto Mono',monospace",fontSize:'0.85rem',fontWeight:700,
+                  letterSpacing:'4px',cursor:(replaceIdx!==null&&replaceIn!==null)?'pointer':'not-allowed',
+                  boxShadow:(replaceIdx!==null&&replaceIn!==null)?'0 0 20px rgba(0,229,255,0.2)':'none', borderRadius: '4px', transition: 'all 0.2s'}}>
+                {(replaceIdx!==null&&replaceIn!==null)?'▸ DRAFT BESTÄTIGEN':'KARTE WÄHLEN'}
               </button>
             </div>
           </div>

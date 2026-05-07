@@ -1355,6 +1355,7 @@
       "gti": 101,
       "type": "anomaly",
       "bio": "Ein katastrophaler Fehler im Code der Menschlichkeit.",
+      "passiveBuff": { "stat": "system", "val": 20 },
       "stats": { "tech": 60, "finance": 50, "manipulation": 98, "erosion": 100, "kingmaking": 85, "system": 100, "arsenal": 99, "legitimacy": 10 },
       "backText": "Das Dossier ist leer – es gibt keine Erklärung für das Unentschuldbare, nur die Warnung vor der Wiederholung."
     },
@@ -1498,7 +1499,7 @@
       "id": "c130",
       "name": "Christopher Columbus",
       "title": "Buergerrechtler",
-      "faction": "Narrative Matrix",
+      "faction": "Megaminds",
       "gti": 82,
       "type": "legacy",
       "bio": "Explorer of the New World",
@@ -1519,7 +1520,7 @@
       "id": "c131",
       "name": "Isaac Newton",
       "title": "Physiker",
-      "faction": "Scientist",
+      "faction": "Megaminds",
       "gti": 82,
       "type": "std",
       "bio": "Father of Gravity",
@@ -1624,7 +1625,7 @@
       "id": "c136",
       "name": "Albert Einstein",
       "title": "Physiker",
-      "faction": "Scientist",
+      "faction": "Megaminds",
       "gti": 85,
       "type": "legacy",
       "bio": "Zeit ist relativ.",
@@ -1704,10 +1705,10 @@
       "id": "e12", "name": "Börsen-Crash", "type": "effect", "gti": 93, "cost": 3, "stat": "system", "buff": 40, "syn": ["Giorgia Meloni", "Keir Starmer"], "synBuff": 20, "desc": "Globale Panik.", "backText": "Wenn das Vertrauen schwindet, kollabiert die gesamte Architektur."
     },
     {
-      "id": "e13", "name": "UN-Veto", "type": "effect", "gti": 92, "cost": 2, "stat": "legitimacy", "buff": 40, "syn": ["António Guterres", "Ursula von der Leyen"], "synBuff": 30, "desc": "Blockiert Resolutionen.", "backText": "Recht ist, was die Mächtigen zulassen."
+      "id": "e13", "name": "UN-Veto", "type": "effect", "gti": 92, "cost": 3, "stat": "legitimacy", "buff": 40, "syn": ["António Guterres", "Ursula von der Leyen"], "synBuff": 30, "desc": "Blockiert Resolutionen.", "backText": "Recht ist, was die Mächtigen zulassen."
     },
     {
-      "id": "e14", "name": "Cyber-Ransomware", "type": "effect", "gti": 94, "cost": 4, "stat": "finance", "buff": 35, "syn": ["Evgeniy Bogachev"], "synBuff": 40, "desc": "Lösegeld.", "backText": "Daten sind die Geiseln des 21. Jahrhunderts."
+      "id": "e14", "name": "Cyber-Ransomware", "type": "effect", "gti": 94, "cost": 3, "stat": "finance", "buff": 35, "syn": ["Evgeniy Bogachev"], "synBuff": 40, "desc": "Lösegeld.", "backText": "Daten sind die Geiseln des 21. Jahrhunderts."
     },
     {
       "id": "e15", "name": "Atombombe", "type": "effect", "gti": 98, "cost": 6, "stat": "arsenal", "buff": 60, "syn": ["J. Robert Oppenheimer", "Kim Jong Un"], "synBuff": 40, "desc": "Totaler Vernichter.", "backText": "Die ultimative Erosion jeder Zivilisation."

@@ -147,6 +147,16 @@ export default function RoguelikeSquad({ avatarCard, inventory = [], onConfirm, 
     });
   };
 
+  // NEU: Fraktions-Synergie Check für Squad Draft (inkl. Avatar)
+  const activeFactions = useMemo(() => {
+    const counts = {};
+    const allSquadChars = [...selChars, ...(avatarCard ? [avatarCard] : [])];
+    allSquadChars.forEach(c => {
+      if (c && c.faction && c.type !== 'effect') counts[c.faction] = (counts[c.faction] || 0) + 1;
+    });
+    return Object.keys(counts).filter(f => counts[f] >= 3);
+  }, [selChars, avatarCard]);
+
   const GTI_CAP  = 450; // max total GTI for 5 chars
   const charsDone = selChars.length === 5;
   const effsDone  = selEffs.length  === 2;
@@ -268,6 +278,7 @@ export default function RoguelikeSquad({ avatarCard, inventory = [], onConfirm, 
                       selected={selChars.some(s => s.name === c.name)}
                       disabled={!selChars.some(s => s.name === c.name) && selChars.length >= 5}
                       onToggle={() => toggleChar(c)}
+                      isFactionSynergyActive={activeFactions.includes(c.faction)}
                     />
                   ))
             ) : (

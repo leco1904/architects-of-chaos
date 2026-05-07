@@ -199,11 +199,30 @@ export default function Market({
         <div className="reveal-container" style={{ zIndex: 2000 }}>
           <h2 className="reveal-title">ACCESS GRANTED</h2>
           <div className="pull-reveal-grid">
-            {pulledCards.map((c, i) => (
-              <div key={i} className="pulled-card-wrapper" style={{ animationDelay: `${i * 0.2}s` }}>
-                <Card card={c} context="reveal" />
-              </div>
-            ))}
+            {pulledCards.map((c, i) => {
+              // Zählt, wie oft diese Karte im gesamten Inventar existiert
+              const totalOwned = inventory.filter(inv => inv.name === c.name).length;
+              
+              return (
+                <div key={i} className="pulled-card-wrapper" style={{ animationDelay: `${i * 0.2}s`, position: 'relative' }}>
+                  <Card card={c} context="reveal" />
+                  
+                  {/* Badge wird nur angezeigt, wenn man die Karte als Duplikat zieht */}
+                  {totalOwned > 1 && (
+                    <div className="mono" style={{ 
+                      position: 'absolute', top: '-15px', right: '-15px', 
+                      background: 'rgba(10,10,15,0.95)', color: 'var(--win)', 
+                      padding: '6px 10px', borderRadius: '4px', 
+                      border: '1px solid var(--win)', borderLeft: '3px solid var(--win)',
+                      fontSize: '0.75rem', fontWeight: 900, zIndex: 50, letterSpacing: '1px',
+                      boxShadow: '0 0 15px rgba(0,229,255,0.3)'
+                    }}>
+                      {totalOwned}x IM BESITZ
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
           <button className="menu-btn btn-primary" style={{ marginTop: '20px', maxWidth: '300px', zIndex: 100 }} onClick={closeReveal}>ÜBERNEHMEN</button>
         </div>

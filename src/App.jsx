@@ -11,6 +11,7 @@ import RoguelikeReward from './components/RoguelikeReward';
 import RoguelikeSquad from './components/Roguelikesquad';
 import Leaderboard from './components/Leaderboard';
 import GhostNodeMenu from './components/GhostNodeMenu';
+import SystemOverrides, { ACHIEVEMENTS } from './components/SystemOverrides';
 import cardsData from './data/cards.json';
 import { playSound } from './logic/audio';
 import { supabase } from './logic/supabase';
@@ -261,14 +262,12 @@ export default function App() {
     if (savedInv !== null) {
       let parsedInv = JSON.parse(savedInv);
       
-      // NEU: Auto-Sync mit der JSON-Datei!
-      // Wenn du Stats in der cards.json änderst, werden diese hier ins Savegame übernommen
       const allBaseCards = [...cardsData.characters, ...(cardsData.effects || [])];
       parsedInv = parsedInv.map(savedCard => {
         const baseCard = allBaseCards.find(c => c.name === savedCard.name);
         if (baseCard) {
-          // Basis-Stats aus JSON nehmen, aber Spieler-Fortschritt (Level, isNew, SP) behalten
-          return { ...baseCard, level: savedCard.level, isNew: savedCard.isNew, sp: savedCard.sp };
+          // FIX: level || 1 sichert ab, dass das Level beim Start nicht gelöscht wird!
+          return { ...baseCard, level: savedCard.level || 1, isNew: savedCard.isNew || false, sp: savedCard.sp || 0 };
         }
         return savedCard;
       });
@@ -276,17 +275,21 @@ export default function App() {
       const savedDecks = localStorage.getItem('aoc_decks');
       if (savedDecks) {
         const parsedDecks = JSON.parse(savedDecks);
-        const invNames = new Set(parsedInv.map(c => c.name));
-        const missingCards = [];
+        
+        // FIX: Verwandle das Inventar in eine Map für perfekten Level-Vergleich
+        const invMap = new Map(parsedInv.map(c => [c.name, c]));
+        
         parsedDecks.forEach(d => {
-          [...(d.chars || []), ...(d.effs || [])].forEach(c => {
-            if (!invNames.has(c.name)) {
-              missingCards.push({ ...c, isNew: false });
-              invNames.add(c.name);
+          [...(d.chars || []), ...(d.effs || [])].forEach(deckCard => {
+            const poolCard = invMap.get(deckCard.name);
+            
+            // Wenn die Karte im Deck ein HÖHERES Level hat, überschreiben!
+            if (!poolCard || (deckCard.level || 1) > (poolCard.level || 1)) {
+              invMap.set(deckCard.name, { ...deckCard, isNew: false });
             }
           });
         });
-        return [...parsedInv, ...missingCards];
+        return Array.from(invMap.values());
       }
       return parsedInv;
     }
@@ -473,6 +476,26 @@ export default function App() {
     return () => clearTimeout(t);
   }, [credits, inventory, decks, avatarCard, roguelikeRun, metaStats, guestMode, session]);
 
+  // NEU: Manueller Claim-Handler für System Overrides
+  const claimOverride = (ach, e) => {
+    playSound('win');
+    setMetaStats(prev => {
+      const claimed = prev.claimed_achievements || [];
+      if (!claimed.includes(ach.id)) {
+        return { ...prev, claimed_achievements: [...claimed, ach.id] };
+      }
+      return prev;
+    });
+    handleCreditGain(e.clientX, e.clientY, ach.reward);
+  };
+
+  // Prüft, ob es uneingelöste Achievements gibt (für den Dot im Menü)
+  const hasClaimableOverrides = ACHIEVEMENTS.some(ach => {
+    const claimed = metaStats?.claimed_achievements || [];
+    if (claimed.includes(ach.id)) return false;
+    return (metaStats?.[ach.type] || 0) >= ach.target;
+  });
+
   const handleGuestLogin = ()=>{ cloudSyncReady.current=true; setGuestMode(true); };
   const handleLogout = async ()=>{
     playSound('click');
@@ -527,21 +550,25 @@ export default function App() {
   };   
 
   const generateAIDeck = (nodeObj, sector) => {
-    // 1. HP STRIKT NACH NODE-TYP SETZEN
-    let aHP = 500;
-    if (nodeObj.type === 'elite') aHP = 700;
-    else if (nodeObj.type === 'boss') aHP = 1200;
+    // 1. HP DYNAMISCH BERECHNEN (+40% pro Sektor)
+    const hpMultiplier = 1 + ((sector - 1) * 0.4);
+    let aHP = Math.floor(500 * hpMultiplier);
+    if (nodeObj.type === 'elite') aHP = Math.floor(750 * hpMultiplier);
+    else if (nodeObj.type === 'boss') aHP = Math.floor(1200 * hpMultiplier);
 
-    // 2. THREAT-LEVEL KORREKT BERECHNEN
+    // 2. THREAT-LEVEL (Farbe und KI-Cleverness, maximal 4)
     let diff = 1;
-    if (nodeObj.type === 'standard') diff = Math.min(3, sector);
-    else if (nodeObj.type === 'elite') diff = Math.min(4, sector + 1);
+    if (nodeObj.type === 'standard') diff = Math.min(4, Math.ceil(sector / 2));
+    else if (nodeObj.type === 'elite') diff = Math.min(4, Math.ceil((sector + 1) / 2));
     else if (nodeObj.type === 'boss') diff = 4;
 
-    // 3. KARTEN-LEVEL BERECHNEN
-    const finalLevel = nodeObj.type === 'boss' ? 3 : Math.max(1, Math.min(2, sector));
+    // 3. KARTEN-LEVEL BERECHNEN (Maximal 3 für visuelles Cap)
+    const finalLevel = nodeObj.type === 'boss' ? 3 : Math.min(3, Math.ceil(sector / 2));
 
-    // 4. DECK ZUSAMMENSTELLEN (Archetypen für Karten, ABER ohne verbuggte HP-Änderungen!)
+    // 4. ENDLESS STAT-BUFF (Sanftes Scaling: Ab Sektor 6 gibt es +3 Stats pro Sektor)
+    const extraGtiBuff = sector > 5 ? (sector - 5) * 3 : 0;
+
+    // 5. DECK ZUSAMMENSTELLEN
     let charPool = [...cardsData.characters];
     const rand = Math.random();
     let archetype = nodeObj.type;
@@ -558,7 +585,17 @@ export default function App() {
     }
 
     const shuffledChars = shuffle(charPool);
-    const aiChars = shuffledChars.slice(0, 4).map(c => ({ ...c, level: finalLevel }));
+    const aiChars = shuffledChars.slice(0, 4).map(c => {
+      // Deep-Copy der Stats, um Abstürze zu verhindern
+      let card = { ...c, level: finalLevel, stats: c.stats ? { ...c.stats } : undefined };
+      if (extraGtiBuff > 0) {
+        ['tech','finance','manipulation','erosion','kingmaking','system','arsenal','legitimacy'].forEach(k => {
+           if (card[k] !== undefined) card[k] += extraGtiBuff;
+           else if (card.stats && card.stats[k] !== undefined) card.stats[k] += extraGtiBuff;
+        });
+      }
+      return card;
+    });
     
     const effs = cardsData.effects || [];
     const aiEffs = effs.length > 0 ? [{ ...effs[Math.floor(Math.random() * effs.length)], level: 1 }] : [];
@@ -569,7 +606,7 @@ export default function App() {
   const startRoguelikeRunWithDeck = (selectedChars, selectedEffs) => {
     if (!avatarCard) return;
     const newRun = {
-      currentHP: 500, maxHP: 500, sector: 1, node: 1,
+      currentHP: 500, maxHP: 500, sector: 1, node: 1, seed: Math.random(), // NEU: Einzigartiger Run-Seed!
       runDeck: {
         chars: [{ ...avatarCard }, ...selectedChars],
         effs:  selectedEffs,
@@ -637,35 +674,59 @@ export default function App() {
     const node = roguelikeRun.node;
     const isBoss = node >= 5 || roguelikeMatchData?.difficulty >= 4; 
     const isElite = node === 3 || roguelikeMatchData?.node?.type === 'elite';
+    const currentSector = roguelikeRun.sector;
     
-    const spGain = isBoss ? 3 : 1;
-    const earnedCredits = isBoss ? 500 : (isElite ? 200 : 75);
+    const spGain = isBoss ? (3 + Math.floor(currentSector/3)) : (isElite ? (currentSector > 3 ? 2 : 1) : 1);
+    const earnedCredits = Math.floor((isBoss ? 500 : (isElite ? 200 : 75)) * (1 + currentSector * 0.15));
 
     let newNode = node + 1;
-    let newSector = roguelikeRun.sector;
-    if (isBoss) { newNode = 1; newSector++; }
+    let newSector = currentSector;
+    let newSeed = roguelikeRun.seed || Math.random();
+    if (isBoss) { newNode = 1; newSector++; newSeed = Math.random(); } // NEU: Frischer Seed für neuen Sektor
 
     const updatedRun = { 
       ...roguelikeRun, 
       currentHP: Math.max(0, remainingHP), 
       node: newNode, 
-      sector: newSector 
+      sector: newSector,
+      seed: newSeed // NEU: Seed wird gespeichert
     };
     const updatedAvatar = { ...avatarCard, sp: (avatarCard.sp || 0) + spGain };
 
-    // 1. DRAFT GENERIEREN (3 Karten für das Deck)
+    // 1. DRAFT GENERIEREN (3 Karten für das Deck - Level 1, Duplikate erlaubt!)
     const allPool = [...cardsData.characters, ...(cardsData.effects || [])];
     const draftPool = [...allPool]
       .sort(() => Math.random() - 0.5)
       .slice(0, 3)
       .map(c => ({ ...c, level: 1 }));
 
-    // 2. LOOT FÜR DEN SCHWARZMARKT SAMMELN
+    // 2. LOOT FÜR DEN SCHWARZMARKT SAMMELN (Mit exakten Market-Odds!)
     let lootedCards = [];
     if (isElite || isBoss) {
       const count = isBoss ? 5 : 3;
       for(let i=0; i < count; i++) {
-        const picked = allPool[Math.floor(Math.random() * allPool.length)];
+        const roll = Math.random();
+        let cType = 'std';
+        
+        // Boss Pack (Premium Odds) vs. Elite Pack (Basic Odds)
+        if (isBoss) {
+          if (roll < 0.004) cType = 'anomaly';
+          else if (roll < 0.044) cType = 'apex';
+          else if (roll < 0.144) cType = 'legacy';
+          else if (roll < 0.394) cType = 'effect';
+          else cType = 'std';
+        } else {
+          if (roll < 0.001) cType = 'anomaly';
+          else if (roll < 0.006) cType = 'apex';
+          else if (roll < 0.046) cType = 'legacy';
+          else if (roll < 0.296) cType = 'effect';
+          else cType = 'std';
+        }
+
+        let pool = allPool.filter(c => c.type === cType);
+        if (pool.length === 0) pool = allPool.filter(c => c.type === 'std');
+        const picked = pool[Math.floor(Math.random() * pool.length)];
+
         lootedCards.push({
           ...picked, 
           level: 1, 
@@ -705,20 +766,32 @@ export default function App() {
   };
 
   // --- DIE FEHLENDE FUNKTION IST WIEDER DA ---
-  const applyRoguelikeDraft = (newCard, replaceIndex, replaceIn) => {
+  const applyRoguelikeDraft = (newCard, replaceIndex, replaceIn, isUpgrade = false) => {
     if (!roguelikeRun) return;
     const deck = { chars: [...roguelikeRun.runDeck.chars], effs: [...roguelikeRun.runDeck.effs] };
 
-    if (replaceIn === 'chars') {
-      deck.chars.splice(replaceIndex, 1);
+    if (isUpgrade) {
+      // KARTE IM DECK FINDEN UND LEVEL ERHÖHEN
+      if (newCard.type === 'effect' || newCard.buff !== undefined) {
+        const idx = deck.effs.findIndex(c => c.name === newCard.name);
+        if (idx > -1) deck.effs[idx].level = (deck.effs[idx].level || 1) + 1;
+      } else {
+        const idx = deck.chars.findIndex(c => c.name === newCard.name);
+        if (idx > -1) deck.chars[idx].level = (deck.chars[idx].level || 1) + 1;
+      }
     } else {
-      deck.effs.splice(replaceIndex, 1);
-    }
+      // NORMALES ERSETZEN (Level 1)
+      if (replaceIn === 'chars') {
+        deck.chars.splice(replaceIndex, 1);
+      } else {
+        deck.effs.splice(replaceIndex, 1);
+      }
 
-    if (newCard.type === 'effect') {
-      deck.effs.push({ ...newCard, level: 1 });
-    } else {
-      deck.chars.push({ ...newCard, level: 1 });
+      if (newCard.type === 'effect' || newCard.buff !== undefined) {
+        deck.effs.push({ ...newCard, level: 1 });
+      } else {
+        deck.chars.push({ ...newCard, level: 1 });
+      }
     }
 
     const updated = { ...roguelikeRun, runDeck: deck };
@@ -961,21 +1034,40 @@ export default function App() {
 
   // Globale Theme-Farbe für den Matrix-Hintergrund bestimmen
   const getThemeColor = (view) => {
-    if (view === 'ghostnodemenu' || view === 'avatarlab') return '#ff2244'; // Rötlich — Ghost Node
+    // Erkennt ALLE Ghost Node Untermenüs und färbt sie Lila/Pink
+    if (['ghostnodemenu', 'avatarlab', 'roguelikesquad', 'roguelikemap', 'roguelikeevent', 'roguelikereward', 'roguelikefailed'].includes(view)) {
+      return '#bc13fe'; 
+    }
     return '#00e5ff'; // Einheitliches Cyan für alle anderen Screens
   };
+
+  const isGhostNodeMode = ['ghostnodemenu', 'avatarlab', 'roguelikesquad', 'roguelikemap', 'roguelikeevent', 'roguelikereward', 'roguelikefailed'].includes(currentView);
 
   return (
     <div style={{ '--matrix-col': getThemeColor(currentView), minHeight: '100vh', position: 'relative' }}>
       
-      {/* GLOBALE CYBER-BACKGROUND (Matrix Rain + Grid) */}
+      {/* GLOBALE CYBER-BACKGROUND (Hex Grid) */}
       <CyberBackground color={getThemeColor(currentView)} />
 
-      {/* HIER WERDEN DIE ROGUELIKE-VIEWS JETZT GELADEN (ohne den Hintergrund zu blockieren!) */}
+      {/* GHOST NODE BINARY RAIN (1 und 0 Regen) */}
+      {isGhostNodeMode && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1, pointerEvents: 'none', overflow: 'hidden' }}>
+          {[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14].map(i=>(
+            <div key={i} className="binary-rain-col" style={{left:`${2+i*7}%`,'--dur':`${8+Math.random()*5}s`,'--delay':`${Math.random()*2}s`}}>
+              {Array.from({length:20},()=>Math.random()>.5?'1':'0').join('\n')}
+            </div>
+          ))}
+        </div>
+      )}
+      
+      {/* GLOBALE SCANLINES (Mit neuem Z-Index 5!) */}
+      <div className="rl-scanline-overlay" />
+
+      {/* HIER WERDEN DIE ROGUELIKE-VIEWS JETZT GELADEN */}
       {renderRoguelikeView()}
 
       {floats.map(ft => (
-         <div key={ft.id} className="money-popup" style={{ left: ft.x, top: ft.y }}>{ft.text}</div>
+         <div key={ft.id} className={`money-popup ${ft.isAch ? 'ach-popup' : ''}`} style={ft.isAch ? {} : { left: ft.x, top: ft.y }}>{ft.text}</div>
       ))}
 
       {showGlobalRules && (
@@ -1365,6 +1457,13 @@ export default function App() {
                   <div className="mod-text">LEXIKON</div>
                </button>
 
+               <button className="dash-btn-module" onClick={() => { playSound('click'); setPlayMenuOpen(false); setCurrentView('overrides'); }}>
+                  <div className="mod-icon">⭐</div>
+                  <div className="mod-text">OVERRIDES</div>
+                  {/* Benachrichtigungs-Punkt bei abholbereiten Achievements */}
+                  {hasClaimableOverrides && <div className="notif-dot" style={{ background: 'var(--ep)' }}></div>}
+               </button>
+
                <button className="dash-btn-module highlight-module" onClick={() => { playSound('click'); setPlayMenuOpen(false); setCurrentView('leaderboard'); }}>
                   <div className="mod-icon">🏆</div>
                   <div className="mod-text">LEADERBOARD</div>
@@ -1374,6 +1473,11 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {currentView === 'overrides' && (
+         <SystemOverrides metaStats={metaStats} onBack={() => setCurrentView('menu')} onClaim={claimOverride} />
+      )}
+
     </div>
   );
 }

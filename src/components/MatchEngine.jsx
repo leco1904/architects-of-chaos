@@ -1,8 +1,9 @@
 // src/components/MatchEngine.jsx
 import React, { useState, useEffect } from 'react';
-import Card, { CAT_CONFIG, getRarityClass } from './Card';
+import Card, { CAT_CONFIG, getRarityClass, getFactionBuffs } from './Card';
 import { getAIBestCategory, getSarcasticNews } from '../logic/gameLogic';
 import { playSound } from '../logic/audio';
+
 
 function shuffle(array) {
   const a = [...array];
@@ -83,6 +84,8 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
   const _sc = React.useRef(shuffle([...playerChars])).current;
   const _se = React.useRef(shuffle([...playerEffs])).current;
 
+  const [lastAttackStat, setLastAttackStat] = useState(null);
+  const [lastAIAttackStat, setLastAIAttackStat] = useState(null);
   const [pHP, setPHP] = useState(initialPHP);
   const [aHP, setAHP] = useState(initialAHP);
   // NEU: Lokale Kampf-Stats
@@ -172,11 +175,19 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
 
   useEffect(() => {
     if (!isOnline && !pTurn && aiCard) {
-      // Wir übergeben pHand statt activeCard!
-      setCurK(getAIBestCategory(aiCard, activeCrisis, difficulty, pHand));
+      let bestK = getAIBestCategory(aiCard, activeCrisis, difficulty, pHand);
+      
+      // NEU: KI darf ihren letzten Angriffs-Stat nicht spammen!
+      if (bestK === lastAIAttackStat) {
+        const STAT_KEYS = ['tech','finance','manipulation','erosion','kingmaking','system','arsenal','legitimacy'];
+        const available = STAT_KEYS.filter(k => k !== lastAIAttackStat);
+        bestK = available.reduce((a, b) => ((aiCard[a] ?? aiCard.stats?.[a] ?? 0) > (aiCard[b] ?? aiCard.stats?.[b] ?? 0) ? a : b));
+      }
+      
+      setCurK(bestK);
     }
   // WICHTIG: activeCard ist hier aus den Dependencies verschwunden!
-  }, [pTurn, aiCard, activeCrisis, difficulty, pHand, isOnline]);
+  }, [pTurn, aiCard, activeCrisis, difficulty, pHand, isOnline, lastAIAttackStat]);
 
   useEffect(() => {
     if (clashData && !showCrisisIntro) {
@@ -201,6 +212,10 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
   }, [clashData, showCrisisIntro]);
   const handleStatClick = (statKey) => {
     if (!pTurn) return;
+    
+    // NEU: Verhindert, dass der gleiche Stat 2x hintereinander als Angriff genutzt wird!
+    if (statKey === lastAttackStat) return; 
+    
     playSound('click');
     setCurK(statKey);
   };
@@ -225,12 +240,79 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
      }
   });
 
+  // NEU: Fraktions-Synergien prüfen (3 Karten derselben Fraktion im Basis-Deck = Buff für alle Karten dieser Fraktion)
+  const getActiveFactions = (deck) => {
+    const counts = {};
+    deck.forEach(c => {
+       if (c && c.faction && c.type !== 'effect') counts[c.faction] = (counts[c.faction] || 0) + 1;
+    });
+    return Object.keys(counts).filter(f => counts[f] >= 3);
+  };
+  const pActiveFactions = getActiveFactions(playerChars);
+  const aActiveFactions = getActiveFactions(aiChars);
+
   const resolveClash = () => {
       setWaiting(false);
       const isAttacker = pTurn;
       const atkAct = isAttacker ? myLockedAction : remoteActionData;
       const defAct = isAttacker ? remoteActionData : myLockedAction;
       const k = atkAct.category;
+
+      // NEU: Angriffs-Stat speichern für den Cooldown in der nächsten Angriffsrunde
+      if (isAttacker) {
+          setLastAttackStat(k);
+      } else {
+          setLastAIAttackStat(k);
+      }
+
+      // NEU: Angriffs-Stat speichern für den Cooldown in der nächsten Angriffsrunde
+      if (isAttacker) {
+          setLastAttackStat(k);
+      } else {
+          setLastAIAttackStat(k);
+      }
+
+      // NEU: Angriffs-Stat speichern für den Cooldown in der nächsten Angriffsrunde
+      if (isAttacker) {
+          setLastAttackStat(k);
+      } else {
+          setLastAIAttackStat(k);
+      }
+
+      // NEU: Angriffs-Stat speichern für den Cooldown in der nächsten Angriffsrunde
+      if (isAttacker) {
+          setLastAttackStat(k);
+      } else {
+          setLastAIAttackStat(k);
+      }
+
+      // NEU: Angriffs-Stat speichern für den Cooldown in der nächsten Angriffsrunde
+      if (isAttacker) {
+          setLastAttackStat(k);
+      } else {
+          setLastAIAttackStat(k);
+      }
+
+      // NEU: Angriffs-Stat speichern für den Cooldown in der nächsten Angriffsrunde
+      if (isAttacker) {
+          setLastAttackStat(k);
+      } else {
+          setLastAIAttackStat(k);
+      }
+
+      // NEU: Angriffs-Stat speichern für den Cooldown in der nächsten Angriffsrunde
+      if (isAttacker) {
+          setLastAttackStat(k);
+      } else {
+          setLastAIAttackStat(k);
+      }
+
+      // NEU: Angriffs-Stat speichern für den Cooldown in der nächsten Angriffsrunde
+      if (isAttacker) {
+          setLastAttackStat(k);
+      } else {
+          setLastAIAttackStat(k);
+      }
 
       const pCard = myLockedAction.card;
       const aCard = remoteActionData.card;
@@ -239,6 +321,13 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
            let v = Math.floor(card[k] ?? card.stats?.[k] ?? 0) + ((card.level || 1) - 1) * 2;
            if (!isRemote) v += (currentApexBuffs[k] || 0); 
            
+           // NEU: Fraktions-Buff im Hintergrund auf den aktiven Clash-Stat addieren
+           const activeFacs = isRemote ? aActiveFactions : pActiveFactions;
+           if (activeFacs.includes(card.faction)) {
+               const fBuffs = getFactionBuffs(card.faction);
+               v += (fBuffs[k] || 0);
+           }
+
            if (effObj && effObj.stat === k) {
                v += effObj.buff;
                if (effObj.syn?.includes(card.name)) v += effObj.synBuff;
@@ -630,7 +719,7 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
 
             <div className="arena-card-wrapper">
               <Card 
-               card={activeCard} 
+                card={activeCard} 
                 context="game" 
                 activeEffect={activeEffObj} 
                 apexBuffs={currentApexBuffs}
@@ -640,6 +729,8 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
                 onStatClick={handleStatClick} 
                 highlightSynergyStat={isSynergyAvailable ? activeEffOnCard.stat : null}
                 lightGyro={true}
+                lockedStat={pTurn ? lastAttackStat : null}
+                isFactionSynergyActive={pActiveFactions.includes(activeCard?.faction)}
               />
             </div>
 
@@ -792,6 +883,7 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
                     activeCrisis={activeCrisis}
                     curCategory={clashData.categoryKey} 
                     isPlayerTurn={true} 
+                    isFactionSynergyActive={pActiveFactions.includes(clashData.pc?.faction)}
                   />
                   <div className="clash-badge" style={{ position: 'absolute', top: '-20px', left: '50%', transform: 'translateX(-50%)', background: '#000', color: 'var(--ep)', padding: '8px 20px', border: '2px solid #555', fontWeight: '900', fontSize: '1.2rem', zIndex: 30, letterSpacing: '2px' }}>
    {clashData.pAct}
@@ -824,6 +916,7 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
                     activeCrisis={activeCrisis}
                     curCategory={clashData.categoryKey} 
                     isPlayerTurn={false} 
+                    isFactionSynergyActive={aActiveFactions.includes(clashData.ac?.faction)}
                   />
                   <div className="clash-badge" style={{ position: 'absolute', top: '-20px', left: '50%', transform: 'translateX(-50%)', background: '#000', color: 'var(--ep)', padding: '8px 20px', border: '2px solid #555', fontWeight: '900', fontSize: '1.2rem', zIndex: 30, letterSpacing: '2px' }}>
    {clashData.aAct}
