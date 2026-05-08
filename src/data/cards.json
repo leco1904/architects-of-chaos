@@ -1576,7 +1576,7 @@
         "arsenal": 84,
         "legitimacy": 88
       },
-      "backText": "HArchitekt der deutschen Einheit, der durch eine Politik von 'Blut und Eisen' sowie geschickte Diplomatie das europäische Gleichgewicht dominierte. Er begründete den modernen Sozialstaat, um innere Spannungen durch strategische Reformen zu befrieden."
+      "backText": "Architekt der deutschen Einheit, der durch eine Politik von 'Blut und Eisen' sowie geschickte Diplomatie das europäische Gleichgewicht dominierte. Er begründete den modernen Sozialstaat, um innere Spannungen durch strategische Reformen zu befrieden."
     },
 
 {
@@ -1661,7 +1661,111 @@
         "legitimacy": 94
       },
       "backText": "Hermit king."
-    } 
+    },
+
+    {
+  "id": "c138",
+  "name": "Winston Churchill",
+  "title": "1945",
+  "faction": "hegemony",
+  "gti": 91,
+  "type": "legacy",
+  "bio": "Bulldog of Britain",
+  "stats": {
+    "tech": 55,
+    "finance": 79,
+    "manipulation": 82,
+    "erosion": 89,
+    "kingmaking": 86,
+    "system": 91,
+    "arsenal": 93,
+    "legitimacy": 93
+  },
+  "backText": "He spoke like the last wall before collapse. His power came from language, resolve, and wartime myth. Behind the defiance stood an imperial mind shaped by old order."
+},
+
+{
+  "id": "c139",
+  "name": "Alice Weidel",
+  "title": "AfD Chair",
+  "faction": "Shadow power",
+  "gti": 83,
+  "type": "std",
+  "bio": "Cold message, sharp edge",
+  "stats": {
+    "tech": 75,
+    "finance": 78,
+    "manipulation": 92,
+    "erosion": 87,
+    "kingmaking": 72,
+    "system": 85,
+    "arsenal": 68,
+    "legitimacy": 74
+  },
+  "backText": "She turns grievance into discipline and message control into political momentum. Her strength lies less in state command than in pressure, provocation, and ideological sharpening. She advances by hardening the line and forcing the room to react."
+},
+{
+  "id": "c140",
+  "name": "Abraham Lincoln",
+  "title": "1863",
+  "faction": "Hegemony",
+  "gti": 92,
+  "type": "legacy",
+  "bio": "Union under fire",
+  "stats": {
+    "tech": 53,
+    "finance": 76,
+    "manipulation": 83,
+    "erosion": 81,
+    "kingmaking": 89,
+    "system": 92,
+    "arsenal": 83,
+    "legitimacy": 94
+  },
+  "backText": "He carried the Union through fracture, war, and moral transformation. His authority came from endurance, constitutional force, and a growing sense of historical necessity. Under the weight of civil war, he turned preservation into reinvention."
+},
+
+{
+  "id": "c141",
+  "name": "Tutankhamun",
+  "title": "1324 BC",
+  "faction": "Hegemony",
+  "gti": 90,
+  "type": "legacy",
+  "bio": "King Tut",
+  "stats": {
+    "tech": 32,
+    "finance": 87,
+    "manipulation": 83,
+    "erosion": 83,
+    "kingmaking": 78,
+    "system": 91,
+    "arsenal": 90,
+    "legitimacy": 92
+  },
+  "backText": "He ruled briefly, but his name outlived empires through symbol, burial, and myth. His power in life was constrained by court forces larger than himself, yet his image became immortal. The boy king faded early, but the tomb made him eternal."
+},
+
+{
+  "id": "c142",
+  "name": "Jack the Ripper",
+  "title": "Serienkiller",
+  "faction": "Shadow power",
+  "gti": 79,
+  "type": "std",
+  "bio": "Fog, fear, and faceless violence",
+  "stats": {
+    "tech": 41,
+    "finance": 38,
+    "manipulation": 87,
+    "erosion": 70,
+    "kingmaking": 62,
+    "system": 83,
+    "arsenal": 81,
+    "legitimacy": 24
+  },
+  "backText": "He became powerful not through office or wealth, but through terror without a face. The killings fed panic, myth, and endless projection, turning absence into legend. His true identity vanished, but the fear stayed in circulation."
+}
 
   ],
   "effects": [

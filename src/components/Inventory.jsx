@@ -617,7 +617,7 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
             {/* POOL SPALTE */}
             <div className={`glass-panel inv-column mobile-tab-pool ${mobileTab === 'pool' ? 'active-tab' : ''}`}>
               <div style={{ minHeight: '160px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', marginBottom: '20px', paddingBottom: '15px', borderBottom: '1px solid #333' }}>
-                  <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-start', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-start', flexWrap: 'wrap', width: '100%' }}>
                     <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={{ padding: '6px 10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--win)', color: 'var(--win)', borderRadius: '4px', outline: 'none', fontWeight: 'bold' }}>
                        <option value="rating">NACH RATING</option>
                        <option value="new">NACH NEU</option>
@@ -628,6 +628,15 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
                          <option value="ALL">ALLE FRAKTIONEN</option>
                          {allFactions.map(f => <option key={f} value={f}>{f}</option>)}
                       </select>
+                    )}
+                    
+                    {/* NEU: ALLES GESEHEN BUTTON */}
+                    {safeInv.some(c => c.isNew) && (
+                      <button className="btn-info" style={{ borderColor: 'var(--win)', color: 'var(--win)', marginLeft: 'auto' }} onClick={() => {
+                         playSound('click');
+                         setInventory(prev => prev.map(c => ({...c, isNew: false})));
+                         setDecks(prev => prev.map(d => ({ ...d, chars: d.chars.map(c => ({...c, isNew: false})), effs: d.effs.map(c => ({...c, isNew: false})) })));
+                      }}>✓ ALLES GESEHEN</button>
                     )}
                   </div>
 

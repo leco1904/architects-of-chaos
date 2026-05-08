@@ -115,11 +115,12 @@ function LootSummaryStage({ rewardData, roguelikeRun, onNext }) {
 }
 
 // ── STAGE 2: CARD DRAFT ──────────────────────────
-function CardDraftStage({ rewardData, roguelikeRun, onApplyDraft, onSkip }) {
+function CardDraftStage({ rewardData, roguelikeRun, onApplyDraft, onSkip, isCoop = false }) {
   const [step, setStep] = useState(1);
   const [chosenCard, setChosenCard] = useState(null);
   const [replaceIdx, setReplaceIdx] = useState(null);
   const [replaceIn, setReplaceIn] = useState(null);
+  const [sentToPartner, setSentToPartner] = useState(false); // Feedback nach Partner-Send
 
   const deck = roguelikeRun?.runDeck || { chars: [], effs: [] };
   const draftCards = rewardData?.draft || [];
@@ -130,15 +131,26 @@ function CardDraftStage({ rewardData, roguelikeRun, onApplyDraft, onSkip }) {
   const existingCard = chosenCard ? [...deck.chars, ...deck.effs].find(c => c.name === chosenCard.name) : null;
   const isUpgrade = !!existingCard;
 
-  const handleActionClick = () => {
+  // Karte für sich selbst behalten (bisherige Logik)
+  const handleSelfAction = () => {
     playSound('click');
     if (isUpgrade) {
-      // Überspringt Schritt 2 und wertet die Karte sofort auf!
-      onApplyDraft(chosenCard, null, null, true); 
+      onApplyDraft(chosenCard, null, null, true, false);
     } else {
       setStep(2);
     }
   };
+
+  // Karte an den Co-Op Partner senden
+  const handlePartnerSend = () => {
+    if (!chosenCard || sentToPartner) return;
+    playSound('upgrade');
+    setSentToPartner(true);
+    onApplyDraft(chosenCard, null, null, false, true); // sendToPartner = true
+  };
+
+  // Legacy-Alias für Nicht-Coop-Modus (Step 2 nutzt noch confirmDraft)
+  const handleActionClick = handleSelfAction;
 
   const confirmDraft = () => {
     if (chosenCard && replaceIdx !== null && replaceIn !== null) {
@@ -213,19 +225,49 @@ function CardDraftStage({ rewardData, roguelikeRun, onApplyDraft, onSkip }) {
             })}
           </div>
 
-          <button onClick={handleActionClick} disabled={!chosenCard}
-            style={{ padding: '14px 50px', 
-              background: chosenCard ? (isUpgrade ? 'rgba(188,19,254,0.1)' : 'rgba(0,229,255,0.1)') : 'transparent',
-              border: `1px solid ${chosenCard ? (isUpgrade ? '#bc13fe' : 'var(--win)') : '#2a3a4a'}`,
-              color: chosenCard ? (isUpgrade ? '#bc13fe' : 'var(--win)') : '#2a3a4a',
-              fontFamily: "'Roboto Mono',monospace", fontSize: '0.85rem', fontWeight: 700,  
-              letterSpacing: '4px', cursor: chosenCard ? 'pointer' : 'not-allowed',
-              boxShadow: chosenCard && isUpgrade ? '0 0 20px rgba(188,19,254,0.3)' : 'none'
-            }}>
-            {chosenCard 
-              ? (isUpgrade ? `▸ ${chosenCard.name} UPGRADEN (LVL ${existingCard.level + 1})` : `▸ ${chosenCard.name} AUFNEHMEN`) 
-              : 'KARTE AUSWÄHLEN'}
-          </button>
+          {/* ── DESTINATION BUTTONS ── */}
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
+
+            {/* Für mich behalten (immer sichtbar) */}
+            <button
+              onClick={handleSelfAction}
+              disabled={!chosenCard || sentToPartner}
+              style={{
+                padding: '14px 32px',
+                background: chosenCard && !sentToPartner ? (isUpgrade ? 'rgba(188,19,254,0.1)' : 'rgba(0,229,255,0.1)') : 'transparent',
+                border: `1px solid ${chosenCard && !sentToPartner ? (isUpgrade ? '#bc13fe' : 'var(--win)') : '#2a3a4a'}`,
+                color: chosenCard && !sentToPartner ? (isUpgrade ? '#bc13fe' : 'var(--win)') : '#2a3a4a',
+                fontFamily: "'Roboto Mono',monospace", fontSize: '0.82rem', fontWeight: 700,
+                letterSpacing: '3px', cursor: chosenCard && !sentToPartner ? 'pointer' : 'not-allowed',
+                boxShadow: chosenCard && isUpgrade && !sentToPartner ? '0 0 20px rgba(188,19,254,0.3)' : 'none',
+                transition: 'all 0.2s', borderRadius: '3px',
+              }}>
+              {chosenCard
+                ? (isUpgrade
+                  ? `▸ UPGRADEN (LVL ${existingCard.level + 1})`
+                  : '▸ FÜR MICH BEHALTEN')
+                : 'KARTE AUSWÄHLEN'}
+            </button>
+
+            {/* An Partner senden — nur im Co-Op sichtbar */}
+            {isCoop && (
+              <button
+                onClick={handlePartnerSend}
+                disabled={!chosenCard || sentToPartner}
+                style={{
+                  padding: '14px 32px',
+                  background: sentToPartner ? 'rgba(0,255,100,0.1)' : chosenCard ? 'rgba(255,0,127,0.08)' : 'transparent',
+                  border: `1px solid ${sentToPartner ? '#00ff44' : chosenCard ? 'var(--apex-pink)' : '#2a3a4a'}`,
+                  color: sentToPartner ? '#00ff44' : chosenCard ? 'var(--apex-pink)' : '#2a3a4a',
+                  fontFamily: "'Roboto Mono',monospace", fontSize: '0.82rem', fontWeight: 700,
+                  letterSpacing: '3px', cursor: chosenCard && !sentToPartner ? 'pointer' : 'not-allowed',
+                  boxShadow: sentToPartner ? '0 0 20px rgba(0,255,100,0.2)' : chosenCard ? '0 0 15px rgba(255,0,127,0.15)' : 'none',
+                  transition: 'all 0.2s', borderRadius: '3px',
+                }}>
+                {sentToPartner ? '✓ AN PARTNER ÜBERTRAGEN' : '📡 AN PARTNER SENDEN'}
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -323,7 +365,7 @@ function CardDraftStage({ rewardData, roguelikeRun, onApplyDraft, onSkip }) {
 }
 
 // ── MAIN COMPONENT ──────────────────────────────────────────
-export default function RoguelikeReward({ rewardData, roguelikeRun, onApplyDraft, onSkip }) {
+export default function RoguelikeReward({ rewardData, roguelikeRun, onApplyDraft, onSkip, isCoop = false }) {
   const [stage, setStage] = useState('summary'); 
 
   if (!rewardData || !roguelikeRun) return null;
@@ -344,6 +386,7 @@ export default function RoguelikeReward({ rewardData, roguelikeRun, onApplyDraft
              roguelikeRun={roguelikeRun}
              onApplyDraft={onApplyDraft} 
              onSkip={onSkip}
+             isCoop={isCoop}
           />
        )}
     </div>

@@ -47,8 +47,9 @@ function HubButton({ icon, title, sub, color='var(--win)', locked, onClick, acti
 }
 
 // ── Main Component ────────────────────────────────────────────────────────
-export default function GhostNodeMenu({ avatarCard, roguelikeRun, onGoToLab, onGoToSquad, onGoToMap, onBack }) {
+export default function GhostNodeMenu({ avatarCard, roguelikeRun, allRuns = {}, onGoToLab, onGoToSquad, onGoToMap, onBack, friends = [], onInviteDirect, onDeleteCoop }) {
   const hasRun = !!roguelikeRun;
+  const [showInviteList, setShowInviteList] = React.useState(false); // NEU: Toggle für die Liste
 
   return (
     <div className="screen active" style={{display:'block',padding:'0',position:'relative',overflow:'hidden'}}>
@@ -108,30 +109,85 @@ export default function GhostNodeMenu({ avatarCard, roguelikeRun, onGoToLab, onG
 
           {/* Right: Operations */}
           <div style={{flex:1,minWidth:'280px',maxWidth:'400px',display:'flex',flexDirection:'column',gap:'10px'}}>
-            <div className="mono" style={{fontSize:'0.56rem',color:'rgba(255,255,255,0.22)',letterSpacing:'3px',marginBottom:'4px'}}>▸ OPERATIONS</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom:'4px' }}>
+                <div className="mono" style={{fontSize:'0.56rem',color:'rgba(255,255,255,0.22)',letterSpacing:'3px'}}>
+                    {showInviteList ? '▸ NEURAL CONTACTS' : '▸ OPERATIONS'}
+                </div>
+                {showInviteList && (
+                    <button onClick={() => setShowInviteList(false)} className="mono" style={{ background: 'transparent', border: 'none', color: '#bc13fe', fontSize: '0.55rem', cursor: 'pointer', letterSpacing: '1px' }}>[ ZURÜCK ]</button>
+                )}
+            </div>
 
-            {/* ZENTRALER LAB BUTTON */}
-            <HubButton 
-              icon="⬡" color="#bc13fe" 
-              title={avatarCard ? "AVATAR LABOR" : "AGENT ERSTELLEN"} 
-              sub={avatarCard ? `Agent modifizieren · Stats upgraden · Bio anpassen` : `Neuen Ghost Agent konfigurieren`} 
-              onClick={onGoToLab}
-            />
-
-            <div style={{height:'1px',background:'rgba(255,255,255,0.06)',margin:'2px 0'}}/>
-
-            {hasRun ? (
-              <HubButton icon="▶" color="var(--apex-pink)" title="RUN FORTSETZEN"
-                sub={`Sektor ${roguelikeRun.sector} // Node ${roguelikeRun.node} // HP ${roguelikeRun.currentHP}/${roguelikeRun.maxHP}`}
-                active onClick={onGoToMap}/>
+            {showInviteList ? (
+              /* --- 1-CLICK INVITE LISTE --- */
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '400px', overflowY: 'auto', paddingRight: '5px' }}>
+                {friends.length === 0 ? (
+                    <div className="mono" style={{ color: '#444', fontSize: '0.6rem', padding: '20px', textAlign: 'center', border: '1px dashed #222' }}>KEINE AKTIVEN AGENTEN GEFUNDEN</div>
+                ) : (
+                    friends.map(f => {
+                        const hasCoopRun = allRuns && allRuns['coop_' + f.id];
+                        return (
+                        <div key={f.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(188,19,254,0.05)', border: '1px solid rgba(188,19,254,0.15)', borderLeft: '3px solid #bc13fe' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#bc13fe', boxShadow: '0 0 8px #bc13fe' }} />
+                                <div>
+                                    <div className="mono" style={{ fontSize: '0.75rem', color: '#fff', fontWeight: 700 }}>{f.username}</div>
+                                    {hasCoopRun && <div className="mono" style={{ fontSize: '0.45rem', color: 'var(--win)', marginTop: '2px' }}>AKTIVER RUN GESPEICHERT</div>}
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                                {hasCoopRun && (
+                                    <button 
+                                        onClick={() => onDeleteCoop(f.id)} 
+                                        title="Co-Op Run löschen"
+                                        style={{ background: 'rgba(255,0,50,0.2)', border: '1px solid var(--lose)', color: 'var(--lose)', padding: '4px 8px', fontSize: '0.55rem', cursor: 'pointer', fontFamily: 'monospace', fontWeight: 900 }}
+                                    >✕</button>
+                                )}
+                                <button 
+                                    onClick={() => onInviteDirect(f.id)} 
+                                    style={{ background: 'rgba(188,19,254,0.2)', border: '1px solid #bc13fe', color: '#bc13fe', padding: '4px 10px', fontSize: '0.55rem', cursor: 'pointer', fontFamily: 'monospace', fontWeight: 900 }}
+                                >
+                                    {hasCoopRun ? 'FORTSETZEN' : 'INVITE'}
+                                </button>
+                            </div>
+                        </div>
+                    )})
+                )}
+              </div>
             ) : (
-              <HubButton icon="⬡" color="var(--apex-pink)" title="RUN STARTEN"
-                sub={avatarCard?'Squad wählen — Mission initialisieren':'AVATAR ERFORDERLICH'}
-                locked={!avatarCard} onClick={onGoToSquad}/>
-            )}
-            {hasRun && (
-              <HubButton icon="✕" color="var(--lose)" title="RUN ABBRECHEN" sub="Permadeath — Run löschen, Avatar bleibt"
-                onClick={()=>{if(window.confirm('Run wirklich abbrechen? Permadeath.'))window.dispatchEvent(new CustomEvent('abortRun'));}}/>
+              /* --- NORMALE OPERATIONS --- */
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <HubButton 
+                  icon="⬡" color="#bc13fe" 
+                  title={avatarCard ? "AVATAR LABOR" : "AGENT ERSTELLEN"} 
+                  sub={avatarCard ? `Agent modifizieren · Stats upgraden · Bio anpassen` : `Neuen Ghost Agent konfigurieren`} 
+                  onClick={onGoToLab}
+                />
+
+                <div style={{height:'1px',background:'rgba(255,255,255,0.06)',margin:'2px 0'}}/>
+
+                {/* SOLO BEREICH */}
+                {hasRun ? (
+                  <>
+                    <HubButton icon="▶" color="var(--win)" title="SOLO RUN FORTSETZEN"
+                      sub={`Sektor ${roguelikeRun.sector} // Node ${roguelikeRun.node} // HP ${roguelikeRun.currentHP}/${roguelikeRun.maxHP}`}
+                      active onClick={onGoToMap}/>
+                    <HubButton icon="✕" color="var(--lose)" title="SOLO RUN ABBRECHEN" sub="Permadeath — Run löschen, Avatar bleibt"
+                      onClick={()=>{if(window.confirm('Solo Run wirklich abbrechen? Permadeath.'))window.dispatchEvent(new CustomEvent('abortRun'));}}/>
+                  </>
+                ) : (
+                  <HubButton icon="⬡" color="var(--win)" title="SOLO RUN STARTEN"
+                    sub={avatarCard?'Squad wählen — Mission initialisieren':'AVATAR ERFORDERLICH'}
+                    locked={!avatarCard} onClick={onGoToSquad}/>
+                )}
+                
+                <div style={{height:'1px',background:'rgba(255,255,255,0.06)',margin:'2px 0'}}/>
+                
+                {/* CO-OP BEREICH (IMMER SICHTBAR) */}
+                <HubButton icon="📡" color="var(--apex-pink)" title="CO-OP MISSIONEN"
+                  sub={avatarCard?'Neural Link zu Partner herstellen':'AVATAR ERFORDERLICH'}
+                  locked={!avatarCard} onClick={() => setShowInviteList(true)}/>
+              </div>
             )}
 
             <div style={{marginTop:'8px',padding:'12px 14px',background:'rgba(0,0,0,0.4)',backdropFilter:'blur(4px)',border:'1px solid rgba(255,255,255,0.04)',borderLeft:'3px solid rgba(188,19,254,0.2)'}}>

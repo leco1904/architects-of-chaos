@@ -1,8 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import Card from './Card';
+import Card, { AVATAR_ARTS } from './Card';
 import { playSound } from '../logic/audio';
 
 // ── Config ─────────────────────────────────────────────────────────────────
+const THEMES = [
+  { id: 'cyan',   color: '#00e5ff', name: 'CYBER CYAN' },
+  { id: 'green',  color: '#00ff44', name: 'TOXIC GREEN' },
+  { id: 'red',    color: '#ff0055', name: 'MATRIX RED' },
+  { id: 'purple', color: '#bc13fe', name: 'GHOST PURPLE' },
+  { id: 'amber',  color: '#ffb300', name: 'AMBER SEPIA' },
+];
 const ARCHETYPES = {
   hacker:    { name:'HACKER',    icon:'⎔', desc:'Cyber-Spezialist. Dominiert digitale Systeme.',     buffs:{tech:20,system:20}       },
   banker:    { name:'BANKER',    icon:'🔗', desc:'Finanzhai. Kontrolliert Märkte und Mächtige.',       buffs:{finance:20,kingmaking:20} },
@@ -86,6 +93,8 @@ export default function AvatarLab({ avatarCard, updateAvatar, onBack, onGoToMiss
   const [name,      setName]      = useState('');
   const [faction,   setFaction]   = useState(allFactions[0] || 'SHADOW POWER');
   const [archetype, setArchetype] = useState('hacker');
+  const [selectedArt, setSelectedArt] = useState(AVATAR_ARTS[0].src);
+  const [selectedColor, setSelectedColor] = useState(THEMES[3].color); // Default Purple
   const [error,     setError]     = useState('');
 
   // Initialize working state when avatarCard loads
@@ -97,7 +106,7 @@ export default function AvatarLab({ avatarCard, updateAvatar, onBack, onGoToMiss
   }, [avatarCard]); // eslint-disable-line
 
   const hasPending = !!(working && committedRef.current &&
-    (STAT_KEYS.some(k => working[k] !== committedRef.current[k]) || working.sp !== committedRef.current.sp));
+    (STAT_KEYS.some(k => working[k] !== committedRef.current[k]) || working.sp !== committedRef.current.sp || working.customColor !== committedRef.current.customColor || working.customArt !== committedRef.current.customArt || working.bio !== committedRef.current.bio));
 
   // ── Upgrade stat (called both by card click and the side list) ────────────
   const handleUpgrade = (stat) => {
@@ -148,10 +157,19 @@ export default function AvatarLab({ avatarCard, updateAvatar, onBack, onGoToMiss
     const arch  = ARCHETYPES[archetype];
     const stats = { ...BASE };
     Object.entries(arch.buffs).forEach(([k,v]) => { stats[k] += v; });
+    
+    // Farbwahl beeinflusst den Hauptstat minimal (+5 auf den wichtigsten Stat der Farbe)
+    if (selectedColor === '#00e5ff') stats.tech += 5; // Cyan
+    if (selectedColor === '#00ff44') stats.erosion += 5; // Green
+    if (selectedColor === '#ff0055') stats.arsenal += 5; // Red
+    if (selectedColor === '#bc13fe') stats.manipulation += 5; // Purple
+    if (selectedColor === '#ffb300') stats.finance += 5; // Amber
+
     const newAvatar = {
       id:'avatar', name:n.toUpperCase(), title:`${arch.name} // ${faction}`,
       faction, type:'std', gti:calcGTI(stats), level:1, sp:3,
       archetype, bio:'', backText:arch.desc, ...stats,
+      customColor: selectedColor, customArt: selectedArt
     };
     updateAvatar(newAvatar);
     committedRef.current = { ...newAvatar };
@@ -278,66 +296,124 @@ export default function AvatarLab({ avatarCard, updateAvatar, onBack, onGoToMiss
   // ════════════════════════════════════════════════════════════════════════════
   // STATE A — Create avatar
   // ════════════════════════════════════════════════════════════════════════════
-  const preview = { ...BASE };
-  Object.entries(ARCHETYPES[archetype]?.buffs||{}).forEach(([k,v]) => { preview[k] += v; });
+  const previewStats = { ...BASE };
+  Object.entries(ARCHETYPES[archetype]?.buffs||{}).forEach(([k,v]) => { previewStats[k] += v; });
+  if (selectedColor === '#00e5ff') previewStats.tech += 5;
+  if (selectedColor === '#00ff44') previewStats.erosion += 5;
+  if (selectedColor === '#ff0055') previewStats.arsenal += 5;
+  if (selectedColor === '#bc13fe') previewStats.manipulation += 5;
+  if (selectedColor === '#ffb300') previewStats.finance += 5;
+
+  const previewCard = {
+    id: 'avatar',
+    name: name.trim() ? name.toUpperCase() : 'CODENAME',
+    title: `${ARCHETYPES[archetype]?.name} // ${faction}`,
+    faction: faction,
+    type: 'std',
+    level: 1,
+    bio: '',
+    backText: ARCHETYPES[archetype]?.desc,
+    ...previewStats,
+    gti: calcGTI(previewStats)
+  };
 
   return (
-    <div className="screen active" style={{display:'block', padding:'26px'}}>
-      <div className="top-bar">
-        <div className="game-title-small" style={{color:'#bc13fe'}}>⬡ AVATAR LAB</div>
+    <div className="screen active" style={{display:'block', padding:'15px 26px', overflowY:'auto'}}>
+      <div className="top-bar" style={{marginBottom:'10px'}}>
+        <div className="game-title-small" style={{color: selectedColor, transition:'color 0.3s'}}>⬡ AVATAR LAB</div>
         <button className="btn-back" onClick={onBack}>ZURÜCK</button>
       </div>
-      <div style={{maxWidth:'600px', margin:'20px auto 0'}}>
-        <div style={{textAlign:'center', marginBottom:'18px'}}>
-          <div style={{fontFamily:"'Rajdhani',sans-serif", fontSize:'1.9rem', fontWeight:900, letterSpacing:'5px', color:'#fff', textShadow:'0 0 20px #bc13fe'}}>AGENT INITIALISIEREN</div>
-          <div className="mono" style={{fontSize:'0.58rem', color:'rgba(188,19,254,0.5)', letterSpacing:'4px', marginTop:'4px'}}>UPGRADES BLEIBEN DAUERHAFT ERHALTEN</div>
+      
+      <div style={{textAlign:'center', marginBottom:'25px', marginTop:'10px'}}>
+        <div style={{fontFamily:"'Rajdhani',sans-serif", fontSize:'1.7rem', fontWeight:900, letterSpacing:'4px', color:'#fff', textShadow:`0 0 20px ${selectedColor}`, transition:'text-shadow 0.3s'}}>AGENT INITIALISIEREN</div>
+        <div className="mono" style={{fontSize:'0.5rem', color: selectedColor, opacity: 0.7, letterSpacing:'3px', marginTop:'2px', transition:'color 0.3s'}}>UPGRADES BLEIBEN DAUERHAFT ERHALTEN</div>
+      </div>
+
+      <div style={{ display:'flex', gap:'40px', justifyContent:'center', alignItems:'flex-start', flexWrap:'wrap', maxWidth:'1000px', margin:'0 auto' }}>
+        
+        {/* LINKE SEITE: LIVE PREVIEW KARTE */}
+        <div style={{ flexShrink:0, display:'flex', flexDirection:'column', alignItems:'center', gap:'10px' }}>
+          <div className="mono" style={{fontSize:'0.5rem', color:selectedColor, letterSpacing:'3px', opacity:0.8, transition:'color 0.3s'}}>▸ LIVE VORSCHAU</div>
+          <div className="lab-card-wrapper" style={{ filter:`drop-shadow(0 0 20px ${selectedColor}44)`, transition:'filter 0.3s' }}>
+            <Card card={previewCard} context="inventory" customColor={selectedColor} customArt={selectedArt} />
+          </div>
         </div>
-        <div className="glass-panel" style={{padding:'22px', borderColor:'rgba(188,19,254,0.18)'}}>
-          <div style={{marginBottom:'12px'}}>
-            <div className="mono" style={{fontSize:'0.52rem', letterSpacing:'3px', color:'rgba(255,255,255,0.22)', marginBottom:'5px'}}>▸ AGENT-BEZEICHNUNG</div>
+
+        {/* RECHTE SEITE: EINSTELLUNGEN */}
+        <div className="glass-panel" style={{ flex:1, minWidth:'300px', maxWidth:'500px', padding:'15px', borderColor:`${selectedColor}44`, transition:'border-color 0.3s' }}>
+          <div style={{marginBottom:'10px'}}>
+            <div className="mono" style={{fontSize:'0.5rem', letterSpacing:'3px', color:'rgba(255,255,255,0.22)', marginBottom:'4px'}}>▸ AGENT-BEZEICHNUNG</div>
             <input type="text" maxLength={20} autoComplete="off" value={name}
               onChange={e => setName(e.target.value.toUpperCase())} placeholder="CODENAME EINGEBEN"
-              style={{width:'100%', padding:'11px 13px', background:'rgba(0,0,0,0.6)', border:'1px solid rgba(188,19,254,0.2)', borderLeft:'3px solid #bc13fe', color:'#fff', fontFamily:"'Roboto Mono',monospace", letterSpacing:'2px', fontSize:'1rem', boxSizing:'border-box', outline:'none'}}/>
+              style={{width:'100%', padding:'8px 10px', background:'rgba(0,0,0,0.6)', border:`1px solid ${selectedColor}44`, borderLeft:`3px solid ${selectedColor}`, color:'#fff', fontFamily:"'Roboto Mono',monospace", letterSpacing:'2px', fontSize:'0.9rem', boxSizing:'border-box', outline:'none', transition:'0.3s'}}/>
           </div>
-          <div style={{marginBottom:'12px'}}>
-            <div className="mono" style={{fontSize:'0.52rem', letterSpacing:'3px', color:'rgba(255,255,255,0.22)', marginBottom:'5px'}}>▸ FRAKTION</div>
+          <div style={{marginBottom:'10px'}}>
+            <div className="mono" style={{fontSize:'0.5rem', letterSpacing:'3px', color:'rgba(255,255,255,0.22)', marginBottom:'4px'}}>▸ FRAKTION</div>
             <select value={faction} onChange={e => setFaction(e.target.value)}
-              style={{width:'100%', padding:'10px 12px', background:'#000', border:'1px solid rgba(188,19,254,0.2)', borderLeft:'3px solid #bc13fe', color:'#fff', fontFamily:"'Roboto Mono',monospace", fontSize:'0.85rem', outline:'none'}}>
+              style={{width:'100%', padding:'8px 10px', background:'#000', border:`1px solid ${selectedColor}44`, borderLeft:`3px solid ${selectedColor}`, color:'#fff', fontFamily:"'Roboto Mono',monospace", fontSize:'0.8rem', outline:'none', transition:'0.3s'}}>
               {allFactions.map(f => <option key={f} value={f}>{f}</option>)}
             </select>
           </div>
-          <div style={{marginBottom:'16px'}}>
-            <div className="mono" style={{fontSize:'0.52rem', letterSpacing:'3px', color:'rgba(255,255,255,0.22)', marginBottom:'8px'}}>▸ ARCHETYP</div>
-            <div style={{display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:'7px'}}>
+          <div style={{marginBottom:'12px'}}>
+            <div className="mono" style={{fontSize:'0.5rem', letterSpacing:'3px', color:'rgba(255,255,255,0.22)', marginBottom:'6px'}}>▸ ARCHETYP</div>
+            <div style={{display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:'6px'}}>
               {Object.entries(ARCHETYPES).map(([key,arch]) => {
                 const active = archetype === key;
                 return (
                   <div key={key} onClick={() => setArchetype(key)}
-                    style={{padding:'11px', cursor:'pointer', background:active?'rgba(188,19,254,0.07)':'rgba(0,0,0,0.4)', border:`1px solid ${active?'#bc13fe':'rgba(255,255,255,0.06)'}`, borderLeft:`3px solid ${active?'#bc13fe':'#2a3a4a'}`, transition:'all 0.18s'}}>
-                    <div style={{fontSize:'1.1rem', marginBottom:'3px'}}>{arch.icon}</div>
-                    <div style={{fontFamily:"'Rajdhani',sans-serif", fontWeight:700, letterSpacing:'2px', color:active?'#bc13fe':'#ddd', fontSize:'0.9rem'}}>{arch.name}</div>
-                    <div style={{fontSize:'0.63rem', color:'#778', marginTop:'2px', lineHeight:'1.3'}}>{arch.desc}</div>
-                    <div className="mono" style={{fontSize:'0.5rem', color:'rgba(188,19,254,0.65)', marginTop:'5px'}}>+20 {Object.keys(arch.buffs).join(' & ')}</div>
+                    style={{padding:'8px', cursor:'pointer', background:active?`${selectedColor}11`:'rgba(0,0,0,0.4)', border:`1px solid ${active?selectedColor:'rgba(255,255,255,0.06)'}`, borderLeft:`3px solid ${active?selectedColor:'#2a3a4a'}`, transition:'all 0.18s'}}>
+                    <div style={{display:'flex', alignItems:'center', gap:'6px', marginBottom:'2px'}}>
+                      <div style={{fontSize:'1rem'}}>{arch.icon}</div>
+                      <div style={{fontFamily:"'Rajdhani',sans-serif", fontWeight:700, letterSpacing:'1px', color:active?selectedColor:'#ddd', fontSize:'0.85rem', transition:'color 0.3s'}}>{arch.name}</div>
+                    </div>
+                    <div style={{fontSize:'0.55rem', color:'#778', lineHeight:'1.2'}}>{arch.desc}</div>
+                    <div className="mono" style={{fontSize:'0.45rem', color:active?selectedColor:'rgba(255,255,255,0.4)', marginTop:'4px', transition:'color 0.3s'}}>+20 {Object.keys(arch.buffs).join(' & ')}</div>
                   </div>
                 );
               })}
             </div>
           </div>
-          <div style={{marginBottom:'14px', padding:'10px', background:'rgba(0,0,0,0.3)', border:'1px solid rgba(255,255,255,0.04)'}}>
-            <div className="mono" style={{fontSize:'0.48rem', letterSpacing:'3px', color:'rgba(255,255,255,0.18)', marginBottom:'8px'}}>▸ START-STATS</div>
-            <div style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'5px'}}>
-              {STAT_KEYS.map(k => (
-                <div key={k} style={{textAlign:'center'}}>
-                  <div className="mono" style={{color:preview[k]>50?'#bc13fe':'#888', fontSize:'0.92rem', fontWeight:700}}>{preview[k]}</div>
-                  <div style={{fontSize:'0.44rem', color:'#555', letterSpacing:'1px'}}>{k.slice(0,4).toUpperCase()}</div>
-                </div>
-              ))}
+
+          {/* Artwork Auswahl */}
+          <div style={{marginBottom:'12px'}}>
+            <div className="mono" style={{fontSize:'0.5rem', letterSpacing:'3px', color:'rgba(255,255,255,0.22)', marginBottom:'6px'}}>▸ GHOST-ARTWORK</div>
+            <div style={{display:'flex', gap:'8px', overflowX:'auto', paddingBottom:'2px'}}>
+              {AVATAR_ARTS.map(art => {
+                const active = selectedArt === art.src;
+                const base = (typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL) ? import.meta.env.BASE_URL : '/';
+                const cleanBase = base.endsWith('/') ? base.slice(0, -1) : base;
+                const imgSrc = `${cleanBase}${art.src}`;
+
+                return (
+                  <div key={art.id} onClick={() => setSelectedArt(art.src)} style={{ flexShrink:0, width:'50px', height:'70px', border:`2px solid ${active ? selectedColor : '#222'}`, borderRadius:'4px', cursor:'pointer', overflow:'hidden', opacity: active ? 1 : 0.4, transition:'0.3s', boxShadow: active ? `0 0 8px ${selectedColor}44` : 'none', display:'flex', alignItems:'center', justifyContent:'center', background:'#111' }}>
+                    <img src={imgSrc} alt={art.label} onError={(e) => { e.target.style.display='none'; e.target.parentNode.innerHTML=`<span style="font-size:0.4rem;color:#555">${art.label}</span>`; }} style={{width:'100%', height:'100%', objectFit:'cover', filter: active ? 'none' : 'grayscale(1)', transition:'0.3s'}} />
+                  </div>
+                );
+              })}
             </div>
           </div>
+
+          {/* Theme/Color Auswahl */}
+          <div style={{marginBottom:'12px'}}>
+            <div className="mono" style={{fontSize:'0.5rem', letterSpacing:'3px', color:'rgba(255,255,255,0.22)', marginBottom:'6px'}}>▸ NEON-THEMA</div>
+            <div style={{display:'flex', gap:'6px'}}>
+              {THEMES.map(theme => {
+                const active = selectedColor === theme.color;
+                return (
+                  <div key={theme.id} onClick={() => setSelectedColor(theme.color)} style={{ flex:1, height:'38px', border:`1px solid ${active ? theme.color : '#222'}`, background: active ? `${theme.color}11` : '#000', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', transition:'0.3s', borderRadius:'3px' }}>
+                    <div style={{ width:'10px', height:'10px', borderRadius:'50%', background:theme.color, boxShadow: active ? `0 0 8px ${theme.color}` : 'none', marginBottom:'2px' }} />
+                    <div className="mono" style={{ fontSize:'0.38rem', color: active ? theme.color : '#555', transition:'color 0.3s' }}>{theme.name.split(' ')[1]}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           {error && <div style={{padding:'8px 12px', marginBottom:'12px', background:'rgba(255,0,50,0.07)', borderLeft:'3px solid var(--lose)', color:'#ff6680', fontSize:'0.73rem'}}>⚠ {error}</div>}
+          
           <button onClick={handleCreate}
-            style={{width:'100%', padding:'13px', background:'rgba(188,19,254,0.07)', border:'1px solid #bc13fe', color:'#bc13fe', fontFamily:"'Roboto Mono',monospace", fontSize:'0.88rem', fontWeight:700, letterSpacing:'4px', cursor:'pointer', boxShadow:'0 0 14px rgba(188,19,254,0.1)'}}>
-            ▸ AGENT INITIALISIEREN — 3 START-SP INKLUSIVE
+            style={{width:'100%', padding:'13px', background:`${selectedColor}11`, border:`1px solid ${selectedColor}`, color:selectedColor, fontFamily:"'Roboto Mono',monospace", fontSize:'0.88rem', fontWeight:700, letterSpacing:'4px', cursor:'pointer', boxShadow:`0 0 14px ${selectedColor}22`, transition:'all 0.3s', marginTop:'10px'}}>
+            ▸ AGENT INITIALISIEREN — 3 START-SP
           </button>
         </div>
       </div>

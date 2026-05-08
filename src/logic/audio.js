@@ -13,7 +13,8 @@ const filesToLoad = {
   crisis: 'sounds/crisis.wav',
   matchIntro: 'sounds/match_intro.wav',
   patt: 'sounds/patt.wav',
-  heavy_impact: 'sounds/heavy_impact.mp3' // Hier ist dein neuer Sound
+  heavy_impact: 'sounds/heavy_impact.mp3', 
+  winRound: 'sounds/match_intro.wav' // TEMPORARY FIX: Plays matchIntro until win_round.wav is fixed
 };
 
 export function initAudio() {

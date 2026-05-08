@@ -197,47 +197,152 @@ function NodeModal({ nodeObj, sector, currentNode, onClose, onStartBattle, onSta
 
 // ── Big Map Node ──────────────────────────────────────────────────────────
 function MapNode({ nodeObj, currentNode, onSelect, myVote, partnerVote, isCoop }) {
-  const n      = nodeObj.step;3
-  const info   = NODE_TYPES[nodeObj.type];
-  const done   = n < currentNode;
-  const active = n === currentNode;
-  
-  const outer  = active ? 90 : done ? 50 : n===5 ? 80 : 66;
-  const inner  = active ? 70 : done ? 40 : n===5 ? 60 : 48;
-  const color  = done ? '#1a4a2a' : info.color;
+  const [hovered, setHovered] = useState(false);
+  const n       = nodeObj.step;
+  const info    = NODE_TYPES[nodeObj.type];
+  const done    = n < currentNode;
+  const active  = n === currentNode;
+  const isEvent = info.type === 'event';
+  const evData  = isEvent ? EVENT_DETAILS[nodeObj.type] : null;
+  const isLocked = n > currentNode + 1;
+
+  // Größere Nodes: active=130/100, boss=110/84, normal=90/68, done=56/44
+  const outer = active ? 130 : done ? 56 : n === 5 ? 110 : 90;
+  const inner = active ? 100 : done ? 44 : n === 5 ?  84 : 68;
+  const color = done ? '#1a4a2a' : info.color;
+
+  // Tooltip: Boss-Node zeigt links, alle anderen zeigen oben
+  const ttPos = n === 5
+    ? { right: 'calc(100% + 16px)', top: '50%', transform: 'translateY(-50%)' }
+    : { bottom: 'calc(100% + 16px)', left: '50%', transform: 'translateX(-50%)' };
 
   return (
-    <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:'7px',cursor:'pointer',flexShrink:0,userSelect:'none', opacity: (n > currentNode + 1) ? 0.4 : 1}}
-      onClick={()=>onSelect(nodeObj)}>
+    <div
+      style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'8px',
+        cursor: isLocked ? 'default' : 'pointer', flexShrink:0, userSelect:'none',
+        opacity: isLocked ? 0.3 : 1, position:'relative' }}
+      onClick={() => !isLocked && onSelect(nodeObj)}
+      onMouseEnter={() => !isLocked && !done && setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {/* ── HOVER TOOLTIP ── */}
+      {hovered && (
+        <div style={{
+          position:'absolute', ...ttPos, zIndex:9999,
+          width:'min(270px,82vw)',
+          background:'rgba(4,2,14,0.97)', backdropFilter:'blur(18px)',
+          border:`1px solid ${info.color}55`, borderLeft:`3px solid ${info.color}`,
+          padding:'13px 15px',
+          boxShadow:`0 12px 40px rgba(0,0,0,0.85), 0 0 25px ${info.glow}`,
+          pointerEvents:'none',
+          animation:'rlNodeTTIn 0.14s ease-out both',
+        }}>
+          <style>{`
+            @keyframes rlNodeTTIn {
+              from { opacity:0; transform: ${n===5?'translateY(-46%)':'translateX(-50%) translateY(5px)'}; }
+              to   { opacity:1; transform: ${n===5?'translateY(-50%)':'translateX(-50%) translateY(0)'}; }
+            }
+          `}</style>
+
+          {/* Header */}
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'9px'}}>
+            <div style={{fontFamily:"'Rajdhani',sans-serif",fontWeight:900,fontSize:'1rem',color:info.color,letterSpacing:'2px',textShadow:`0 0 12px ${info.glow}`}}>
+              {info.icon} {info.label}
+            </div>
+            <div className="mono" style={{fontSize:'0.42rem',color:'rgba(255,255,255,0.28)',letterSpacing:'1px'}}>N{n}/5</div>
+          </div>
+
+          <div className="mono" style={{fontSize:'0.5rem',color:'rgba(255,255,255,0.38)',marginBottom:'9px',letterSpacing:'1px',whiteSpace:'normal',lineHeight:1.5}}>
+            {nodeObj.target}
+          </div>
+
+          {isEvent && evData ? (
+            <>
+              <div style={{fontSize:'0.7rem',color:'#ccc',lineHeight:1.45,marginBottom:'9px',whiteSpace:'normal'}}>
+                {evData.desc}
+              </div>
+              <div style={{padding:'6px 10px',background:`${info.color}14`,borderLeft:`2px solid ${info.color}`,display:'flex',gap:'8px',alignItems:'center'}}>
+                <span className="mono" style={{fontSize:'0.42rem',color:'rgba(255,255,255,0.28)'}}>EFFEKT:</span>
+                <span className="mono" style={{fontSize:'0.6rem',color:info.color,fontWeight:700}}>{evData.reward}</span>
+              </div>
+            </>
+          ) : (
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px'}}>
+              {[
+                ['THREAT', n===5?'ARCHITECT':nodeObj.type==='elite'?'EXECUTIVE':'OPERATIVE'],
+                ['STATUS', active?'EINTRETEN':'VERFÜGBAR'],
+              ].map(([l,v])=>(
+                <div key={l} style={{padding:'6px 8px',background:'rgba(0,0,0,0.5)',border:'1px solid rgba(255,255,255,0.05)'}}>
+                  <div className="mono" style={{fontSize:'0.38rem',color:'rgba(255,255,255,0.22)',letterSpacing:'1px'}}>{l}</div>
+                  <div className="mono" style={{fontSize:'0.58rem',color:info.color,fontWeight:700,marginTop:'2px'}}>{v}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── NODE CIRCLE ── */}
       <div style={{position:'relative',width:outer,height:outer,display:'flex',alignItems:'center',justifyContent:'center'}}>
         {active && <>
-          <div className="node-outer-ring" style={{color:info.color}}/>
+          <div className="node-outer-ring"   style={{color:info.color}}/>
           <div className="node-outer-ring-r" style={{color:info.color}}/>
         </>}
+        {/* Pulsierender Glow für aktive Nodes */}
+        {active && (
+          <div style={{
+            position:'absolute',inset:0,borderRadius:'50%',
+            background:`radial-gradient(circle, ${info.color}28 0%, transparent 68%)`,
+            animation:'rlNodePulse 2.2s ease-in-out infinite',
+          }}/>
+        )}
+        <style>{`
+          @keyframes rlNodePulse {
+            0%,100%{ transform:scale(1);    opacity:0.55; }
+            50%    { transform:scale(1.18); opacity:1;    }
+          }
+        `}</style>
+
         <div style={{
-          width:inner,height:inner,borderRadius:'50%',
-          border:`${active?3:2}px solid ${color}`,
-          background:done?'rgba(0,30,15,0.5)':active?`${info.color}1e`:`${info.color}0a`,
+          width:inner, height:inner, borderRadius:'50%',
+          border:`${active?3:done?1:2}px solid ${color}`,
+          background: done?'rgba(0,20,10,0.6)':active?`${info.color}22`:`${info.color}0d`,
           display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'2px',
-          boxShadow:active?`0 0 25px ${info.glow}, inset 0 0 15px ${info.color}14`:done?'none':`0 0 10px ${info.glow}33`,
-          transition:'all 0.3s',
-          position: 'relative'
+          boxShadow: active
+            ? `0 0 45px ${info.glow}, 0 0 90px ${info.glow}44, inset 0 0 20px ${info.color}18`
+            : done ? 'none'
+            : hovered ? `0 0 22px ${info.glow}88` : `0 0 8px ${info.glow}33`,
+          transition:'all 0.25s cubic-bezier(0.175,0.885,0.32,1.275)',
+          position:'relative', zIndex:1,
         }}>
-          <div style={{fontSize:done?'1rem':active?'1.5rem':'1.1rem',color:done?'#2a6a3a':info.color,lineHeight:1}}>
-            {done?'✓':info.icon}
+          <div style={{
+            fontSize: done?'1.1rem':active?'1.7rem':n===5?'1.5rem':'1.25rem',
+            color: done?'#2a6a3a':info.color, lineHeight:1,
+            textShadow: active?`0 0 18px ${info.color}`:'none',
+            transform: hovered && !done ? 'scale(1.1)' : 'scale(1)',
+            transition:'transform 0.2s',
+          }}>
+            {done ? '✓' : info.icon}
           </div>
-          
-          {/* VOTING INDICATORS */}
+
+          {/* Voting badges */}
           {isCoop && myVote === nodeObj.id && (
-            <div style={{position:'absolute', top:'-10px', left:'-10px', background:'var(--win)', color:'#000', fontSize:'0.5rem', fontWeight:'bold', padding:'2px 5px', borderRadius:'4px', zIndex:10}}>DU</div>
+            <div style={{position:'absolute',top:'-13px',left:'-13px',background:'var(--win)',color:'#000',fontSize:'0.44rem',fontWeight:900,padding:'2px 6px',borderRadius:'3px',zIndex:10,boxShadow:'0 0 8px var(--win)',letterSpacing:'1px'}}>DU</div>
           )}
           {isCoop && partnerVote === nodeObj.id && (
-            <div style={{position:'absolute', top:'-10px', right:'-10px', background:'var(--ep)', color:'#000', fontSize:'0.5rem', fontWeight:'bold', padding:'2px 5px', borderRadius:'4px', zIndex:10}}>MATE</div>
+            <div style={{position:'absolute',top:'-13px',right:'-13px',background:'var(--ep)',color:'#000',fontSize:'0.44rem',fontWeight:900,padding:'2px 6px',borderRadius:'3px',zIndex:10,boxShadow:'0 0 8px var(--ep)',letterSpacing:'1px'}}>MATE</div>
           )}
         </div>
       </div>
-      <div className="mono" style={{fontSize:'0.48rem',color:done?'#2a6a3a':active?'#fff':color,letterSpacing:'1px',fontWeight:active?700:400}}>
-        {done?'CLEAR':info.label}
+
+      {/* Label */}
+      <div className="mono" style={{
+        fontSize:'0.52rem', color:done?'#2a6a3a':active?'#fff':color,
+        letterSpacing:'2px', fontWeight:active?700:400,
+        textShadow:active?`0 0 10px ${info.color}`:'none',
+        transition:'all 0.25s',
+      }}>
+        {done ? 'CLEARED' : info.label}
       </div>
     </div>
   );
@@ -420,71 +525,109 @@ export default function RoguelikeMap({ avatarCard, roguelikeRun, onStartRun, onS
           </div>
         </div>
 
-        <div className="rl-map-content" style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',padding:'20px',gap:'15px'}}>
+        <div className="rl-map-content" style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',padding:'14px 18px 12px',gap:'10px'}}>
 
-          {/* MAP VISUALIZATION */}
-          <div style={{position:'relative',padding:'25px 20px',background:'rgba(4,2,10,0.6)',backdropFilter:'blur(6px)',border:'1px solid rgba(255,255,255,0.05)',flexShrink:0, display:'flex', flexDirection:'column', justifyContent:'center'}}>
-            <Corners color="var(--win)" size={8}/>
-            <div className="mono" style={{fontSize:'0.55rem',color:'rgba(255,255,255,0.18)',letterSpacing:'4px',position:'absolute', top:'15px', left:'20px'}}>
-              ▸ SEKTOR {sector} // NETZWERK-PFADE
+          {/* ── MAP VISUALIZATION — füllt den gesamten verfügbaren Raum ── */}
+          <div style={{position:'relative',flex:1,background:'rgba(4,2,10,0.72)',backdropFilter:'blur(8px)',border:'1px solid rgba(255,255,255,0.06)',display:'flex',flexDirection:'column',overflow:'visible',minHeight:0}}>
+            <Corners color="rgba(188,19,254,0.35)" size={8}/>
+
+            {/* Sektor-Label */}
+            <div className="mono" style={{fontSize:'0.48rem',color:'rgba(255,255,255,0.14)',letterSpacing:'4px',padding:'10px 16px 0',flexShrink:0}}>
+              ▸ SEKTOR {sector} // NODE {node}/5 // NETZWERK-PFADE
             </div>
-            
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between', marginTop:'20px', position:'relative'}}>
-              {/* Verbindungsline im Hintergrund */}
-              <div style={{position:'absolute', top:'45%', left:'5%', right:'5%', height:'2px', background:'rgba(255,255,255,0.05)', zIndex: 0}} />
-              
+
+            {/* Node-Reihe + SVG Connectoren */}
+            <div style={{flex:1,position:'relative',display:'flex',alignItems:'center',justifyContent:'space-around',padding:'16px 30px',overflow:'visible'}}>
+
+              {/* SVG Connector Network */}
+              <svg viewBox="0 0 1000 220" preserveAspectRatio="none"
+                style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none',zIndex:0,overflow:'visible'}}>
+                <defs>
+                  <marker id="rlDot" viewBox="0 0 4 4" refX="2" refY="2" markerWidth="4" markerHeight="4">
+                    <circle cx="2" cy="2" r="1.5" fill="rgba(0,229,255,0.45)"/>
+                  </marker>
+                  <marker id="rlDotRed" viewBox="0 0 4 4" refX="2" refY="2" markerWidth="4" markerHeight="4">
+                    <circle cx="2" cy="2" r="1.5" fill="rgba(255,0,50,0.5)"/>
+                  </marker>
+                </defs>
+                {/* Col 1 → Col 2 */}
+                <line x1="128" y1="110" x2="290" y2="70"  stroke="rgba(0,229,255,0.14)" strokeWidth="1.5" strokeDasharray="9,7" markerEnd="url(#rlDot)"/>
+                <line x1="128" y1="110" x2="290" y2="150" stroke="rgba(0,229,255,0.14)" strokeWidth="1.5" strokeDasharray="9,7" markerEnd="url(#rlDot)"/>
+                {/* Col 2 → Col 3 (parallel + cross) */}
+                <line x1="310" y1="70"  x2="480" y2="70"  stroke="rgba(0,229,255,0.11)" strokeWidth="1.5" strokeDasharray="9,7" markerEnd="url(#rlDot)"/>
+                <line x1="310" y1="150" x2="480" y2="150" stroke="rgba(0,229,255,0.11)" strokeWidth="1.5" strokeDasharray="9,7" markerEnd="url(#rlDot)"/>
+                <line x1="310" y1="70"  x2="480" y2="150" stroke="rgba(255,0,127,0.07)" strokeWidth="1"   strokeDasharray="5,9"/>
+                <line x1="310" y1="150" x2="480" y2="70"  stroke="rgba(255,0,127,0.07)" strokeWidth="1"   strokeDasharray="5,9"/>
+                {/* Col 3 → Col 4 */}
+                <line x1="520" y1="70"  x2="690" y2="70"  stroke="rgba(0,229,255,0.11)" strokeWidth="1.5" strokeDasharray="9,7" markerEnd="url(#rlDot)"/>
+                <line x1="520" y1="150" x2="690" y2="150" stroke="rgba(0,229,255,0.11)" strokeWidth="1.5" strokeDasharray="9,7" markerEnd="url(#rlDot)"/>
+                <line x1="520" y1="70"  x2="690" y2="150" stroke="rgba(255,0,127,0.07)" strokeWidth="1"   strokeDasharray="5,9"/>
+                <line x1="520" y1="150" x2="690" y2="70"  stroke="rgba(255,0,127,0.07)" strokeWidth="1"   strokeDasharray="5,9"/>
+                {/* Col 4 → Boss */}
+                <line x1="710" y1="70"  x2="872" y2="110" stroke="rgba(255,0,50,0.2)"   strokeWidth="1.5" strokeDasharray="9,7" markerEnd="url(#rlDotRed)"/>
+                <line x1="710" y1="150" x2="872" y2="110" stroke="rgba(255,0,50,0.2)"   strokeWidth="1.5" strokeDasharray="9,7" markerEnd="url(#rlDotRed)"/>
+              </svg>
+
+              {/* Node-Spalten */}
               {layout.map((column, colIdx) => (
-                <div key={colIdx} style={{display:'flex', flexDirection:'column', gap:'25px', zIndex: 10}}>
+                <div key={colIdx} style={{display:'flex',flexDirection:'column',gap:'40px',zIndex:10,alignItems:'center'}}>
                   {column.map((nodeObj) => (
-                     <MapNode 
-                       key={nodeObj.id} 
-                       nodeObj={nodeObj} 
-                       currentNode={node} 
-                       onSelect={handleNodeSelect} 
-                       myVote={myVote}
-                       partnerVote={partnerVote}
-                       isCoop={isCoop}
-                     />
+                    <MapNode
+                      key={nodeObj.id}
+                      nodeObj={nodeObj}
+                      currentNode={node}
+                      onSelect={handleNodeSelect}
+                      myVote={myVote}
+                      partnerVote={partnerVote}
+                      isCoop={isCoop}
+                    />
                   ))}
                 </div>
               ))}
             </div>
           </div>
 
-          <div style={{flex:1,padding:'15px',background:'rgba(0,0,0,0.3)',border:'1px solid rgba(255,255,255,0.04)',position:'relative',overflow:'hidden'}}>
-            <Corners color="rgba(255,255,255,0.06)" size={5}/>
-            <div className="mono" style={{fontSize:'0.55rem',color:'rgba(255,255,255,0.2)',letterSpacing:'3px',marginBottom:'15px'}}>
-              ▸ MISSION BRIEFING {isCoop && <span style={{color:'var(--ep)', marginLeft:'10px'}}>// CO-OP ABSTIMMUNG AKTIV</span>}
-            </div>
-            
-            <div style={{fontSize:'0.85rem', color:'#ccc', lineHeight:'1.6', marginBottom:'15px', paddingLeft:'10px', borderLeft:'2px solid var(--win)', position: 'relative'}}>
-              {isCoop ? (
-                <>
-                  Ihr seid im <b>Co-Op Modus</b>. Beide Agenten müssen einen Node wählen. Bei einem 1:1 Gleichstand wählt das System zufällig einen eurer Pfade aus.
-                  <div style={{marginTop: '10px', padding: '10px', background: 'rgba(0,0,0,0.5)', border: '1px dashed var(--ep)', display: 'flex', gap: '20px', alignItems: 'center'}}>
-                    <div style={{color: myVote ? 'var(--win)' : '#888'}}>{myVote ? '✓ DEIN VOTE EINGELOGGT' : 'Warte auf deinen Vote...'}</div>
-                    <div style={{color: partnerVote ? 'var(--ep)' : '#888'}}>{partnerVote ? '✓ PARTNER VOTE EINGELOGGT' : 'Warte auf Partner...'}</div>
-                  </div>
-                </>
-              ) : (
-                <>Wähle deinen Pfad weise. <b>Sichere Nodes</b> bieten Standard-Belohnungen. <b>Elite Nodes</b> sind gefährlicher, aber sichern wertvollen Loot. <b>Event Nodes</b> wie Safehouses oder Black Markets erfordern keinen Kampf, sondern fordern taktische Entscheidungen.</>
-              )}
+          {/* ── SLIM STATUS BAR — ersetzt den großen Briefing-Block ── */}
+          <div style={{
+            flexShrink:0, padding:'9px 16px',
+            background:'rgba(5,0,12,0.8)', backdropFilter:'blur(8px)',
+            border:'1px solid rgba(255,255,255,0.05)',
+            borderLeft:`3px solid ${isCoop ? 'var(--ep)' : 'var(--apex-pink)'}`,
+            display:'flex', alignItems:'center', justifyContent:'space-between', gap:'16px',
+          }}>
+            <div className="mono" style={{fontSize:'0.5rem',color:'rgba(255,255,255,0.22)',letterSpacing:'2px',whiteSpace:'nowrap',flexShrink:0}}>
+              ▸ {isCoop ? 'CO-OP ABSTIMMUNG' : 'PFAD WÄHLEN'}
             </div>
 
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))',gap:'15px'}}>
-               <div style={{padding:'10px', background:'rgba(0,255,68,0.05)', border:'1px solid rgba(0,255,68,0.1)'}}>
-                  <div style={{color:'#00ff44', fontWeight:'bold', marginBottom:'5px'}}>⛺ SAFEHOUSE</div>
-                  <div style={{fontSize:'0.7rem', color:'#aaa'}}>Kein Kampf. Heilt 20% deiner HP sofort.</div>
-               </div>
-               <div style={{padding:'10px', background:'rgba(255,0,85,0.05)', border:'1px solid rgba(255,0,85,0.1)'}}>
-                  <div style={{color:'#ff0055', fontWeight:'bold', marginBottom:'5px'}}>🔓 DATA LEAK</div>
-                  <div style={{fontSize:'0.7rem', color:'#aaa'}}>Kein Kampf. Du erhältst +2 SP, verlierst aber 50 HP.</div>
-               </div>
-               <div style={{padding:'10px', background:'rgba(210,180,140,0.05)', border:'1px solid rgba(210,180,140,0.1)'}}>
-                  <div style={{color:'var(--legacy-sepia)', fontWeight:'bold', marginBottom:'5px'}}>🛒 BLACK MARKET</div>
-                  <div style={{fontSize:'0.7rem', color:'#aaa'}}>Opfere eine Karte für ein garantiertes Legacy-Asset.</div>
-               </div>
-            </div>
+            {isCoop ? (
+              <div style={{display:'flex',gap:'10px',alignItems:'center',flexWrap:'wrap'}}>
+                {[
+                  { label:'ICH',     active: !!myVote,      color:'var(--win)', text: myVote ? 'VOTE ✓' : 'WARTE...' },
+                  { label:'PARTNER', active: !!partnerVote,  color:'var(--ep)',  text: partnerVote ? 'VOTE ✓' : 'WARTE...' },
+                ].map(({ label, active: vActive, color: vc, text }) => (
+                  <div key={label} style={{
+                    display:'flex',alignItems:'center',gap:'7px',padding:'4px 12px',
+                    background: vActive ? `${vc}0e` : 'transparent',
+                    border:`1px solid ${vActive ? vc : 'rgba(255,255,255,0.09)'}`,
+                    borderRadius:'3px',transition:'all 0.35s',
+                  }}>
+                    <div style={{width:'6px',height:'6px',borderRadius:'50%',background:vActive?vc:'rgba(255,255,255,0.15)',boxShadow:vActive?`0 0 7px ${vc}`:'none',transition:'all 0.35s',flexShrink:0}}/>
+                    <span className="mono" style={{fontSize:'0.48rem',color:vActive?vc:'rgba(255,255,255,0.28)',letterSpacing:'1px',whiteSpace:'nowrap'}}>
+                      {label} — {text}
+                    </span>
+                  </div>
+                ))}
+                {myVote && partnerVote && (
+                  <div className="mono" style={{fontSize:'0.46rem',color:'var(--apex-pink)',letterSpacing:'2px',animation:'pulse 0.8s infinite'}}>
+                    ▸ RESOLVING...
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="mono" style={{fontSize:'0.5rem',color:'rgba(255,255,255,0.18)',letterSpacing:'1px'}}>
+                Hover für Details · Klick zum Eintreten
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -1,7 +1,7 @@
 // src/components/MatchEngine.jsx
 import React, { useState, useEffect } from 'react';
-import Card, { CAT_CONFIG, getRarityClass, getFactionBuffs } from './Card';
-import { getAIBestCategory, getSarcasticNews, getAIDefenseAction, getAIAttackAction } from '../logic/gameLogic';
+import Card, { CAT_CONFIG, getRarityClass } from './Card';
+import { getAIBestCategory, getSarcasticNews, getAIDefenseAction, getAIAttackAction, getFactionBuffs } from '../logic/gameLogic';
 import { playSound } from '../logic/audio';
 
 
@@ -79,7 +79,7 @@ function DrawPile({ charCount, effCount }) {
   );
 }
 
-export default function MatchEngine({ playerChars, playerEffs, partnerChars, partnerEffs, aiChars, aiEffs, difficulty = 1, isOnline = false, isCoop = false, isHost = false, conn = null, onEndGame, onShowRules, initialPHP = 1000, initialAHP = 1000, isRoguelike = false, contextLabel = '' }) {
+export default function MatchEngine({ playerChars, playerEffs, partnerChars, partnerEffs, aiChars, aiEffs, difficulty = 1, isOnline = false, isCoop = false, isHost = false, conn = null, onEndGame, onShowRules, initialPHP = 1000, initialAHP = 1000, isRoguelike = false, contextLabel = '', onTrade }) {
   // Shuffle ONCE, then split — avoids duplicates across hand/deck (Bug #011)
   const _sc = React.useRef(shuffle([...playerChars])).current;
   const _se = React.useRef(shuffle([...playerEffs])).current;
@@ -148,8 +148,13 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
   const [partnerHand, setPartnerHand] = useState((partnerChars || []).slice(0, 3));
   const [partnerEffHand, setPartnerEffHand] = useState((partnerEffs || []).slice(0, 1));
   
-  // NEU: Data Cannon - 3-Runden Cooldown System
-  const [transferCharge, setTransferCharge] = useState(3);
+  // NEU: Tausch-Feld (Trade System)
+  const [myTradeOffer, setMyTradeOffer] = useState(null);
+  const [remoteTradeOffer, setRemoteTradeOffer] = useState(null);
+  const [myTradeReady, setMyTradeReady] = useState(false);
+  const [remoteTradeReady, setRemoteTradeReady] = useState(false);
+  const [tradeAnimPhase, setTradeAnimPhase] = useState(null); // NEU: Steuert die Flug-Animationen
+  const [tradeCooldown, setTradeCooldown] = useState(0); // NEU: 5 Runden Cooldown
   
   const [activeIdx, setActiveIdx] = useState(0);
   const [activeEffObj, setActiveEffObj] = useState(null);
@@ -174,7 +179,9 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
   const [remoteClashAck, setRemoteClashAck] = useState(null);
   const [showMatchIntro, setShowMatchIntro] = useState(true);
   const [introPhase, setIntroPhase] = useState(0); 
-  const [cannonAnimData, setCannonAnimData] = useState(null); // NEU: State für die fliegende Karte
+  const [cannonAnimData, setCannonAnimData] = useState(null);         // Sender: Karte fliegt raus
+  const [incomingCannonData, setIncomingCannonData] = useState(null); // Empfänger: Karte fliegt rein
+  const [inspectedPartnerCard, setInspectedPartnerCard] = useState(null); // War Room Inspektor
 
    useEffect(() => {
     playSound('matchIntro');
@@ -193,7 +200,8 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
           } else if (data.type === 'ACTION_CANCEL') {
               // NEU: Partner hat seine Aktion zurückgezogen
               setRemoteActionData(null);
-              if (!pTurn) setCurK(''); // Gibt unsere Kategorie-Wahl wieder frei
+              // FIX: Im Co-Op setzt die KI curK — das darf der Partner-Cancel nicht überschreiben
+              if (!pTurn && !isCoop) setCurK('');
           } else if (data.type === 'CLASH_ACK') {
               // Client empfängt die echten Krisen-Daten vom Host
               setRemoteClashAck(data);
@@ -210,6 +218,7 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
           } else if (data.type === 'HP_LOST') {
               setPHP(prev => {
                   const nextHP = Math.max(0, prev - data.amount);
+                  hpRefs.current.p = nextHP; // FIX: Ref sofort syncen, nicht auf useEffect warten
                   if (nextHP <= 0 && isCoop) {
                       setTimeout(() => onEndGame({ isWin: false, sarcasmNews: { text: "NEURAL LINK SEVERED: Dein Partner hat das System kollabieren lassen." }, matchData: { dmgDealt: 0, turns: 0 } }), 100);
                   }
@@ -218,6 +227,7 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
           } else if (data.type === 'COOP_CLASH_DAMAGE') {
               setPHP(prev => {
                   const nextHP = Math.max(0, prev - data.amount);
+                  hpRefs.current.p = nextHP; // FIX: Ref sofort syncen
                   if (nextHP <= 0 && isCoop) {
                       setTimeout(() => onEndGame({ isWin: false, sarcasmNews: { text: "NEURAL LINK SEVERED: Dein Partner hat das System kollabieren lassen." }, matchData: { dmgDealt: 0, turns: 0 } }), 100);
                   }
@@ -226,23 +236,78 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
               setCoopDmgBuffer(prev => ({ ...prev, p: prev.p + data.amount }));
               setClashData(prev => prev ? { ...prev, newPHP: Math.max(0, prev.newPHP - data.amount), partnerDmgP: (prev.partnerDmgP || 0) + data.amount } : prev);
           } else if (data.type === 'COOP_AI_DAMAGE') {
-              setAHP(prev => Math.max(0, prev - data.amount));
+              setAHP(prev => {
+                  const nextHP = Math.max(0, prev - data.amount);
+                  hpRefs.current.a = nextHP; // FIX: Ref sofort syncen
+                  return nextHP;
+              });
               setCoopDmgBuffer(prev => ({ ...prev, a: prev.a + data.amount }));
               setClashData(prev => prev ? { ...prev, newAHP: Math.max(0, prev.newAHP - data.amount), partnerDmgA: (prev.partnerDmgA || 0) + data.amount } : prev);
           } else if (data.type === 'TEAM_WIN') {
               // THE LIFE LINK: Partner hat seinen KI-Boss eliminiert!
               setTimeout(() => onEndGame({ isWin: true, sarcasmNews: { text: "CO-OP STRIKE: Dein Partner hat den gegnerischen Node gecrackt!" }, matchData: { dmgDealt: 0, turns: 0 } }), 100);
-          } else if (data.type === 'CARD_TRANSFER') {
-              // DATA CANNON: Partner hat dir eine Karte geschickt!
-              playSound('upgrade'); 
-              setPHand(prev => [...prev, data.card]); // Karte zur Hand hinzufügen
+          } else if (data.type === 'TRADE_OFFER') {
+              setRemoteTradeOffer(data.card);
+              setRemoteTradeReady(false);
+              setMyTradeReady(false);
+              setTradeAnimPhase('receiving_offer');
+              setTimeout(() => setTradeAnimPhase(null), 400); // Kürzere In-Animation
+          } else if (data.type === 'TRADE_CANCEL') {
+              setRemoteTradeOffer(null);
+              setRemoteTradeReady(false);
+              setMyTradeReady(false);
+          } else if (data.type === 'TRADE_ACCEPT') {
+              setRemoteTradeReady(true);
           }
       };
       conn.on('data', handleData);
       return () => conn.off('data', handleData);
   }, [conn, pTurn, isOnline, isCoop]);
 
-  // NEU: Sende eigene Handkarten an den Partner, sobald sie sich ändern
+  // NEU: Trade Execution Logik (Führt den Tausch lokal aus, wenn beide zugestimmt haben)
+  useEffect(() => {
+      if (myTradeReady && remoteTradeReady && myTradeOffer && remoteTradeOffer) {
+          playSound('upgrade');
+          const receivedCard = remoteTradeOffer;
+          const givenCard = myTradeOffer;
+
+          const isEff = receivedCard.type === 'effect' || receivedCard.buff !== undefined;
+          
+          // Eigene Karte (Angebot) ist bereits aus der Hand entfernt worden.
+          // Jetzt die erhaltene Karte einsortieren / leveln.
+          if (isEff) {
+              const inHand = pEffHand.findIndex(c => c?.name === receivedCard.name);
+              const inDeck = pEffDeck.findIndex(c => c?.name === receivedCard.name);
+              if (inHand > -1) {
+                  const newHand = [...pEffHand]; newHand[inHand].level = (newHand[inHand].level || 1) + 1; setPEffHand(newHand);
+              } else if (inDeck > -1) {
+                  const newDeck = [...pEffDeck]; newDeck[inDeck].level = (newDeck[inDeck].level || 1) + 1; setPEffDeck(newDeck);
+              } else {
+                  setPEffHand(prev => [...prev, receivedCard]); 
+              }
+          } else {
+              const inHand = pHand.findIndex(c => c?.name === receivedCard.name);
+              const inDeck = pDeck.findIndex(c => c?.name === receivedCard.name);
+              if (inHand > -1) {
+                  const newHand = [...pHand]; newHand[inHand].level = (newHand[inHand].level || 1) + 1; setPHand(newHand);
+              } else if (inDeck > -1) {
+                  const newDeck = [...pDeck]; newDeck[inDeck].level = (newDeck[inDeck].level || 1) + 1; setPDeck(newDeck);
+              } else {
+                  setPHand(prev => [...prev, { ...receivedCard, level: 1 }]); // FIX: Reset auf Level 1
+              }
+          }
+
+          // Callback an App.jsx funken, um das persistente Deck zu verändern
+          if (typeof onTrade === 'function') onTrade({ ...receivedCard, level: 1 }, givenCard);
+          if (typeof onTrade === 'function') onTrade(receivedCard, givenCard);
+
+          // Tausch-Feld säubern
+          setMyTradeOffer(null);
+          setRemoteTradeOffer(null);
+          setMyTradeReady(false);
+          setRemoteTradeReady(false);
+      }
+  }, [myTradeReady, remoteTradeReady, myTradeOffer, remoteTradeOffer, pHand, pDeck, pEffHand, pEffDeck, onTrade]);
   useEffect(() => {
       if (isOnline && conn) {
           conn.send({ type: 'HAND_SYNC', hand: pHand, effHand: pEffHand });
@@ -350,31 +415,41 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
       setWaiting(false);
   };
 
-  const handleSendCard = () => {
-    if (!isCoop || !conn || transferCharge < 3 || !activeCard) return;
+  const handleOfferCard = () => {
+    if (!activeCard || myTradeOffer) return;
     playSound('click');
+    const offeredCard = { ...activeCard }; // FIX: Team Asset Badge wird nicht mehr erzwungen
+    setMyTradeOffer(offeredCard);
     
-    const sentCard = { ...activeCard, isTeamAsset: true };
+    // Karte verlässt die Hand ins Tauschfeld
     const nextHand = [...pHand];
     nextHand.splice(activeIdx, 1);
-    
-    // NEU: Data Stream Animation auslösen
-    setCannonAnimData({ card: sentCard, active: false });
-    setTimeout(() => setCannonAnimData(prev => prev ? { ...prev, active: true } : null), 50);
-    setTimeout(() => setCannonAnimData(null), 800); // Aufräumen nach 0.8s
-    
-    let currentDeck = [...pDeck];
-    if (currentDeck.length > 0) {
-       nextHand.push(currentDeck[0]);
-       currentDeck = currentDeck.slice(1);
-    }
-    
     setPHand(nextHand);
-    setPDeck(currentDeck);
     setActiveIdx(0);
-    setTransferCharge(0); 
     
-    conn.send({ type: 'CARD_TRANSFER', card: sentCard });
+    setTradeAnimPhase('offering');
+    setTimeout(() => setTradeAnimPhase(null), 400);
+
+    if (conn) conn.send({ type: 'TRADE_OFFER', card: offeredCard });
+  };
+
+  const handleCancelOffer = () => {
+    if (!myTradeOffer) return;
+    playSound('click');
+    
+    // Karte wandert zurück in die Hand
+    setPHand(prev => [...prev, { ...myTradeOffer, isTeamAsset: false }]);
+    setMyTradeOffer(null);
+    setMyTradeReady(false);
+    
+    if (conn) conn.send({ type: 'TRADE_CANCEL' });
+  };
+
+  const handleAcceptTrade = () => {
+    if (!myTradeOffer || !remoteTradeOffer) return;
+    playSound('click');
+    setMyTradeReady(true);
+    if (conn) conn.send({ type: 'TRADE_ACCEPT' });
   };
 
   const handleToggleEffect = () => {
@@ -465,35 +540,52 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
       const defVal = isAttacker ? aV : pV;
 
       let dmgP = 0, dmgA = 0, recoilP = 0, recoilA = 0;
-      const diff = Math.max(0, atkVal - defVal);
-      
-      const effectiveAtkAct = isAttacker ? myLockedAction : enemyAction;
-      const effectiveDefAct = isAttacker ? enemyAction : myLockedAction;
 
-      if (effectiveAtkAct.action === 'erholen') {
-           const d = Math.floor(defVal * 1.5);
-           if (isAttacker) dmgP = d; else dmgA = d;
-      } else if (effectiveDefAct.action === 'erholen') {
-           const d = Math.floor(atkVal * 1.5);
-           if (isAttacker) dmgA = d; else dmgP = d;
+     // --- NEUES SCHADENS-PROTOKOLL ---
+      const atkAct = isAttacker ? myLockedAction.action : enemyAction.action;
+      const defAct = isAttacker ? enemyAction.action : myLockedAction.action;
+
+      // Logik aus gameLogic.js importieren/nutzen
+      let dmgOnDef = 0, dmgOnAtk = 0, aEPRefund = 0;
+
+      // SONDERFALL: ERHOLEN
+      if (defAct === 'erholen') {
+        if (atkAct === 'konter') aEPRefund = 6;
+        else dmgOnDef = Math.floor(atkVal * 1.5);
+      } else if (atkAct === 'erholen') {
+        if (defAct === 'konter') aEPRefund = 6;
+        else dmgOnAtk = Math.floor(defVal * 1.5);
       } else {
-           if (effectiveAtkAct.action === 'allin') {
-               if (atkVal > defVal) dmgA = Math.floor((diff + 40) * 3);
-               else if (atkVal < defVal) recoilP = 150;
-           }
-           if (effectiveDefAct.action === 'konter') {
-               if (defVal > atkVal) {
-                   let cDmg = Math.floor((defVal - atkVal + 30) * 2);
-                   if (isAttacker) dmgP = cDmg; else dmgA = cDmg;
-               } else if (atkVal > defVal) {
-                   let sDmg = Math.floor((atkVal - defVal + 40) * 3);
-                   if (isAttacker) dmgA = sDmg; else dmgP = sDmg;
-               }
-           }
-           const stdDmg = Math.floor(diff * 1.5);
-           if (stdDmg > 0 && !dmgA && !dmgP) {
-               if (isAttacker) dmgA = stdDmg; else dmgP = stdDmg;
-           }
+        const diff = Math.max(0, atkVal - defVal);
+        const recoilDiff = Math.max(0, defVal - atkVal);
+
+        if (defAct === 'konter') {
+          if (atkVal >= defVal) {
+            dmgOnDef = Math.floor(diff * (atkAct === 'allin' ? 4.0 : 1.5));
+          } else {
+            dmgOnAtk = Math.floor(recoilDiff * (atkAct === 'allin' ? 5.0 : 2.0));
+          }
+        } else {
+          // Normaler Block
+          if (atkVal > defVal) dmgOnDef = Math.floor(diff * (atkAct === 'allin' ? 3.0 : 1.5));
+        }
+      }
+
+      // Rollen-Zuweisung: Wer ist P (Player) und wer ist A (AI/Partner)?
+      if (isAttacker) {
+        dmgA = dmgOnDef; dmgP = dmgOnAtk;
+      } else {
+        dmgP = dmgOnDef; dmgA = dmgOnAtk;
+      }
+
+      // EP Refund Logik
+      if (aEPRefund > 0) {
+        if (isAttacker) {
+          if (isOnline && isCoop) conn.send({ type: 'EP_GAIN', amount: aEPRefund });
+          else setAEP(prev => Math.min(15, prev + aEPRefund));
+        } else {
+          setPEP(prev => Math.min(isOnline ? 25 : 15, prev + aEPRefund));
+        }
       }
 
       const totalMyDmg = dmgP + recoilP;
@@ -511,18 +603,20 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
 
           setClashData({
               pc: pCard, ac: aCard, categoryKey: k,
-              pV, pEffObj: myLockedAction.effObj, 
+              pV, pEffObj: myLockedAction.effObj,
               aV, aEffObj: enemyAction.effObj,
-              pAct: formatActionName(myLockedAction.action), 
+              pAct: formatActionName(myLockedAction.action),
               aAct: formatActionName(enemyAction.action),
-              oldPHP: oldP, 
-              oldAHP: oldA, 
-              newPHP: Math.max(0, oldP - totalMyDmg - prevBuffer.p), 
-              newAHP: Math.max(0, oldA - totalAiDmg - prevBuffer.a), 
+              oldPHP: oldP,
+              oldAHP: oldA,
+              newPHP: Math.max(0, oldP - totalMyDmg - prevBuffer.p),
+              newAHP: Math.max(0, oldA - totalAiDmg - prevBuffer.a),
               newPEP: Math.min(25, pEP + 2), newAEP: Math.min(15, aEP + 2),
               dmgP: totalMyDmg, dmgA: totalAiDmg,
-              partnerDmgP: prevBuffer.p,
-              partnerDmgA: prevBuffer.a
+              // FIX Ghost Damage: Immer explizit auf den aktuellen Buffer-Stand setzen,
+              // nie auf kumulierte Werte aus einem alten clashData-Spread vertrauen.
+              partnerDmgP: prevBuffer.p > 0 ? prevBuffer.p : 0,
+              partnerDmgA: prevBuffer.a > 0 ? prevBuffer.a : 0,
           });
           return { p: 0, a: 0 }; // Buffer für die nächste Runde leeren
       });
@@ -610,20 +704,21 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
           currentDeck = playerChars.filter(c => !nextHand.some(h => h && h.name === c.name));
           if (!isOnline) currentDeck = shuffle(currentDeck);
       }
-      
-      // NEU: OVERDRAW LOGIK
-      // Wir ziehen nur nach, wenn wir UNTER dem Limit von 3 sind. 
-      // Wer 4 oder 5 Karten hat (durch Data Cannon), zieht nicht nach, bis er wieder bei 2 landet.
+
+      // OVERDRAW-LOOP: Zieht Karten nach bis exakt 3 — nie mehr.
+      // Sender (2 Karten): spielt 1 → hat 1 → zieht 2 → zurück auf 3.
+      // Empfänger (4 Karten): spielt 1 → hat 3 → zieht 0 → bleibt auf 3.
+      // Overflow (5+ Karten): spielt 1 → hat 4 → zieht 0 → nächste Runde normalisiert.
       let drawnAt = null;
-      if (currentDeck.length > 0 && nextHand.length < 3) {
+      while (currentDeck.length > 0 && nextHand.length < 3) {
           nextHand.push(currentDeck[0]);
-          drawnAt = nextHand.length - 1;
+          currentDeck = currentDeck.slice(1);
+          if (drawnAt === null) drawnAt = nextHand.length - 1; // Index der ersten gezogenen Karte
       }
 
-      setPHand(nextHand); setPDeck(currentDeck.slice(drawnAt !== null ? 1 : 0));
-      
-      // NEU: Data Cannon Cooldown in jeder Runde um 1 erhöhen!
-      setTransferCharge(prev => Math.min(3, prev + 1));
+      // FIX: Nur ein einziger setPHand/setPDeck-Call
+      setPHand(nextHand);
+      setPDeck(currentDeck);
 
       let currentAiDeck = [...aDeck];
       const idx = currentAiDeck.findIndex(c => c.name === remoteCardName);
@@ -636,12 +731,13 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
           if (!isOnline) currentAiDeck = shuffle(currentAiDeck);
       }
 
-      setPHand(nextHand); setPDeck(currentDeck.slice(1));
       setADeck(currentAiDeck); setActiveIdx(0); setPTurn(!pTurn); setCurK('');
       if (drawnAt !== null) {
         setJustDrawnIdx(drawnAt);
         setTimeout(() => setJustDrawnIdx(null), 800);
       }
+      
+      setTradeCooldown(prev => Math.max(0, prev - 1)); // NEU: Cooldown reduzieren
 
       let nextActiveCrisis = activeCrisis ? { ...activeCrisis } : null;
       if (nextActiveCrisis) {
@@ -661,7 +757,7 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
               setShowCrisisIntro(newCrisis); 
               playSound('crisis');
               
-              setTimeout(() => setShowCrisisIntro(null), 4000);
+              setTimeout(() => setShowCrisisIntro(null), 2500);
           } else {
               const increment = crisisLevel === 0 ? 5 : (crisisLevel === 1 ? 10 : 20);
               setCrisisRisk(Math.min(100, crisisRisk + increment));
@@ -697,10 +793,16 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
           conn.send({ type: 'TEAM_WIN' });
       }
 
+      // FIX: Im Co-Op kann clashData.newPHP durch stale Refs fälschlicherweise 0 sein.
+      // Wir nehmen den höchsten bekannten Wert: Ref (immer aktuell nach Blocks 1-3) vs. Display.
+      const safeRemainingHP = (isWin && isCoop)
+          ? Math.max(hpRefs.current.p, finalPHP, 1)
+          : finalPHP;
+
       onEndGame({ 
         isWin, 
         sarcasmNews: getSarcasticNews(isWin), 
-        ...(isRoguelike ? { remainingHP: finalPHP } : {}),
+        ...(isRoguelike ? { remainingHP: safeRemainingHP } : {}),
         matchData: {
           ...matchStats,
           finalPHP: finalPHP,
@@ -754,7 +856,7 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
   );
 
   return (
-    <div id="game-ui" className="screen active">
+    <div id="game-ui" className="screen active" style={{ zoom: 1.25 }}>
       {showMatchIntro && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 9999,
@@ -827,40 +929,244 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
 
       {/* FIX: War Room absolut positioniert, schützt das CSS Grid! */}
       {isOnline && isCoop && partnerHand.length > 0 && (
-        <div className="partner-war-room" style={{ position: 'absolute', top: '70px', left: '20px', zIndex: 100, display: 'flex', flexDirection: 'column', padding: '12px', background: 'rgba(5, 5, 10, 0.85)', backdropFilter: 'blur(5px)', border: '1px solid rgba(0, 229, 255, 0.3)', borderRadius: '8px', pointerEvents: 'none', boxShadow: '0 5px 25px rgba(0,0,0,0.8)' }}>
-          <div className="mono" style={{ color: 'var(--ep)', letterSpacing: '2px', fontSize: '0.7rem', marginBottom: '10px', textShadow: '0 0 8px var(--ep)' }}>
-            [NEURAL LINK: PARTNER]
+        <div className="partner-war-room" style={{
+          position: 'absolute', top: '70px', left: '20px', zIndex: 100,
+          display: 'flex', flexDirection: 'column', padding: '12px',
+          background: 'rgba(5, 5, 10, 0.92)', backdropFilter: 'blur(8px)',
+          border: `1px solid ${inspectedPartnerCard ? 'rgba(0,229,255,0.6)' : 'rgba(0,229,255,0.3)'}`,
+          borderRadius: '8px', boxShadow: '0 5px 25px rgba(0,0,0,0.8)',
+          pointerEvents: 'auto', // Klicks aktivieren
+          transition: 'border-color 0.2s, box-shadow 0.2s',
+          maxWidth: '300px', // FIX: Ein Tick größer
+        }}>
+          {/* Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+            <div className="mono" style={{ color: 'var(--ep)', letterSpacing: '2px', fontSize: '0.7rem', textShadow: '0 0 8px var(--ep)' }}>
+              [NEURAL LINK: PARTNER]
+            </div>
+            {inspectedPartnerCard && (
+              <button
+                onClick={() => setInspectedPartnerCard(null)}
+                style={{
+                  background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)',
+                  cursor: 'pointer', fontSize: '0.75rem', padding: '0 4px', lineHeight: 1,
+                }}
+              >✕</button>
+            )}
           </div>
+
+          {/* Mini-Karten Reihe */}
           <div style={{ display: 'flex', gap: '8px' }}>
-             {partnerHand.map((c, i) => (
-                <div key={i} style={{ position: 'relative', width: '56px', height: '80px', borderRadius: '4px', opacity: 0.9, border: `1px solid ${getRarityColor(c)}`, background: '#000', overflow: 'hidden' }}>
-                   {/* Kleines Rating/Kosten Tag wie im Inventar */}
-                   <div className="mono" style={{ position: 'absolute', top: '2px', right: '4px', fontSize: '0.55rem', color: '#fff', zIndex: 5, textShadow: '0 0 5px #000' }}>
-                     {c.gti || c.cost}
-                   </div>
-                   {/* Typ-Indikator Balken */}
-                   <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '3px', background: getRarityColor(c), zIndex: 5 }} />
-                   
-                   <div style={{ transform: 'scale(0.18)', transformOrigin: 'top left', pointerEvents: 'none', filter: 'saturate(0.6)' }}>
-                     <Card card={c} context="hand" forceArtOnly={true} />
-                   </div>
+            {partnerHand.map((c, i) => {
+              const isSelected = inspectedPartnerCard?.name === c.name;
+              return (
+                <div
+                  key={i}
+                  onClick={() => setInspectedPartnerCard(isSelected ? null : c)}
+                style={{
+                  position: 'relative', width: '64px', height: '90px', // FIX: Größer
+                  borderRadius: '4px', background: '#000', overflow: 'hidden',
+                  cursor: 'pointer',
+                    border: isSelected
+                      ? `2px solid ${getRarityColor(c)}`
+                      : `1px solid ${getRarityColor(c)}44`,
+                    boxShadow: isSelected ? `0 0 12px ${getRarityColor(c)}88` : 'none',
+                    transform: isSelected ? 'translateY(-3px)' : 'none',
+                    transition: 'all 0.18s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                    opacity: inspectedPartnerCard && !isSelected ? 0.5 : 0.95,
+                  }}
+                >
+                  <div className="mono" style={{ position: 'absolute', top: '2px', right: '4px', fontSize: '0.55rem', color: '#fff', zIndex: 5, textShadow: '0 0 5px #000' }}>
+                    {c.gti || c.cost}
+                  </div>
+                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '3px', background: getRarityColor(c), zIndex: 5 }} />
+                  {isSelected && (
+                    <div style={{ position: 'absolute', inset: 0, background: `${getRarityColor(c)}18`, zIndex: 4 }} />
+                  )}
+                  <div style={{ transform: 'scale(0.18)', transformOrigin: 'top left', pointerEvents: 'none', filter: isSelected ? 'none' : 'saturate(0.5)' }}>
+                    <Card card={c} context="hand" forceArtOnly={true} />
+                  </div>
                 </div>
-             ))}
-             {partnerEffHand[0] && (
+              );
+            })}
+
+            {/* Taktik-Karte */}
+            {partnerEffHand[0] && (() => {
+              const eff = partnerEffHand[0];
+              const isSelected = inspectedPartnerCard?.name === eff.name;
+              return (
                 <>
-                  <div style={{ width: '1px', background: 'rgba(255,255,255,0.2)', margin: '0 4px' }} />
-                  <div style={{ position: 'relative', width: '56px', height: '80px', borderRadius: '4px', opacity: 0.9, border: `1px solid var(--eff-col)`, background: '#000', overflow: 'hidden' }}>
-                     <div className="mono" style={{ position: 'absolute', top: '2px', right: '4px', fontSize: '0.55rem', color: 'var(--eff-col)', zIndex: 5, textShadow: '0 0 5px #000' }}>
-                       {partnerEffHand[0].cost}⚡
-                     </div>
-                     <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '3px', background: 'var(--eff-col)', zIndex: 5 }} />
-                     
-                     <div style={{ transform: 'scale(0.18)', transformOrigin: 'top left', pointerEvents: 'none', filter: 'saturate(0.6)' }}>
-                       <Card card={partnerEffHand[0]} context="hand" forceArtOnly={true} />
-                     </div>
+                  <div style={{ width: '1px', background: 'rgba(255,255,255,0.15)', margin: '0 2px' }} />
+                  <div
+                    onClick={() => setInspectedPartnerCard(isSelected ? null : eff)}
+                    style={{
+                      position: 'relative', width: '64px', height: '90px', // FIX: Größer
+                      borderRadius: '4px', background: '#000', overflow: 'hidden',
+                      cursor: 'pointer',
+                      border: isSelected ? `2px solid var(--eff-col)` : `1px solid rgba(0,255,204,0.3)`,
+                      boxShadow: isSelected ? '0 0 12px rgba(0,255,204,0.5)' : 'none',
+                      transform: isSelected ? 'translateY(-3px)' : 'none',
+                      transition: 'all 0.18s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                      opacity: inspectedPartnerCard && !isSelected ? 0.5 : 0.95,
+                    }}
+                  >
+                    <div className="mono" style={{ position: 'absolute', top: '2px', right: '4px', fontSize: '0.55rem', color: 'var(--eff-col)', zIndex: 5, textShadow: '0 0 5px #000' }}>
+                      {eff.cost}⚡
+                    </div>
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '3px', background: 'var(--eff-col)', zIndex: 5 }} />
+                    <div style={{ transform: 'scale(0.18)', transformOrigin: 'top left', pointerEvents: 'none', filter: isSelected ? 'none' : 'saturate(0.5)' }}>
+                      <Card card={eff} context="hand" forceArtOnly={true} />
+                    </div>
                   </div>
                 </>
-             )}
+              );
+            })()}
+          </div>
+
+          {/* ── Inspektor-Panel: fade-in unter der Reihe ── */}
+          {inspectedPartnerCard && (
+            <div style={{
+              marginTop: '10px',
+              borderTop: `1px solid ${getRarityColor(inspectedPartnerCard)}44`,
+              paddingTop: '10px',
+              animation: 'warRoomInspectorIn 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275) both',
+            }}>
+              <style>{`
+                @keyframes warRoomInspectorIn {
+                  from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+                  to   { opacity: 1; transform: translateY(0)    scale(1);    }
+                }
+              `}</style>
+
+              {/* Karten-Name + Typ Label */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <div className="mono" style={{ fontSize: '0.58rem', color: getRarityColor(inspectedPartnerCard), letterSpacing: '2px', fontWeight: 700 }}>
+                  {inspectedPartnerCard.name?.toUpperCase()}
+                </div>
+                {inspectedPartnerCard.isTeamAsset && (
+                  <div className="mono" style={{ fontSize: '0.48rem', color: 'var(--apex-pink)', border: '1px solid var(--apex-pink)', padding: '1px 5px', borderRadius: '2px', letterSpacing: '1px' }}>
+                    TEAM ASSET
+                  </div>
+                )}
+              </div>
+
+              {/* Vollständige Karte — skaliert auf 0.58 mit scroll-proof overflow */}
+              <div style={{ position: 'relative', width: '210px', height: '292px', overflow: 'hidden', borderRadius: '6px' }}>
+                <div style={{ transform: 'scale(0.58)', transformOrigin: 'top left', width: '360px', height: '504px', pointerEvents: 'none' }}>
+                  <Card
+                    card={inspectedPartnerCard}
+                    context="lexicon"
+                    curCategory={curK}
+                    activeCrisis={activeCrisis}
+                  />
+                </div>
+              </div>
+
+              {/* Level + Fraktion Badge */}
+              <div style={{ display: 'flex', gap: '6px', marginTop: '7px', flexWrap: 'wrap' }}>
+                <div className="mono" style={{ fontSize: '0.52rem', color: 'rgba(255,255,255,0.5)', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', padding: '2px 7px', borderRadius: '3px' }}>
+                  LVL {inspectedPartnerCard.level || 1}
+                </div>
+                {inspectedPartnerCard.faction && (
+                  <div className="mono" style={{ fontSize: '0.52rem', color: getRarityColor(inspectedPartnerCard), background: `${getRarityColor(inspectedPartnerCard)}14`, border: `1px solid ${getRarityColor(inspectedPartnerCard)}44`, padding: '2px 7px', borderRadius: '3px' }}>
+                    {inspectedPartnerCard.faction.toUpperCase()}
+                  </div>
+                )}
+                {inspectedPartnerCard.type && inspectedPartnerCard.type !== 'std' && (
+                  <div className="mono" style={{ fontSize: '0.52rem', color: '#bc13fe', background: 'rgba(188,19,254,0.08)', border: '1px solid rgba(188,19,254,0.3)', padding: '2px 7px', borderRadius: '3px' }}>
+                    {inspectedPartnerCard.type.toUpperCase()}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* NEU: HOLOGRAFISCHES TRADE FIELD UNTER DEM WAR ROOM */}
+          <style>{`
+            @keyframes flyInFromHand {
+              0%   { transform: translate(35vw, 35vh) scale(0.8) rotate(-10deg); opacity: 0; }
+              100% { transform: translate(0, 0) scale(1) rotate(0deg); opacity: 1; }
+            }
+            @keyframes flyInFromPartner {
+              0%   { transform: translateY(-80px) scale(0.5); opacity: 0; }
+              100% { transform: translateY(0) scale(1); opacity: 1; }
+            }
+            @keyframes flyOutToPartner {
+              0%   { transform: translate(0, 0) scale(1); opacity: 1; z-index: 100; filter: brightness(1.5); }
+              100% { transform: translateY(-20vh) scale(0.5); opacity: 0; z-index: 100; filter: brightness(1); }
+            }
+            @keyframes flyOutToHand {
+              0%   { transform: translate(0, 0) scale(1); opacity: 1; z-index: 100; filter: brightness(1.5) drop-shadow(0 0 20px #bc13fe); }
+              100% { transform: translate(35vw, 35vh) scale(0.8) rotate(10deg); opacity: 0; z-index: 100; filter: brightness(1) drop-shadow(none); }
+            }
+          `}</style>
+          <div style={{
+            marginTop: '15px',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px',
+            background: 'rgba(5,5,10,0.85)', padding: '15px', borderRadius: '8px',
+            border: '1px solid rgba(0,229,255,0.3)', backdropFilter: 'blur(10px)',
+            boxShadow: '0 0 25px rgba(0,0,0,0.7)',
+            pointerEvents: 'auto'
+          }}>
+             <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center', marginBottom: '-5px' }}>
+               <div className="mono" style={{ fontSize: '0.65rem', color: 'var(--ep)', letterSpacing: '2px' }}>▸ CO-OP TRANSFER</div>
+               {tradeCooldown > 0 && (
+                 <div className="mono" style={{ fontSize: '0.6rem', color: 'var(--lose)', background: 'rgba(255,0,50,0.1)', padding: '2px 6px', borderRadius: '3px', border: '1px solid var(--lose)' }}>
+                   COOLDOWN: {tradeCooldown}
+                 </div>
+               )}
+             </div>
+             
+             {/* Mein Angebot */}
+             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', width: '100%' }}>
+                <span className="mono" style={{ fontSize: '0.55rem', color: 'var(--win)' }}>DEIN ANGEBOT (AKTIVE KARTE)</span>
+                <div style={{ 
+                    width: '90px', height: '126px', border: '1px dashed var(--win)', borderRadius: '4px', position: 'relative',
+                    animation: tradeAnimPhase === 'offering' ? 'flyInFromHand 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)' : 
+                               tradeAnimPhase === 'resolving' ? 'flyOutToPartner 0.8s cubic-bezier(0.5, 0, 0.2, 1) forwards' : 'none'
+                }}>
+                    {myTradeOffer ? (
+                       <div onClick={handleCancelOffer} style={{ cursor: 'pointer', transform: 'scale(0.25)', transformOrigin: 'top left', width: '360px', height: '504px' }}>
+                           <Card card={myTradeOffer} context="hand" forceArtOnly={true} />
+                           <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,0,50,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', opacity: 0, transition: '0.2s' }} onMouseEnter={e => e.currentTarget.style.opacity = 1} onMouseLeave={e => e.currentTarget.style.opacity = 0}>
+                              <span style={{ fontSize: '10rem', color: '#fff' }}>✕</span>
+                           </div>
+                       </div>
+                    ) : (
+                       <button onClick={handleOfferCard} disabled={!activeCard || tradeAnimPhase === 'resolving' || tradeCooldown > 0} className="menu-btn" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', padding: 0, margin: 0, background: 'transparent', borderColor: 'transparent', color: 'var(--win)', fontSize: '3rem', cursor: (activeCard && tradeAnimPhase !== 'resolving' && tradeCooldown === 0) ? 'pointer' : 'default', opacity: (activeCard && tradeAnimPhase !== 'resolving' && tradeCooldown === 0) ? 1 : 0.2 }}>+</button>
+                    )}
+                </div>
+             </div>
+
+             {/* Tausch-Action Center */}
+             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                <span style={{ fontSize: '1.5rem', color: (myTradeReady && remoteTradeReady) ? 'var(--win)' : '#555', transition: '0.3s' }}>⇅</span>
+                {myTradeOffer && remoteTradeOffer ? (
+                   <button onClick={handleAcceptTrade} disabled={myTradeReady || tradeAnimPhase === 'resolving'} className="menu-btn btn-primary" style={{ padding: '8px', fontSize: '0.55rem', margin: '5px 0 0 0', opacity: (myTradeReady || tradeAnimPhase === 'resolving') ? 0.5 : 1, width: '100%' }}>
+                      {(myTradeReady || tradeAnimPhase === 'resolving') ? 'WARTE AUF PARTNER' : 'TAUSCH AKZEPTIEREN'}
+                   </button>
+                ) : (
+                   <span className="mono" style={{ fontSize: '0.5rem', color: '#888', textAlign: 'center', marginTop: '5px' }}>BEIDE AGENTEN<br/>MÜSSEN ANBIETEN</span>
+                )}
+             </div>
+
+             {/* Partner Angebot */}
+             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', width: '100%', marginTop: '5px' }}>
+                <span className="mono" style={{ fontSize: '0.55rem', color: '#bc13fe' }}>PARTNER ANGEBOT</span>
+                <div style={{ 
+                    width: '90px', height: '126px', border: '1px dashed #bc13fe', borderRadius: '4px', position: 'relative', overflow: 'hidden',
+                    animation: tradeAnimPhase === 'receiving_offer' ? 'flyInFromPartner 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)' : 
+                               tradeAnimPhase === 'resolving' ? 'flyOutToHand 0.8s cubic-bezier(0.5, 0, 0.2, 1) forwards' : 'none'
+                }}>
+                    {remoteTradeOffer ? (
+                       <div style={{ transform: 'scale(0.25)', transformOrigin: 'top left', width: '360px', height: '504px', filter: remoteTradeReady ? 'drop-shadow(0 0 20px #bc13fe)' : 'none' }}>
+                           <Card card={remoteTradeOffer} context="hand" forceArtOnly={true} />
+                       </div>
+                    ) : (
+                       <div style={{ position: 'absolute', inset: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#555', fontSize: '1.5rem' }}>?</div>
+                    )}
+                </div>
+             </div>
           </div>
         </div>
       )}
@@ -975,26 +1281,6 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
           {/* HANDKARTEN UNTER DER ARENA */}
           <div className="hand-hub" style={{ position: 'relative' }}>
             
-            {/* NEU: DATA TRANSFER UI MIT 3-RUNDEN COOLDOWN */}
-            {isOnline && isCoop && pTurn && activeCard && (
-               <div style={{ position: 'absolute', top: '-45px', left: '0', zIndex: 50, display: 'flex', alignItems: 'center', gap: '12px' }}>
-                 <button 
-                   onClick={handleSendCard}
-                   disabled={transferCharge < 3}
-                   className="menu-btn" 
-                   style={{ background: transferCharge === 3 ? 'rgba(0,229,255,0.15)' : 'rgba(0,0,0,0.4)', borderColor: transferCharge === 3 ? 'var(--win)' : '#333', color: transferCharge === 3 ? 'var(--win)' : '#666', padding: '6px 16px', fontSize: '0.65rem', letterSpacing: '2px', boxShadow: transferCharge === 3 ? '0 0 15px rgba(0,229,255,0.3)' : 'none', margin: 0, cursor: transferCharge === 3 ? 'pointer' : 'not-allowed', transition: 'all 0.3s' }}
-                 >
-                   {transferCharge === 3 ? `⇡ DATA TRANSFER: [${activeCard.name.toUpperCase()}]` : `DATA TRANSFER LÄDT...`}
-                 </button>
-                 {/* Cooldown Dots */}
-                 <div style={{ display: 'flex', gap: '5px' }}>
-                   {[1,2,3].map(step => (
-                     <div key={step} style={{ width: '8px', height: '8px', borderRadius: '50%', background: transferCharge >= step ? 'var(--win)' : '#222', boxShadow: transferCharge >= step ? '0 0 8px var(--win)' : 'none', transition: 'background 0.3s' }} />
-                   ))}
-                 </div>
-               </div>
-            )}#
-
             <div className="hand-grid">
               {pHand.map((c, i) => {
                 const isActive = i === activeIdx;
@@ -1132,6 +1418,69 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
         </div>
       </div>
 
+      {/* Empfänger-Animation: Karte fliegt vom War Room (oben links) zur Hand (unten mitte) */}
+      {incomingCannonData && (
+          <div style={{
+              position: 'fixed',
+              // Start: War Room oben links → Ende: Handbereich unten mitte
+              left: incomingCannonData.active ? 'calc(50% - 75px)' : '5%',
+              top:  incomingCannonData.active ? '60vh'             : '10vh',
+              // Klein starten (wie eine War-Room-Miniaturkarte), Normalgröße beim Ankommen
+              transform: incomingCannonData.active ? 'scale(1)' : 'scale(0.22)',
+              // Halbtransparent beim Abflug, voll sichtbar beim Landen
+              opacity: incomingCannonData.active ? 1 : 0.55,
+              // Kurz warten, dann gleitend beschleunigen (ease-in → ease-out Kurve)
+              transition: [
+                'left    0.75s cubic-bezier(0.4, 0.0, 0.2, 1)',
+                'top     0.75s cubic-bezier(0.4, 0.0, 0.2, 1)',
+                'transform 0.75s cubic-bezier(0.4, 0.0, 0.2, 1)',
+                'opacity 0.5s ease-out',
+              ].join(', '),
+              zIndex: 9999,
+              pointerEvents: 'none',
+              transformOrigin: 'top left',
+          }}>
+              {/* Karten-Preview mit Cyan-Glow (Neural Link Farbe) */}
+              <div style={{
+                  position: 'relative', width: '150px', height: '210px',
+                  borderRadius: '8px', border: '2px solid #00e5ff',
+                  boxShadow: '0 0 30px rgba(0,229,255,0.7), 0 0 60px rgba(0,229,255,0.3)',
+                  overflow: 'hidden',
+              }}>
+                  <div style={{
+                      position: 'absolute', inset: 0,
+                      background: 'linear-gradient(135deg, rgba(0,229,255,0.35), rgba(188,19,254,0.2))',
+                      opacity: 0.85, mixBlendMode: 'screen', zIndex: 10,
+                  }} />
+                  <div style={{ transform: 'scale(0.41)', transformOrigin: 'top left', pointerEvents: 'none' }}>
+                      <Card card={incomingCannonData.card} context="hand" />
+                  </div>
+              </div>
+
+              {/* Label */}
+              <div className="mono" style={{
+                  position: 'absolute', top: '-28px', left: '50%',
+                  transform: 'translateX(-50%)',
+                  color: '#00e5ff', fontSize: '0.85rem', fontWeight: 700,
+                  textShadow: '0 0 12px #00e5ff', whiteSpace: 'nowrap',
+                  letterSpacing: '2px', opacity: incomingCannonData.active ? 1 : 0,
+                  transition: 'opacity 0.4s ease-out 0.3s',
+              }}>
+                  ↓ NEURAL LINK TRANSFER
+              </div>
+
+              {/* Datenstrom-Trail: zieht eine Linie zurück Richtung War Room (oben links) */}
+              {!incomingCannonData.active && (
+                  <div style={{
+                      position: 'absolute', top: '0', left: '0',
+                      width: '3px', height: '80px',
+                      background: 'linear-gradient(to top, #00e5ff, transparent)',
+                      filter: 'blur(2px)', transform: 'translateX(72px)',
+                  }} />
+              )}
+          </div>
+      )}
+
       {cannonAnimData && (
           <div style={{
               position: 'fixed', left: '15%',
@@ -1167,128 +1516,292 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
       )}
 
       {clashData && !showCrisisIntro && (
-        <div className="glass-overlay active" style={{zIndex: 25000}}>
-          <div className="clash-scale-wrapper" style={{zoom: 0.72, transformOrigin:'center center', display:'flex', flexDirection:'column', alignItems:'center', width:'100%'}}>
-          <div className="clash-title">SYSTEM RESOLUTION</div>
-          
-          <div className="clash-hp-container">
-             <div className="bar-box glass-panel">
-                <div className="label" style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                  <span>{isCoop ? 'TEAM' : 'DU'}</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    {clashData.partnerDmgP > 0 && <span className="mono" style={{ color: 'var(--lose)', fontSize: '0.8rem', animation: 'pulse 1s infinite' }}>-{clashData.partnerDmgP} (PARTNER)</span>}
-                    <b className="mono">{Math.floor(clashAnim ? clashData.newPHP : clashData.oldPHP)}</b>
-                  </div>
-                </div>
-                <div className="bar-bg"><div className="bar-fill" style={{ width: `${((clashAnim ? clashData.newPHP : clashData.oldPHP) / initialPHP) * 100}%`, background: 'var(--win)', transition: 'width 0.4s ease-out' }}></div></div>
-             </div>
-             <div className="bar-box glass-panel">
-                <div className="label" style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                  <span>GEGNER</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    {clashData.partnerDmgA > 0 && <span className="mono" style={{ color: 'var(--ep)', fontSize: '0.8rem', animation: 'pulse 1s infinite' }}>-{clashData.partnerDmgA} (PARTNER)</span>}
-                    <b className="mono">{Math.floor(clashAnim ? clashData.newAHP : clashData.oldAHP)}</b>
-                  </div>
-                </div>
-                <div className="bar-bg"><div className="bar-fill" style={{ width: `${((clashAnim ? clashData.newAHP : clashData.oldAHP) / (isCoop ? initialAHP * 2 : initialAHP)) * 100}%`, background: 'var(--lose)', transition: 'width 0.4s ease-out' }}></div></div>
-             </div>
-          </div>
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 25000,
+          background: 'rgba(3,1,10,0.97)',
+          display: 'flex', flexDirection: 'column',
+          fontFamily: "'Roboto Mono', monospace",
+          height: '100dvh', // FIX: Verhindert Scrollen
+          overflow: 'hidden' // FIX: Verhindert Scrollen
+        }}>
 
+          {/* ── RULES — oben rechts, immer sichtbar ── */}
+          <button
+            onClick={onShowRules}
+            style={{
+              position: 'absolute', top: '14px', right: '18px', zIndex: 200,
+              background: 'rgba(0,0,0,0.8)', border: '1px solid #444',
+              color: '#666', padding: '5px 14px',
+              fontFamily: "'Roboto Mono', monospace",
+              fontSize: '0.6rem', letterSpacing: '2px', cursor: 'pointer',
+              transition: 'color 0.2s, border-color 0.2s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.color='#ccc'; e.currentTarget.style.borderColor='#888'; }}
+            onMouseLeave={e => { e.currentTarget.style.color='#666'; e.currentTarget.style.borderColor='#444'; }}
+          >RULES</button>
 
-          <div className="clash-news glass-panel">
-            {clashData.pAct === 'ERHOLEN' 
-              ? ">> DECKUNG AUFGEGEBEN: KRITISCHER TREFFER!"
-              : (clashData.dmgA === clashData.dmgP 
-                 ? ">> SYSTEM PATT" 
-                 : `>> ${(clashData.dmgA > clashData.dmgP ? clashData.pc.name : clashData.ac.name).toUpperCase()} DOMINIERT`)
-            }
-          </div>
-
-          <div id="clash-category" style={{ marginBottom: '10px' }}>
-            {`KATEGORIE: ${CAT_CONFIG[clashData.categoryKey]?.name.toUpperCase()}`}
-          </div>
-
-          <div className="clash-cards-wrapper" style={{ display: 'flex', gap: '40px', alignItems: 'center', marginTop: '20px' }}>
-            
-            <div className="c-card-container" style={{ position: 'relative' }}>
-               <div style={{
-                 transition: 'all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                 transform: localIsLoser ? 'scale(0.75)' : (localWins ? 'scale(1)' : 'scale(0.85)'),
-                 filter: localIsLoser ? 'grayscale(80%) opacity(0.6)' : 'none',
-                 zIndex: localWins ? 10 : 1,
-                 pointerEvents: 'none'
-               }}>
-                  <Card 
-                    card={clashData.pc} 
-                    context="game" 
-                    activeEffect={clashData.pEffObj} 
-                    apexBuffs={currentApexBuffs}
-                    activeCrisis={activeCrisis}
-                    curCategory={clashData.categoryKey} 
-                    isPlayerTurn={true} 
-                    isFactionSynergyActive={pActiveFactions.includes(clashData.pc?.faction)}
-                  />
-                  <div className="clash-badge" style={{ position: 'absolute', top: '-20px', left: '50%', transform: 'translateX(-50%)', background: '#000', color: 'var(--ep)', padding: '8px 20px', border: '2px solid #555', fontWeight: '900', fontSize: '1.2rem', zIndex: 30, letterSpacing: '2px' }}>
-   {clashData.pAct}
-</div>
-                  {/* NEU: Taktik-Boost Indikator für den Spieler */}
-                  {clashData.pEffObj && clashData.pEffObj.stat === clashData.categoryKey && (
-                     <div style={{ position: 'absolute', top: '-60px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(0, 255, 204, 0.15)', color: 'var(--eff-col)', border: '1px solid var(--eff-col)', padding: '6px 15px', borderRadius: '4px', fontWeight: '900', fontSize: '1rem', zIndex: 30, whiteSpace: 'nowrap', boxShadow: '0 0 15px rgba(0, 255, 204, 0.2)', letterSpacing: '1px', backdropFilter: 'blur(5px)' }}>
-                       +{(clashData.pEffObj.buff || 0) + (clashData.pEffObj.syn?.includes(clashData.pc.name) ? (clashData.pEffObj.synBuff || 0) : 0)} // {clashData.pEffObj.name.toUpperCase()}
-                     </div>
-                  )}
-               </div>
-               {clashAnim && clashData.dmgP > 0 && <div className="dmg-popup dmg-neg show">-{clashData.dmgP}</div>}
+          {/* ── HEADER: Titel + breite HP-Leisten ── */}
+          <div style={{
+            flexShrink: 0, padding: '16px 5vw 12px',
+            background: 'rgba(0,0,0,0.55)',
+            borderBottom: '1px solid rgba(255,255,255,0.05)',
+          }}>
+            <div style={{
+              fontFamily: "'Rajdhani',sans-serif", fontWeight: 900,
+              fontSize: '0.75rem', letterSpacing: '10px',
+              color: 'rgba(255,255,255,0.25)', textAlign: 'center',
+              marginBottom: '14px',
+            }}>
+              SYSTEM RESOLUTION
             </div>
 
-            <div className="vs-badge" style={{ fontSize: '4rem', color: '#555', fontStyle: 'italic', fontWeight: '900' }}>VS</div>
+            {/* HP-Balken nebeneinander, je ~45% Breite */}
+            <div style={{ display: 'flex', gap: '20px', alignItems: 'stretch' }}>
 
-            <div className="c-card-container" style={{ position: 'relative' }}>
-               <div style={{
-                 transition: 'all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                 transform: remoteIsLoser ? 'scale(0.75)' : (remoteWins ? 'scale(1)' : 'scale(0.85)'),
-                 filter: remoteIsLoser ? 'grayscale(80%) opacity(0.6)' : 'none',
-                 zIndex: remoteWins ? 10 : 1,
-                 pointerEvents: 'none'
-               }}>
-                  <Card 
-                    card={clashData.ac} 
-                    context="game" 
-                    activeEffect={clashData.aEffObj} 
-                    apexBuffs={{}}
-                    activeCrisis={activeCrisis}
-                    curCategory={clashData.categoryKey} 
-                    isPlayerTurn={false} 
-                    isFactionSynergyActive={aActiveFactions.includes(clashData.ac?.faction)}
-                  />
-                  <div className="clash-badge" style={{ position: 'absolute', top: '-20px', left: '50%', transform: 'translateX(-50%)', background: '#000', color: 'var(--ep)', padding: '8px 20px', border: '2px solid #555', fontWeight: '900', fontSize: '1.2rem', zIndex: 30, letterSpacing: '2px' }}>
-   {clashData.aAct}
-</div>
-                  {/* NEU: Taktik-Boost Indikator für den Gegner */}
-                  {clashData.aEffObj && clashData.aEffObj.stat === clashData.categoryKey && (
-                     <div style={{ position: 'absolute', top: '-60px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(0, 255, 204, 0.15)', color: 'var(--eff-col)', border: '1px solid var(--eff-col)', padding: '6px 15px', borderRadius: '4px', fontWeight: '900', fontSize: '1rem', zIndex: 30, whiteSpace: 'nowrap', boxShadow: '0 0 15px rgba(0, 255, 204, 0.2)', letterSpacing: '1px', backdropFilter: 'blur(5px)' }}>
-                       +{(clashData.aEffObj.buff || 0) + (clashData.aEffObj.syn?.includes(clashData.ac.name) ? (clashData.aEffObj.synBuff || 0) : 0)} // {clashData.aEffObj.name.toUpperCase()}
-                     </div>
-                  )}
-               </div>
-               {clashAnim && clashData.dmgA > 0 && <div className="dmg-popup dmg-neg show">-{clashData.dmgA}</div>}
+              {/* Spieler HP */}
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '5px' }}>
+                  <span className="mono" style={{ fontSize: '0.58rem', color: isCoop ? 'var(--ep)' : 'var(--win)', letterSpacing: '2px', fontWeight: 700 }}>
+                    {isCoop ? 'TEAM HP' : 'DU'}
+                  </span>
+                  <b className="mono" style={{
+                    fontSize: '1.15rem', color: isCoop ? 'var(--ep)' : 'var(--win)',
+                    textShadow: `0 0 12px ${isCoop ? 'var(--ep)' : 'var(--win)'}`,
+                    letterSpacing: '2px',
+                  }}>
+                    {Math.floor(clashAnim ? clashData.newPHP : clashData.oldPHP)}
+                  </b>
+                </div>
+                <div style={{ height: '9px', background: 'rgba(255,255,255,0.07)', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%', borderRadius: '4px',
+                    width: `${((clashAnim ? clashData.newPHP : clashData.oldPHP) / initialPHP) * 100}%`,
+                    background: isCoop ? 'var(--ep)' : 'var(--win)',
+                    boxShadow: `0 0 6px ${isCoop ? 'var(--ep)' : 'var(--win)'}`,
+                    transition: 'width 0.45s ease-out',
+                  }}/>
+                </div>
+                {/* Co-Op Schadensaufschlüsselung (clean) */}
+                {isCoop && clashAnim && (clashData.dmgP > 0 || clashData.partnerDmgP > 0) && (
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
+                    {clashData.dmgP > 0 && (
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                        <span style={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.4)', letterSpacing: '2px' }}>YOU</span>
+                        <span className="mono" style={{ fontSize: '1rem', color: 'var(--lose)', fontWeight: 'bold', textShadow: '0 0 10px rgba(255,0,50,0.3)' }}>-{clashData.dmgP}</span>
+                      </div>
+                    )}
+                    {clashData.dmgP > 0 && clashData.partnerDmgP > 0 && (
+                      <div style={{ width: '1px', background: 'rgba(255,255,255,0.1)' }} />
+                    )}
+                    {clashData.partnerDmgP > 0 && (
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                        <span style={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.4)', letterSpacing: '2px' }}>MATE</span>
+                        <span className="mono" style={{ fontSize: '1rem', color: '#bc13fe', fontWeight: 'bold', textShadow: '0 0 10px rgba(188,19,254,0.3)' }}>-{clashData.partnerDmgP}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ width: '1px', background: 'rgba(255,255,255,0.08)', flexShrink: 0 }}/>
+
+              {/* Gegner HP */}
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '5px' }}>
+                  <span className="mono" style={{ fontSize: '0.58rem', color: 'var(--lose)', letterSpacing: '2px', fontWeight: 700 }}>
+                    {isCoop ? 'BOSS HP' : 'GEGNER'}
+                  </span>
+                  <b className="mono" style={{ fontSize: '1.15rem', color: 'var(--lose)', textShadow: '0 0 12px var(--lose)', letterSpacing: '2px' }}>
+                    {Math.floor(clashAnim ? clashData.newAHP : clashData.oldAHP)}
+                  </b>
+                </div>
+                <div style={{ height: '9px', background: 'rgba(255,255,255,0.07)', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%', borderRadius: '4px',
+                    width: `${((clashAnim ? clashData.newAHP : clashData.oldAHP) / (isCoop ? initialAHP * 2 : initialAHP)) * 100}%`,
+                    background: 'var(--lose)',
+                    boxShadow: '0 0 6px var(--lose)',
+                    transition: 'width 0.45s ease-out',
+                  }}/>
+                </div>
+                {/* Co-Op Boss-Schadensaufschlüsselung (clean) */}
+                {isCoop && clashAnim && (clashData.dmgA > 0 || clashData.partnerDmgA > 0) && (
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '10px', justifyContent: 'flex-end' }}>
+                    {clashData.dmgA > 0 && (
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                        <span style={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.4)', letterSpacing: '2px' }}>YOU</span>
+                        <span className="mono" style={{ fontSize: '1rem', color: 'var(--win)', fontWeight: 'bold', textShadow: '0 0 10px rgba(0,229,255,0.3)' }}>-{clashData.dmgA}</span>
+                      </div>
+                    )}
+                    {clashData.dmgA > 0 && clashData.partnerDmgA > 0 && (
+                      <div style={{ width: '1px', background: 'rgba(255,255,255,0.1)' }} />
+                    )}
+                    {clashData.partnerDmgA > 0 && (
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                        <span style={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.4)', letterSpacing: '2px' }}>MATE</span>
+                        <span className="mono" style={{ fontSize: '1rem', color: '#bc13fe', fontWeight: 'bold', textShadow: '0 0 10px rgba(188,19,254,0.3)' }}>-{clashData.partnerDmgA}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Kategorie — minimal, unter den Balken */}
+            <div className="mono" style={{
+              textAlign: 'center', marginTop: '9px',
+              fontSize: '0.48rem', color: 'rgba(255,255,255,0.18)', letterSpacing: '4px',
+            }}>
+              ▸ {CAT_CONFIG[clashData.categoryKey]?.name?.toUpperCase()}
             </div>
           </div>
 
-          <button 
-             className="menu-btn btn-play modern-btn" 
-             style={{
-               marginTop: '40px', 
-               opacity: myClashConfirmed ? 0.6 : 1, 
-               cursor: myClashConfirmed ? 'default' : 'pointer',
-               borderColor: myClashConfirmed ? 'var(--ep)' : '',
-               boxShadow: myClashConfirmed ? '0 0 15px rgba(0,229,255,0.2)' : ''
-             }} 
-             onClick={!myClashConfirmed ? confirmClash : undefined}
-          >
-             {myClashConfirmed ? (isCoop ? 'SQUAD SYNC (1/2 BEREIT)...' : 'WARTE AUF GEGNER...') : 'WEITER >'}
-          </button>
-          </div>{/* end scale wrapper */}
+          {/* ── KARTEN — flexibel skaliert ohne Layout Shifts ── */}
+          <div style={{
+            flex: 1, display: 'flex', alignItems: 'center',
+            justifyContent: 'center', gap: '3vw',
+            padding: '10px 0',
+            position: 'relative', overflow: 'hidden', minHeight: 0,
+          }}>
+
+            {/* Spieler-Karte */}
+            <div className="c-card-container" style={{ 
+                position: 'relative', flexShrink: 0, 
+                width: '360px', height: '504px',
+                transition: 'all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                transform: localIsLoser ? 'scale(0.65)' : (localWins ? 'scale(0.85)' : 'scale(0.75)'),
+                filter: localIsLoser ? 'grayscale(75%) opacity(0.5)' : 'none',
+                zIndex: localWins ? 10 : 1,
+            }}>
+              <div style={{
+                position: 'absolute', inset: 0,
+                pointerEvents: 'auto', // FIX: Tooltips reaktiviert!
+              }}>
+                {/* Aktions-Badge */}
+                <div style={{
+                  position: 'absolute', top: '-28px', left: '50%',
+                  transform: 'translateX(-50%)', zIndex: 30,
+                  background: '#000', color: 'var(--ep)',
+                  padding: '5px 20px',
+                  border: `2px solid ${localWins ? 'var(--win)' : '#555'}`,
+                  fontWeight: 900, fontSize: '1rem', letterSpacing: '2px',
+                  boxShadow: localWins ? '0 0 14px rgba(0,229,255,0.4)' : 'none',
+                  whiteSpace: 'nowrap', pointerEvents: 'none',
+                }}>
+                  {clashData.pAct}
+                </div>
+                {/* Taktik-Boost */}
+                {clashData.pEffObj && clashData.pEffObj.stat === clashData.categoryKey && (
+                  <div style={{
+                    position: 'absolute', top: '-62px', left: '50%',
+                    transform: 'translateX(-50%)', zIndex: 30,
+                    background: 'rgba(0,255,204,0.12)', color: 'var(--eff-col)',
+                    border: '1px solid var(--eff-col)', padding: '4px 12px',
+                    fontWeight: 900, fontSize: '0.85rem', whiteSpace: 'nowrap',
+                    backdropFilter: 'blur(5px)', letterSpacing: '1px', pointerEvents: 'none',
+                  }}>
+                    +{(clashData.pEffObj.buff || 0) + (clashData.pEffObj.syn?.includes(clashData.pc.name) ? (clashData.pEffObj.synBuff || 0) : 0)} // {clashData.pEffObj.name.toUpperCase()}
+                  </div>
+                )}
+                <Card
+                  card={clashData.pc}
+                  context="game"
+                  activeEffect={clashData.pEffObj}
+                  apexBuffs={currentApexBuffs}
+                  activeCrisis={activeCrisis}
+                  curCategory={clashData.categoryKey}
+                  isPlayerTurn={true}
+                  isFactionSynergyActive={pActiveFactions.includes(clashData.pc?.faction)}
+                />
+              </div>
+              {clashAnim && clashData.dmgP > 0 && <div className="dmg-popup dmg-neg show" style={{ fontSize: '3.5rem', textShadow: '0 0 20px #000' }}>-{clashData.dmgP}</div>}
+            </div>
+
+            {/* VS */}
+            <div style={{
+              fontSize: '2.5rem', fontStyle: 'italic', fontWeight: 900,
+              color: 'rgba(120,120,160,0.4)', flexShrink: 0,
+              textShadow: '0 0 20px rgba(120,120,160,0.2)',
+              userSelect: 'none',
+            }}>VS</div>
+
+            {/* Gegner-Karte */}
+            <div className="c-card-container" style={{ 
+                position: 'relative', flexShrink: 0,
+                width: '360px', height: '504px',
+                transition: 'all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                transform: remoteIsLoser ? 'scale(0.65)' : (remoteWins ? 'scale(0.85)' : 'scale(0.75)'),
+                filter: remoteIsLoser ? 'grayscale(75%) opacity(0.5)' : 'none',
+                zIndex: remoteWins ? 10 : 1,
+            }}>
+              <div style={{
+                position: 'absolute', inset: 0,
+                pointerEvents: 'auto', // FIX: Tooltips reaktiviert!
+              }}>
+                {/* Aktions-Badge */}
+                <div style={{
+                  position: 'absolute', top: '-28px', left: '50%',
+                  transform: 'translateX(-50%)', zIndex: 30,
+                  background: '#000', color: 'var(--ep)',
+                  padding: '5px 20px',
+                  border: `2px solid ${remoteWins ? 'var(--lose)' : '#555'}`,
+                  fontWeight: 900, fontSize: '1rem', letterSpacing: '2px',
+                  boxShadow: remoteWins ? '0 0 14px rgba(255,0,50,0.4)' : 'none',
+                  whiteSpace: 'nowrap', pointerEvents: 'none',
+                }}>
+                  {clashData.aAct}
+                </div>
+                {/* Taktik-Boost */}
+                {clashData.aEffObj && clashData.aEffObj.stat === clashData.categoryKey && (
+                  <div style={{
+                    position: 'absolute', top: '-62px', left: '50%',
+                    transform: 'translateX(-50%)', zIndex: 30,
+                    background: 'rgba(0,255,204,0.12)', color: 'var(--eff-col)',
+                    border: '1px solid var(--eff-col)', padding: '4px 12px',
+                    fontWeight: 900, fontSize: '0.85rem', whiteSpace: 'nowrap',
+                    backdropFilter: 'blur(5px)', letterSpacing: '1px', pointerEvents: 'none',
+                  }}>
+                    +{(clashData.aEffObj.buff || 0) + (clashData.aEffObj.syn?.includes(clashData.ac.name) ? (clashData.aEffObj.synBuff || 0) : 0)} // {clashData.aEffObj.name.toUpperCase()}
+                  </div>
+                )}
+                <Card
+                  card={clashData.ac}
+                  context="game"
+                  activeEffect={clashData.aEffObj}
+                  apexBuffs={{}}
+                  activeCrisis={activeCrisis}
+                  curCategory={clashData.categoryKey}
+                  isPlayerTurn={false}
+                  isFactionSynergyActive={aActiveFactions.includes(clashData.ac?.faction)}
+                />
+              </div>
+              {clashAnim && clashData.dmgA > 0 && <div className="dmg-popup dmg-neg show" style={{ fontSize: '3.5rem', textShadow: '0 0 20px #000' }}>-{clashData.dmgA}</div>}
+            </div>
+          </div>
+
+          {/* ── WEITER — unten zentriert, gepinnt ── */}
+          <div style={{
+            flexShrink: 0, padding: '18px 20px 24px',
+            display: 'flex', justifyContent: 'center',
+            background: 'rgba(0,0,0,0.45)',
+            borderTop: '1px solid rgba(255,255,255,0.04)',
+          }}>
+            <button
+              className="menu-btn btn-play modern-btn"
+              style={{
+                minWidth: '280px', padding: '14px 48px',
+                fontSize: '1rem', letterSpacing: '5px',
+                opacity: myClashConfirmed ? 0.6 : 1,
+                cursor: myClashConfirmed ? 'default' : 'pointer',
+                borderColor: myClashConfirmed ? 'var(--ep)' : '',
+                boxShadow: myClashConfirmed ? '0 0 15px rgba(0,229,255,0.2)' : '',
+              }}
+              onClick={!myClashConfirmed ? confirmClash : undefined}
+            >
+              {myClashConfirmed ? (isCoop ? 'SQUAD SYNC (1/2 BEREIT)...' : 'WARTE AUF GEGNER...') : 'WEITER >'}
+            </button>
+          </div>
+
         </div>
       )}
     </div>

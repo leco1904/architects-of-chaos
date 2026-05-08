@@ -228,10 +228,30 @@ export default function App() {
     const saved = localStorage.getItem('aoc_avatar');
     return saved ? JSON.parse(saved) : null;
   });
-  const [roguelikeRun, setRoguelikeRun] = useState(() => {
-    const saved = localStorage.getItem('aoc_run');
-    return saved ? JSON.parse(saved) : null;
+  // NEU: Multi-Save System
+  const [allRuns, setAllRuns] = useState(() => {
+    const saved = localStorage.getItem('aoc_all_runs');
+    if (saved) return JSON.parse(saved);
+    const legacy = localStorage.getItem('aoc_run');
+    return legacy ? { solo: JSON.parse(legacy) } : { solo: null };
   });
+  const [runContext, _setRunContext] = useState('solo'); 
+  const runContextRef = useRef('solo'); // FIX: Verhindert Closure-Traps in Netzwerk-Callbacks
+  
+  const setRunContext = (ctx) => {
+      runContextRef.current = ctx; // Speichert sofort, ohne auf Reacts Render-Zyklus zu warten
+      _setRunContext(ctx);
+  };
+  
+  // Magischer Trick: Das Spiel denkt, es gäbe nur einen Run, holt ihn sich aber dynamisch aus dem Wörterbuch!
+  const roguelikeRun = allRuns[runContext] || null;
+  const setRoguelikeRun = (updater) => {
+    setAllRuns(prev => {
+      const ctx = runContextRef.current; // Holt sich den absolut aktuellsten Context
+      const nextRun = typeof updater === 'function' ? updater(prev[ctx]) : updater;
+      return { ...prev, [ctx]: nextRun };
+    });
+  };
 
   const [rewardPacks, setRewardPacks] = useState(() => {
     const saved = localStorage.getItem('aoc_reward_packs');
@@ -334,16 +354,30 @@ export default function App() {
   const [conn, setConn] = useState(null);
   const [lobbyMode, setLobbyMode] = useState('select'); 
   const [isCoopMode, setIsCoopMode] = useState(false); 
-const [incomingInvite, setIncomingInvite] = useState(null); // NEU: Speichert Live-Einladungen
-  const [pendingOutgoingInvite, setPendingOutgoingInvite] = useState(null); // Passive Hosting: { mode, targetId }  
+  const [incomingInvite, setIncomingInvite] = useState(null);
+  const [pendingOutgoingInvite, setPendingOutgoingInvite] = useState(null);
   const [myOnlineDeck, setMyOnlineDeck] = useState(null);
+  
+  // Reparierte fehlende States
   const [remoteDeck, setRemoteDeck] = useState(null);
-  const [coopAIDecks, setCoopAIDecks] = useState(null); // NEU: Speichert die KI-Decks für das Koop-Match
-  const [clientSquadReady, setClientSquadReady] = useState(null); // NEU: Deck des Partners für den Draft
-  const [mySquadReady, setMySquadReady] = useState(false); // NEU: Hab ich als Client schon bestätigt?
+  const [coopAIDecks, setCoopAIDecks] = useState(null);
+  const [friends, setFriends] = useState([]); // NEU: Liste für Ghost Node Direct-Invites
+
+  const [clientSquadReady, setClientSquadReady] = useState(null); 
+  const [mySquadReady, setMySquadReady] = useState(false); 
   const activeDeck = decks.find(d => d.isActive) || decks[0];
 
- // NEU: Supabase Realtime Listener für eingehende P2P-Spieleinladungen
+  // NEU: Freunde für das Schnell-Invite-System im Ghost Node Hub laden
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    const loadFriends = async () => {
+        const { data } = await supabase.from('profiles').select('id, username').neq('id', session.user.id).limit(10);
+        if (data) setFriends(data);
+    };
+    loadFriends();
+  }, [session]);
+
+  // NEU: Supabase Realtime Listener für eingehende P2P-Spieleinladungen
   useEffect(() => {
     if (!session?.user?.id) return;
     
@@ -380,10 +414,10 @@ const [incomingInvite, setIncomingInvite] = useState(null); // NEU: Speichert Li
     localStorage.setItem('aoc_stats',     JSON.stringify(stats));
     localStorage.setItem('aoc_missions',  JSON.stringify(missions));
     localStorage.setItem('aoc_avatar',    JSON.stringify(avatarCard));
-    localStorage.setItem('aoc_run',       JSON.stringify(roguelikeRun));
+    localStorage.setItem('aoc_all_runs',  JSON.stringify(allRuns));
     localStorage.setItem('aoc_reward_packs', JSON.stringify(rewardPacks));
     localStorage.setItem('aoc_meta_stats', JSON.stringify(metaStats));
-  },[credits,inventory,decks,stats,missions,avatarCard,roguelikeRun,rewardPacks,metaStats]);
+  },[credits,inventory,decks,stats,missions,avatarCard,allRuns,rewardPacks,metaStats]);
 
   // ── Supabase Auth ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -453,14 +487,20 @@ const [incomingInvite, setIncomingInvite] = useState(null); // NEU: Speichert Li
         } else if (p.avatar_card === null) {
           setAvatarCard(null);
         }
-        if (p.active_run !== undefined) setRoguelikeRun(p.active_run);
+        if (p.active_run !== undefined) {
+           if (p.active_run && typeof p.active_run === 'object' && ('solo' in p.active_run || Object.keys(p.active_run).some(k => k.startsWith('coop_')))) {
+               setAllRuns(p.active_run);
+           } else {
+               setAllRuns({ solo: p.active_run });
+           }
+        }
         if (p.meta_stats !== undefined) setMetaStats(p.meta_stats || {});
 
         localStorage.setItem('aoc_credits', (p.credits || 500).toString());
         localStorage.setItem('aoc_inventory', JSON.stringify(p.inventory || []));
         localStorage.setItem('aoc_decks', JSON.stringify(p.decks || []));
         localStorage.setItem('aoc_avatar', JSON.stringify(p.avatar_card || null));
-        localStorage.setItem('aoc_run', JSON.stringify(p.active_run || null));
+        localStorage.setItem('aoc_all_runs', JSON.stringify(p.active_run ? (p.active_run.solo !== undefined ? p.active_run : { solo: p.active_run }) : { solo: null }));
         localStorage.setItem('aoc_meta_stats', JSON.stringify(p.meta_stats || {}));
         
       } else {
@@ -504,13 +544,13 @@ const [incomingInvite, setIncomingInvite] = useState(null); // NEU: Speichert Li
         inventory, 
         decks, 
         avatar_card: avatarCard, 
-        active_run: roguelikeRun,
+        active_run: allRuns,
         meta_stats: syncedMeta
       });
     }, 1500);
 
     return () => clearTimeout(t);
-  }, [credits, inventory, decks, avatarCard, roguelikeRun, metaStats, guestMode, session]);
+  }, [credits, inventory, decks, avatarCard, allRuns, metaStats, guestMode, session]);
 
   // NEU: Manueller Claim-Handler für System Overrides
   const claimOverride = (ach, e) => {
@@ -543,7 +583,6 @@ const [incomingInvite, setIncomingInvite] = useState(null); // NEU: Speichert Li
   useEffect(() => {
     const handler = () => {
       setRoguelikeRun(null);
-      saveToCloud({ active_run: null });
       setCurrentView('ghostnodemenu');
     };
     window.addEventListener('abortRun', handler);
@@ -691,7 +730,8 @@ const [incomingInvite, setIncomingInvite] = useState(null); // NEU: Speichert Li
         let clientChars = [{ ...clientSquadReady.avatarCard }, ...clientSquadReady.chars];
         if (assignedToClient) clientChars.push(assignedToClient);
 
-        const baseRunInfo = { currentHP: 500, maxHP: 500, sector: 1, node: 1, seed: Math.random(), isCoop: true };
+        // FIX: Im Co-Op können BEIDE Partner pro Runde Schaden einstecken → doppelte HP-Leiste
+        const baseRunInfo = { currentHP: 1000, maxHP: 1000, sector: 1, node: 1, seed: Math.random(), isCoop: true };
         
         const hostRun = { ...baseRunInfo, runDeck: { chars: hostChars, effs: selectedEffs } };
         const clientRun = { ...baseRunInfo, runDeck: { chars: clientChars, effs: clientSquadReady.effs } };
@@ -788,7 +828,6 @@ const [incomingInvite, setIncomingInvite] = useState(null); // NEU: Speichert Li
     if (!isWin || isAbort) {
       setRoguelikeMatchData(null);
       setRoguelikeRun(null);
-      saveToCloud({ active_run: null });
       setCurrentView('roguelikefailed');
       return;
     }
@@ -887,8 +926,17 @@ const [incomingInvite, setIncomingInvite] = useState(null); // NEU: Speichert Li
     });
   };
 
-  const applyRoguelikeDraft = (newCard, replaceIndex, replaceIn, isUpgrade = false) => {
+  const applyRoguelikeDraft = (newCard, replaceIndex, replaceIn, isUpgrade = false, sendToPartner = false) => {
     if (!roguelikeRun) return;
+
+    // PARTNER TRANSFER: Karte schicken statt ins eigene Deck aufnehmen
+    if (sendToPartner && conn && isCoopMode) {
+      conn.send({ type: 'TEAM_DRAFT_TRANSFER', card: newCard });
+      playSound('upgrade');
+      setRewardData(null);
+      setCurrentView('roguelikemap');
+      return;
+    }
     
     const deck = { chars: [...roguelikeRun.runDeck.chars], effs: [...roguelikeRun.runDeck.effs] };
 
@@ -923,6 +971,74 @@ const [incomingInvite, setIncomingInvite] = useState(null); // NEU: Speichert Li
     setCurrentView('roguelikemap');
   };
 
+  const handleMidMatchTrade = (receivedCard, givenCard) => {
+      if (!roguelikeRun) return;
+      
+      const deck = { chars: [...roguelikeRun.runDeck.chars], effs: [...roguelikeRun.runDeck.effs] };
+      const isEff = receivedCard.type === 'effect' || receivedCard.buff !== undefined;
+      const givenIsEff = givenCard.type === 'effect' || givenCard.buff !== undefined;
+
+      // 1. Gegebene Karte aus dem permanenten RunDeck entfernen
+      if (givenIsEff) {
+          const idx = deck.effs.findIndex(c => c.name === givenCard.name);
+          if (idx > -1) deck.effs.splice(idx, 1);
+      } else {
+          const idx = deck.chars.findIndex(c => c.name === givenCard.name);
+          if (idx > -1) deck.chars.splice(idx, 1);
+      }
+
+      // 2. Erhaltene Karte einfügen oder hochleveln
+      if (isEff) {
+          const existing = deck.effs.find(c => c.name === receivedCard.name);
+          if (existing) existing.level = (existing.level || 1) + 1;
+          else deck.effs.push({ ...receivedCard, level: receivedCard.level || 1 });
+      } else {
+          const existing = deck.chars.find(c => c.name === receivedCard.name);
+          if (existing) existing.level = (existing.level || 1) + 1;
+          else deck.chars.push({ ...receivedCard, level: receivedCard.level || 1 });
+      }
+
+      // Zustand synchronisieren (wird nach dem Match automatisch in der Cloud gespeichert)
+      setRoguelikeRun({ ...roguelikeRun, runDeck: deck });
+  };
+
+  // NEU: Bulletproof Background Receiver (Stört keine aktiven Menüs!)
+  const handleBackgroundCardReceive = (card) => {
+    playSound('upgrade');
+    setRoguelikeRun(prev => {
+      if (!prev) return prev;
+      const deck = { chars: [...prev.runDeck.chars], effs: [...prev.runDeck.effs] };
+      const isEffCard = card.type === 'effect' || card.buff !== undefined;
+      
+      if (isEffCard) {
+          const existing = deck.effs.find(c => c.name === card.name);
+          if (existing) {
+              existing.level = (existing.level || 1) + 1; // Upgrade!
+          } else if (deck.effs.length > 0) {
+              // Schwächsten Effekt ersetzen
+              const replaceIdx = deck.effs.reduce((minI, c, i) => (c.gti || 0) < (deck.effs[minI]?.gti || 0) ? i : minI, 0);
+              deck.effs.splice(replaceIdx, 1);
+              deck.effs.push({ ...card, level: 1 });
+          } else {
+              deck.effs.push({ ...card, level: 1 });
+          }
+      } else {
+          const existing = deck.chars.find(c => c.name === card.name);
+          if (existing) {
+              existing.level = (existing.level || 1) + 1; // Upgrade!
+          } else if (deck.chars.length > 1) { // 0 ist der unantastbare Avatar!
+              const charsOnly = deck.chars.slice(1);
+              const lowestLocal = charsOnly.reduce((minI, c, i) => (c.gti || 0) < (charsOnly[minI]?.gti || 0) ? i : minI, 0);
+              deck.chars.splice(lowestLocal + 1, 1);
+              deck.chars.push({ ...card, level: 1 });
+          } else {
+              deck.chars.push({ ...card, level: 1 });
+          }
+      }
+      return { ...prev, runDeck: deck };
+    });
+  };
+
   const disconnectPeer = () => {
     if (conn) conn.close();
     if (peer) peer.destroy();
@@ -934,7 +1050,9 @@ const [incomingInvite, setIncomingInvite] = useState(null); // NEU: Speichert Li
     setMyOnlineDeck(null);
     setRemoteDeck(null);
     setCoopAIDecks(null);
-    setPendingOutgoingInvite(null); // Passive Hosting: immer mitresettten
+    setClientSquadReady(null); // FIX: Verhindert "Warte auf Host" Bug im nächsten Run
+    setMySquadReady(false);    // FIX: Verhindert "Warte auf Host" Bug im nächsten Run
+    setPendingOutgoingInvite(null); 
   };
 
   const navTo = (view) => {
@@ -1024,11 +1142,11 @@ const [incomingInvite, setIncomingInvite] = useState(null); // NEU: Speichert Li
         } else if (data.type === 'SYNC_RUN_STATE') {
             setRoguelikeRun(data.run);
         } else if (data.type === 'SYNC_RUN_PARAMS') {
-            setRoguelikeRun(prev => prev ? { ...prev, currentHP: data.hp, sector: data.sector, node: data.node, seed: data.seed } : null);
+            setRoguelikeRun(prev => prev ? { ...prev, currentHP: data.hp, sector: data.sector, node: data.node, seed: data.seed } : prev);
         } else if (data.type === 'NAV_TO') {
             setCurrentView(data.view);
-        } else if (data.type === 'TEAM_DRAFT_RECEIVE') {
-            applyRoguelikeDraft(data.card, null, null, false, true); 
+        } else if (data.type === 'TEAM_DRAFT_TRANSFER' || data.type === 'TEAM_DRAFT_RECEIVE') {
+            handleBackgroundCardReceive(data.card);
         } else if (data.type === 'CLIENT_SQUAD_READY') {
             setClientSquadReady(data.payload);
         }
@@ -1080,7 +1198,7 @@ const [incomingInvite, setIncomingInvite] = useState(null); // NEU: Speichert Li
           setRoguelikeRun(data.run);
       } else if (data.type === 'SYNC_RUN_PARAMS') {
           // FIX: Nur Map-Werte updaten, das Deck in Ruhe lassen!
-          setRoguelikeRun(prev => prev ? { ...prev, currentHP: data.hp, sector: data.sector, node: data.node, seed: data.seed } : null);
+          setRoguelikeRun(prev => prev ? { ...prev, currentHP: data.hp, sector: data.sector, node: data.node, seed: data.seed } : prev);
       } else if (data.type === 'NAV_TO') {
           setCurrentView(data.view);
       } else if (data.type === 'TEAM_DRAFT_RECEIVE') {
@@ -1193,15 +1311,40 @@ const [incomingInvite, setIncomingInvite] = useState(null); // NEU: Speichert Li
   // ════════════════════════════════════════════════════════════════════════════
 
   const renderRoguelikeView = () => {
-    if (currentView === 'ghostnodemenu') return <GhostNodeMenu avatarCard={avatarCard} updateAvatar={updateAvatar} roguelikeRun={roguelikeRun} onGoToLab={() => setCurrentView('avatarlab')} onGoToSquad={() => setCurrentView('roguelikesquad')} onGoToMap={() => setCurrentView('roguelikemap')} onBack={() => setCurrentView('menu')} />;
-    if (currentView === 'avatarlab') return <AvatarLab avatarCard={avatarCard} updateAvatar={updateAvatar} onBack={() => setCurrentView('ghostnodemenu')} onGoToMission={() => { if (roguelikeRun) setCurrentView('roguelikemap'); else setCurrentView('roguelikesquad'); }} allFactions={allFactions} />;
-    if (currentView === 'roguelikesquad') return <RoguelikeSquad avatarCard={avatarCard} inventory={inventory} onConfirm={startRoguelikeRunWithDeck} onBack={() => setCurrentView('ghostnodemenu')} isCoop={isCoopMode} isHost={lobbyMode === 'host'} partnerReady={!!clientSquadReady} mySquadReady={mySquadReady} />;
+    if (currentView === 'ghostnodemenu') return (
+      <div style={{ zoom: 1.5, width: '100%', height: '100%' }}>
+        <GhostNodeMenu 
+          avatarCard={avatarCard} 
+          updateAvatar={updateAvatar} 
+          roguelikeRun={roguelikeRun} 
+          allRuns={allRuns}
+          onGoToLab={() => setCurrentView('avatarlab')} 
+          onGoToSquad={() => setCurrentView('roguelikesquad')} 
+          onGoToMap={() => setCurrentView('roguelikemap')} 
+          onBack={() => setCurrentView('menu')} 
+          friends={friends} 
+          onInviteDirect={(targetId) => startHosting('coop', targetId)} 
+          onDeleteCoop={(targetId) => {
+             if(window.confirm('Diesen Co-Op Run wirklich löschen? Beide Spieler starten beim nächsten Mal wieder von vorne!')) {
+                 playSound('click');
+                 setAllRuns(prev => {
+                    const next = {...prev};
+                    delete next['coop_' + targetId];
+                    return next;
+                 });
+             }
+          }}
+        />
+      </div>
+    );
+    if (currentView === 'avatarlab') return <div style={{ zoom: 1.5, width: '100%', height: '100%' }}><AvatarLab avatarCard={avatarCard} updateAvatar={updateAvatar} onBack={() => setCurrentView('ghostnodemenu')} onGoToMission={() => { if (roguelikeRun) setCurrentView('roguelikemap'); else setCurrentView('roguelikesquad'); }} allFactions={allFactions} /></div>;
+    if (currentView === 'roguelikesquad') return <div style={{ zoom: 1.5, width: '100%', height: '100%' }}><RoguelikeSquad avatarCard={avatarCard} inventory={inventory} onConfirm={startRoguelikeRunWithDeck} onBack={() => setCurrentView('ghostnodemenu')} isCoop={isCoopMode} isHost={lobbyMode === 'host'} partnerReady={!!clientSquadReady} mySquadReady={mySquadReady} /></div>;
     if (currentView === 'roguelikemap') {
       if (!roguelikeRun) return <div className="screen active" style={{ justifyContent: 'center', alignItems: 'center' }}><div className="mono" style={{ color: 'var(--ep)', fontSize: '1.2rem', animation: 'pulse 1s infinite' }}>INITIALISIERE THE GRID...</div></div>;
       return <RoguelikeMap avatarCard={avatarCard} roguelikeRun={roguelikeRun} onStartRun={startRoguelikeRun} onStartBattle={startRoguelikeMatch} onStartEvent={startRoguelikeEvent} onBack={() => setCurrentView('ghostnodemenu')} onGoToLab={() => setCurrentView('avatarlab')} isCoop={isCoopMode} conn={conn} isHost={lobbyMode === 'host'} />;
     }
-    if (currentView === 'roguelikeevent' && roguelikeEventData) return <RoguelikeEventScreen nodeObj={roguelikeEventData} roguelikeRun={roguelikeRun} avatarCard={avatarCard} cardsData={cardsData} onComplete={(nextRun, nextAvatar) => { playSound('click'); setRoguelikeRun(nextRun); setAvatarCard(nextAvatar); saveToCloud({ active_run: nextRun, avatar_card: nextAvatar }); setRoguelikeEventData(null); setCurrentView('roguelikemap'); }} />;
-    if (currentView === 'roguelikereward') return <RoguelikeReward rewardData={rewardData} roguelikeRun={roguelikeRun} onApplyDraft={applyRoguelikeDraft} onSkip={() => { setRewardData(null); setCurrentView('roguelikemap'); }} />;
+    if (currentView === 'roguelikeevent' && roguelikeEventData) return <RoguelikeEventScreen nodeObj={roguelikeEventData} roguelikeRun={roguelikeRun} avatarCard={avatarCard} cardsData={cardsData} onComplete={(nextRun, nextAvatar) => { playSound('click'); setRoguelikeRun(nextRun); setAvatarCard(nextAvatar); setRoguelikeEventData(null); setCurrentView('roguelikemap'); }} />;
+    if (currentView === 'roguelikereward') return <RoguelikeReward rewardData={rewardData} roguelikeRun={roguelikeRun} onApplyDraft={applyRoguelikeDraft} onSkip={() => { setRewardData(null); setCurrentView('roguelikemap'); }} isCoop={isCoopMode} />;
     if (currentView === 'roguelikefailed') return <div className="screen active" style={{ justifyContent: 'center', alignItems: 'center' }}><div className="glass-panel" style={{ width: '100%', maxWidth: '520px', padding: '50px 40px', textAlign: 'center', borderColor: 'var(--lose)' }}><div style={{ fontSize: '3rem', marginBottom: '16px' }}>💀</div><div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: '2.5rem', fontWeight: 900, letterSpacing: '6px', color: 'var(--lose)', textShadow: '0 0 30px rgba(255,0,50,0.5)', marginBottom: '8px' }}>RUN FAILED</div><div className="mono" style={{ color: '#ff6680', fontSize: '0.72rem', letterSpacing: '3px', marginBottom: '26px' }}>AGENT KOMPROMITTIERT — SYSTEM COLLAPSED</div><div style={{ padding: '14px', background: 'rgba(255,0,50,0.05)', border: '1px solid rgba(255,0,50,0.15)', borderLeft: '3px solid var(--lose)', marginBottom: '26px' }}><div className="mono" style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.35)', letterSpacing: '2px' }}>AVATAR-KARTE BLEIBT ERHALTEN — UPGRADES PERSISTENT</div>{avatarCard && <div className="mono" style={{ color: 'var(--ep)', marginTop: '6px', fontWeight: 700 }}>{avatarCard.name} // SP: {avatarCard.sp ?? 0}</div>}</div><button className="menu-btn btn-play modern-btn" onClick={() => setCurrentView('ghostnodemenu')}>ZURÜCK ZUM HUB</button></div></div>;
     return null;
   };
@@ -1296,35 +1439,58 @@ const [incomingInvite, setIncomingInvite] = useState(null); // NEU: Speichert Li
 
       {showGlobalRules && (
         <div className="glass-overlay" style={{ zIndex: 999999, pointerEvents: 'auto' }}>
-          <div className="rules-box">
-            <div className="rules-header">OFFIZIELLE REGELN</div>
+          <div className="rules-box" style={{ maxWidth: '800px' }}>
+            <div className="rules-header">PROTOKOLL: KAMPF-LOGIK V2.0</div>
             <div className="rules-content">
+              
               <div className="rules-section">
-                <h3>GRUNDLAGEN</h3>
-                <ul>
-                  <li>Dein Deck besteht aus 12 Charakter- und 3 Taktikkarten.</li>
-                  <li>In jeder Runde ziehen beide Spieler 4 Charaktere und 1 Taktik.</li>
-                  <li>Als Angreifer wählst du eine Stat-Kategorie (z.B. <i>Tech-Hebel</i>). Dein Wert wird mit dem des Gegners verglichen.</li>
-                  <li>Der Verlierer der Runde kassiert Schaden gleich der Differenz der Werte.</li>
-                </ul>
+                <h3>SCHADENS-MATRIX (MULTIPLIKATOREN)</h3>
+                <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px', fontSize: '0.8rem', textAlign: 'center' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid #444', color: 'var(--ep)' }}>
+                      <th style={{ padding: '10px' }}>ANGRIFF</th>
+                      <th style={{ padding: '10px' }}>vs. BLOCKEN</th>
+                      <th style={{ padding: '10px' }}>vs. KONTER (Sieg)</th>
+                      <th style={{ padding: '10px' }}>vs. KONTER (Loss)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="mono">
+                    <tr style={{ borderBottom: '1px solid #222' }}>
+                      <td style={{ padding: '10px', color: 'var(--win)' }}>STANDARD</td>
+                      <td style={{ padding: '10px' }}>Diff x 1.5</td>
+                      <td style={{ padding: '10px' }}>Diff x 1.5</td>
+                      <td style={{ padding: '10px', color: 'var(--lose)' }}>Recoil x 2.0</td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: '10px', color: 'var(--lose)' }}>ALL-IN</td>
+                      <td style={{ padding: '10px' }}>Diff x 3.0</td>
+                      <td style={{ padding: '10px' }}>Diff x 4.0</td>
+                      <td style={{ padding: '10px', color: 'var(--lose)', fontWeight: 'bold' }}>Recoil x 5.0</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
-              <div className="rules-section">
-                <h3>TAKTIKKARTEN & SYNERGIEN</h3>
-                <ul>
-                  <li>Taktikkarten geben einmalige Buffs auf bestimmte Stats in der aktiven Runde.</li>
-                  <li>Hat eine Taktikkarte ein <b>Synergie-Ziel</b> und du spielst sie zusammen mit genau diesem Charakter, gibt es mächtige Synergie-Boni!</li>
-                </ul>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '20px' }}>
+                <div className="rules-section">
+                  <h3 style={{ color: '#bc13fe' }}>ERHOLEN (+2⚡)</h3>
+                  <p className="mono" style={{ fontSize: '0.65rem', lineHeight: '1.4' }}>
+                    ▸ vs STANDARD: Gegner-Stat x 1.5 Schaden.<br/>
+                    ▸ vs KONTER: 0 Schaden & Energie-Refund für Partner.
+                  </p>
+                </div>
+                <div className="rules-section">
+                  <h3 style={{ color: 'var(--win)' }}>CO-OP TRANSFER</h3>
+                  <p className="mono" style={{ fontSize: '0.65rem', lineHeight: '1.4' }}>
+                    ▸ Tausch hat 5 Runden Cooldown.<br/>
+                    ▸ Getauschte Karten werden auf Level 1 gesetzt.
+                  </p>
+                </div>
               </div>
-              <div className="rules-section">
-                <h3>KRISEN EVENTS</h3>
-                <ul>
-                  <li>Durch Angriffe mit der Kategorie <i>Systemrisiko</i> füllt sich die globale Krisenleiste.</li>
-                  <li>Erreicht sie 100%, bricht eine zufällige Systemkrise aus, die das Board modifiziert (z.B. werden Finanzwerte auf 0 gesetzt).</li>
-                </ul>
-              </div>
+
             </div>
-            <button className="menu-btn" style={{ borderColor: 'var(--lose)', color: 'var(--lose)', marginTop: '30px' }} onClick={() => setShowGlobalRules(false)}>
-              SCHLIESSEN
+            <button className="menu-btn" style={{ borderColor: 'var(--lose)', color: 'var(--lose)', marginTop: '20px' }} onClick={() => setShowGlobalRules(false)}>
+              SYSTEM-EXIT
             </button>
           </div>
         </div>
@@ -1354,6 +1520,7 @@ const [incomingInvite, setIncomingInvite] = useState(null); // NEU: Speichert Li
             initialAHP={roguelikeMatchData.initialAHP}
             onEndGame={handleRoguelikeEndGame}
             onShowRules={() => { playSound('click'); setShowGlobalRules(true); }}
+            onTrade={handleMidMatchTrade} // NEU: RunDeck bei Tausch anpassen
           />
         ) : (
           /* ── MULTIPLAYER & SOLO MATCH ENGINE ─── */
@@ -1412,7 +1579,7 @@ const [incomingInvite, setIncomingInvite] = useState(null); // NEU: Speichert Li
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                     <div className="mono" style={{ color: '#888', marginBottom: '-10px' }}>HOST OPTIONS</div>
                     <button className="menu-btn btn-primary" onClick={() => startHosting('pvp')}>1v1 PVP DUELL HOSTEN</button>
-                    <button className="menu-btn" style={{ borderColor: 'var(--apex-pink)', color: 'var(--apex-pink)' }} onClick={() => startHosting('coop')}>CO-OP MISSION HOSTEN</button>
+                    
                     <div className="mono" style={{ color: '#888', marginTop: '10px', marginBottom: '-10px' }}>JOIN OPTIONS</div>
                     <button className="menu-btn" style={{ borderColor: 'var(--win)', color: 'var(--win)' }} onClick={startJoining}>ALS CLIENT BEITRETEN</button>
                   </div>
@@ -1492,7 +1659,7 @@ const [incomingInvite, setIncomingInvite] = useState(null); // NEU: Speichert Li
       )}
 
       {currentView === 'missions' && (
-        <div className="screen active" style={{ justifyContent: 'center', alignItems: 'center' }}>
+        <div className="screen active" style={{ justifyContent: 'center', alignItems: 'center', zoom: 1.5 }}>
           <div className="game-title-small" style={{ fontSize: '2rem', marginBottom: '30px' }}>AKTUELLE MISSIONEN</div>
           <div className="glass-panel" style={{ width: '100%', maxWidth: '500px', padding: '30px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '30px' }}>
@@ -1551,7 +1718,9 @@ const [incomingInvite, setIncomingInvite] = useState(null); // NEU: Speichert Li
         </div>
       )}
       {currentView === 'leaderboard' && (
-        <Leaderboard onBack={() => setCurrentView('menu')} />
+        <div style={{ zoom: 1.5, width: '100%', height: '100%' }}>
+           <Leaderboard onBack={() => setCurrentView('menu')} />
+        </div>
       )}
       {currentView === 'lexicon' && (
         <div className="screen active lex-screen" style={{ display: 'block', padding: '0 30px 30px 30px' }}>
@@ -1640,7 +1809,7 @@ const [incomingInvite, setIncomingInvite] = useState(null); // NEU: Speichert Li
         <div className="screen active" style={{ justifyContent: 'center', alignItems: 'center', position: 'relative', padding: '20px' }}>
           
           {/* Top Bar (Credits & Logout) bleibt erhalten */}
-          <div style={{ position: 'absolute', top: '20px', right: '30px', display: 'flex', gap: '15px', alignItems: 'center', zIndex: 100 }}>
+          <div style={{ position: 'absolute', top: '20px', right: '30px', display: 'flex', gap: '15px', alignItems: 'center', zIndex: 100, zoom: 1.5 }}>
              <div className="mono" style={{ fontSize: '1.2rem', color: '#fff', marginRight: '10px', textShadow: '0 0 10px var(--ep)' }}><span style={{color: 'var(--ep)'}}>{credits}</span> 💳</div>
              {session ? (
                <button className="btn-back" style={{borderColor:'var(--win)',color:'var(--win)'}} onClick={handleLogout}>
@@ -1652,7 +1821,7 @@ const [incomingInvite, setIncomingInvite] = useState(null); // NEU: Speichert Li
           </div>
 
           {/* NEUES DASHBOARD LAYOUT */}
-          <div className="dash-container">
+          <div className="dash-container" style={{ zoom: 1.5 }}>
             
             {/* LINKE SEITE: Core Actions & Titel */}
             <div className="dash-left">
@@ -1666,26 +1835,31 @@ const [incomingInvite, setIncomingInvite] = useState(null); // NEU: Speichert Li
                     <span className="hero-text">▶ MISSION STARTEN</span>
                   </button>
 
-                  <button className="dash-btn-hero ghost-node-btn" onClick={() => { playSound('click'); setCurrentView('ghostnodemenu'); }}>
+                  <button className="dash-btn-hero ghost-node-btn" onClick={() => { playSound('click'); setRunContext('solo'); setCurrentView('ghostnodemenu'); }}>
                     <span className="hero-bg"></span>
                     <span className="hero-text">⬡ OPERATION: GHOST NODE</span>
                     <div className="ghost-tags">
                       <span className="mono" style={{ opacity: 0.7 }}>[ROGUELIKE]</span>
                       {!avatarCard && <span className="mono tag-new">NEU</span>}
-                      {roguelikeRun && <span className="mono tag-active">AKTIV</span>}
+                      {allRuns.solo && <span className="mono tag-active">AKTIV</span>}
                     </div>
                   </button>
                 </div>
               ) : (
                 <div className="dash-play-menu">
                   <div className="mono" style={{ color: 'var(--win)', letterSpacing: '3px', marginBottom: '15px' }}>▸ MODUS WÄHLEN</div>
-                  <button className="dash-btn-module" style={{ borderColor: 'var(--win)', color: 'var(--win)' }} onClick={startMatchFlow}>
-                    GEGEN KI SPIELEN
+                  
+                  <button className="dash-btn-hero" style={{ borderColor: 'var(--win)', '--theme': 'var(--win)' }} onClick={startMatchFlow}>
+                    <span className="hero-bg"></span>
+                    <span className="hero-text" style={{ color: 'var(--win)' }}>▶ GEGEN KI SPIELEN</span>
                   </button>
-                  <button className="dash-btn-module" style={{ borderColor: 'var(--ep)', color: 'var(--ep)' }} onClick={() => setCurrentView('multiplayer')}>
-                     ONLINE MULTIPLAYER <span style={{fontSize: '0.7rem', opacity: 0.7}}>(BETA)</span>
+                  
+                  <button className="dash-btn-hero" style={{ borderColor: 'var(--ep)', '--theme': 'var(--ep)' }} onClick={() => setCurrentView('multiplayer')}>
+                    <span className="hero-bg"></span>
+                    <span className="hero-text" style={{ color: 'var(--ep)' }}>📡 MULTIPLAYER (BETA)</span>
                   </button>
-                  <button className="dash-btn-module" style={{ borderColor: '#444', color: '#888', marginTop: '20px' }} onClick={() => { playSound('click'); setPlayMenuOpen(false); }}>
+                  
+                  <button className="dash-btn-module" style={{ borderColor: '#444', color: '#888', marginTop: '10px' }} onClick={() => { playSound('click'); setPlayMenuOpen(false); }}>
                     ← ABBRECHEN
                   </button>
                 </div>
@@ -1702,7 +1876,8 @@ const [incomingInvite, setIncomingInvite] = useState(null); // NEU: Speichert Li
                
                <button className="dash-btn-module" onClick={() => { setPlayMenuOpen(false); setCurrentView('market'); }}>
                   <div className="mod-icon">🛒</div>
-                  <div className="mod-text">SCHWARZMARKT</div>
+                  <div className="mod-text">SHOP</div>
+                  {rewardPacks && rewardPacks.length > 0 && <div className="notif-dot" style={{ background: '#bc13fe', boxShadow: '0 0 10px #bc13fe' }}></div>}
                </button>
                
                <button className="dash-btn-module" onClick={() => { setPlayMenuOpen(false); setCurrentView('missions'); }}>
@@ -1752,7 +1927,9 @@ const [incomingInvite, setIncomingInvite] = useState(null); // NEU: Speichert Li
 
       {/* SYSTEM OVERRIDES SCREEN */}
       {currentView === 'overrides' && (
-         <SystemOverrides metaStats={metaStats} onBack={() => setCurrentView('menu')} onClaim={claimOverride} />
+         <div style={{ zoom: 1.5, width: '100%', height: '100%' }}>
+            <SystemOverrides metaStats={metaStats} onBack={() => setCurrentView('menu')} onClaim={claimOverride} />
+         </div>
       )}
 
       {/* GHOST NETWORK SCREEN (Mit verkabeltem Invite-Prop) */}
@@ -1827,6 +2004,7 @@ const [incomingInvite, setIncomingInvite] = useState(null); // NEU: Speichert Li
                           await supabase.from('game_invites').update({ status: 'accepted' }).eq('id', inv.id);
                           
                           // Automatischer Join-Prozess
+                          if (inv.mode === 'coop') setRunContext('coop_' + inv.sender_id);
                           setIsCoopMode(inv.mode === 'coop');
                           setLobbyMode('join');
                           setRemotePeerId(inv.peer_id);
@@ -1861,11 +2039,11 @@ const [incomingInvite, setIncomingInvite] = useState(null); // NEU: Speichert Li
                                   } else if (data.type === 'SYNC_RUN_STATE') {
                                       setRoguelikeRun(data.run);
                                   } else if (data.type === 'SYNC_RUN_PARAMS') {
-                                      setRoguelikeRun(prev => prev ? { ...prev, currentHP: data.hp, sector: data.sector, node: data.node, seed: data.seed } : null);
+                                      setRoguelikeRun(prev => prev ? { ...prev, currentHP: data.hp, sector: data.sector, node: data.node, seed: data.seed } : prev);
                                   } else if (data.type === 'NAV_TO') {
                                       setCurrentView(data.view);
-                                  } else if (data.type === 'TEAM_DRAFT_RECEIVE') {
-                                      applyRoguelikeDraft(data.card, null, null, false, true);
+                                  } else if (data.type === 'TEAM_DRAFT_TRANSFER' || data.type === 'TEAM_DRAFT_RECEIVE') {
+                                      handleBackgroundCardReceive(data.card);
                                   } else if (data.type === 'CLIENT_SQUAD_READY') {
                                       setClientSquadReady(data.payload);
                                   }

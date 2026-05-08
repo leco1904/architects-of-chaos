@@ -18,6 +18,7 @@ export default function Market({
   const [pulledCards, setPulledCards] = useState([]);
   const [showFlash, setShowFlash] = useState(false);
   const [showOdds, setShowOdds] = useState(false); // NEU: State für das Modal
+  const [openingTier, setOpeningTier] = useState('standard'); // NEU: Animations-Stufe
 
   const packs = [
     { id: 'basic', name: 'BASIC DATACACHE', cost: 250, icon: '💾', num: 3, desc: 'Enthält 3 Karten. Standard-Dropraten. Gut für den Start.' },
@@ -57,28 +58,32 @@ export default function Market({
     return { ...randomCard, id: Date.now() + Math.random(), isNew: true, level: 1 };
   };
 
-  // ─── ÖFFNUNGS-LOGIK (Fix für Endlos-Packs) ───
+  // ─── ÖFFNUNGS-LOGIK (Mit Tier-Check) ───
   const processOpening = (newCards, rewardId = null) => {
+    // Check, ob etwas extrem Seltenes drin ist
+    const isHighTier = newCards.some(c => ['apex', 'legacy', 'anomaly'].includes(c.type) || (c.gti && c.gti >= 90));
+    setOpeningTier(isHighTier ? 'high' : 'standard');
     setIsOpening(true);
-    playSound('decrypt');
+    
+    // Bei High Tier direkt Warn-Sound mit reinmischen
+    if (isHighTier) { playSound('crisis'); playSound('decrypt'); }
+    else { playSound('decrypt'); }
 
     setTimeout(() => {
       setShowFlash(true);
+      if (isHighTier) playSound('heavy_impact'); // Extra Wumms
       playSound('reveal');
       
-      // 1. Karten sicher ins Inventar schieben
       setPulledCards(newCards);
       setInventory(prev => [...prev, ...newCards]);
       
-      // 2. Pack SAUBER aus dem State löschen (verhindert unendliches Öffnen)
       if (rewardId && setRewardPacks) {
         setRewardPacks(prev => prev.filter(p => p.id !== rewardId));
       }
-      
       if (onPackBought && !rewardId) onPackBought();
       
       setTimeout(() => setShowFlash(false), 800);
-    }, 2000);
+    }, 2600); // 2.6 Sekunden für die fette Animation
   };
 
   const handleBuy = (pack) => {
@@ -106,7 +111,7 @@ export default function Market({
   };
 
   return (
-    <div className="screen active" style={{ display: 'block', padding: '30px', overflowY: 'auto' }}>
+    <div className="screen active" style={{ display: 'block', padding: '30px', overflowY: 'auto', zoom: 1.5 }}>
       {/* HEADER */}
       <div className="top-bar">
         <div className="game-title-small">SCHWARZMARKT</div>
@@ -185,11 +190,78 @@ export default function Market({
 
       {/* OVERLAYS (Öffnen & Reveal) */}
       {isOpening && pulledCards.length === 0 && (
-        <div className="pack-opening-center" style={{ zIndex: 1000 }}>
-          <div className="pack-shaking">
-            <div style={{ fontSize: '5rem', animation: 'gtiPulse 0.5s infinite alternate' }}>📡</div>
-            <h2 className="mono" style={{ color: 'var(--win)', marginTop: '20px' }}>DECRYPTING...</h2>
+        <div className="pack-opening-center" style={{ zIndex: 1000, background: 'rgba(0,0,0,0.95)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          
+          <div className={`terminal-window ${openingTier === 'high' ? 'glitch-heavy' : ''}`} style={{
+              width: '90%', maxWidth: '650px', height: '350px',
+              border: `1px solid ${openingTier === 'high' ? 'var(--lose)' : '#00ff44'}`,
+              backgroundColor: 'rgba(5, 5, 8, 0.95)',
+              padding: '30px', fontFamily: "'Roboto Mono', monospace",
+              display: 'flex', flexDirection: 'column',
+              boxShadow: `inset 0 0 30px ${openingTier === 'high' ? 'rgba(255,0,50,0.1)' : 'rgba(0,255,68,0.05)'}, 0 0 50px ${openingTier === 'high' ? 'rgba(255,0,80,0.3)' : 'rgba(0,229,255,0.1)'}`,
+              position: 'relative', overflow: 'hidden'
+          }}>
+            {/* Scanlines im Terminal */}
+            <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.2) 2px, rgba(0,0,0,0.2) 4px)', pointerEvents: 'none' }}></div>
+            
+            <div style={{ color: openingTier === 'high' ? 'var(--lose)' : '#00ff44', borderBottom: `1px dashed ${openingTier === 'high' ? 'var(--lose)' : '#00ff44'}`, paddingBottom: '15px', marginBottom: '20px', fontSize: '1.2rem', letterSpacing: '4px', textShadow: `0 0 10px ${openingTier === 'high' ? 'var(--lose)' : '#00ff44'}` }}>
+              {openingTier === 'high' ? '⚠ SYSTEM OVERRIDE IN PROGRESS ⚠' : 'SECURE DATA EXTRACTION...'}
+            </div>
+            
+            <div style={{ color: '#00ff44', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '0.9rem', zIndex: 2 }}>
+               <div style={{ opacity: 0, animation: 'fadeInLine 0.1s forwards 0.1s' }}> Establishing root access to node cluster... [OK]</div>
+               <div style={{ opacity: 0, animation: 'fadeInLine 0.1s forwards 0.6s' }}> Bypassing ICE protocols... [SUCCESS]</div>
+               <div style={{ opacity: 0, animation: 'fadeInLine 0.1s forwards 1.0s' }}> Extracting local datastream...</div>
+
+               {openingTier === 'high' && (
+                  <>
+                    <div style={{ opacity: 0, animation: 'fadeInLine 0.1s forwards 1.4s', color: 'var(--apex-pink)', fontWeight: 'bold', marginTop: '10px' }}>
+                       KERNEL PANIC: UNAUTHORIZED ASSET DETECTED!
+                    </div>
+                    <div style={{ opacity: 0, animation: 'fadeInLine 0.1s forwards 1.9s', color: 'var(--lose)', fontSize: '1.1rem', fontWeight: 900, textShadow: '0 0 10px var(--lose)' }}>
+                       DECRYPTING CLASSIFIED PAYLOAD...
+                    </div>
+                  </>
+               )}
+               
+               {openingTier === 'standard' && (
+                  <div style={{ opacity: 0, animation: 'fadeInLine 0.1s forwards 1.6s', color: 'var(--win)', marginTop: '10px' }}>
+                     Checksums verified. Revealing assets...
+                  </div>
+               )}
+            </div>
+
+            <div style={{ marginTop: 'auto', width: '100%', height: '15px', border: `1px solid ${openingTier === 'high' ? 'var(--lose)' : '#00ff44'}`, background: '#000', zIndex: 2 }}>
+               <div style={{ height: '100%', background: openingTier === 'high' ? 'var(--lose)' : '#00ff44', animation: 'loadBar 2.5s cubic-bezier(0.1, 0.7, 1.0, 0.1) forwards', boxShadow: `0 0 15px ${openingTier === 'high' ? 'var(--lose)' : '#00ff44'}` }}></div>
+            </div>
           </div>
+
+          <style>{`
+             @keyframes fadeInLine {
+               0% { opacity: 0; transform: translateX(-10px); }
+               100% { opacity: 1; transform: translateX(0); }
+             }
+             @keyframes loadBar {
+               0% { width: 0%; }
+               15% { width: 8%; }
+               35% { width: 45%; }
+               50% { width: 55%; }
+               65% { width: 55%; }
+               85% { width: 92%; }
+               100% { width: 100%; }
+             }
+             .glitch-heavy {
+               animation: cyberGlitch 0.4s infinite 1.4s;
+             }
+             @keyframes cyberGlitch {
+               0% { transform: translate(0); }
+               20% { transform: translate(-4px, 2px); }
+               40% { transform: translate(-1px, -3px); }
+               60% { transform: translate(4px, 1px); }
+               80% { transform: translate(2px, -2px); }
+               100% { transform: translate(0); }
+             }
+          `}</style>
         </div>
       )}
 
