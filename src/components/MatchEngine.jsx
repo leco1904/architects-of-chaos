@@ -1,7 +1,7 @@
 // src/components/MatchEngine.jsx
 import React, { useState, useEffect } from 'react';
 import Card, { CAT_CONFIG, getRarityClass, getFactionBuffs } from './Card';
-import { getAIBestCategory, getSarcasticNews } from '../logic/gameLogic';
+import { getAIBestCategory, getSarcasticNews, getAIDefenseAction, getAIAttackAction } from '../logic/gameLogic';
 import { playSound } from '../logic/audio';
 
 
@@ -79,7 +79,7 @@ function DrawPile({ charCount, effCount }) {
   );
 }
 
-export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, difficulty = 1, isOnline = false, isHost = false, conn = null, onEndGame, onShowRules, initialPHP = 1000, initialAHP = 1000, isRoguelike = false, contextLabel = '' }) {
+export default function MatchEngine({ playerChars, playerEffs, partnerChars, partnerEffs, aiChars, aiEffs, difficulty = 1, isOnline = false, isCoop = false, isHost = false, conn = null, onEndGame, onShowRules, initialPHP = 1000, initialAHP = 1000, isRoguelike = false, contextLabel = '' }) {
   // Shuffle ONCE, then split — avoids duplicates across hand/deck (Bug #011)
   const _sc = React.useRef(shuffle([...playerChars])).current;
   const _se = React.useRef(shuffle([...playerEffs])).current;
@@ -95,23 +95,52 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
     turns: 0,
     energySpent: 0
   });
-  const [pEP, setPEP] = useState(10);
+  const [pEP, setPEP] = useState((isOnline && isCoop) ? 20 : 10); 
   const [aEP, setAEP] = useState(10);
   
   const [crisisRisk, setCrisisRisk] = useState(0);
   const [crisisLevel, setCrisisLevel] = useState(0);
+  const [hoveredEl, setHoveredEl] = useState(null);
+
+  // ── Tooltip-Helper ────────────────────────────────────────────────────────
+  const TT = ({ lines, position = 'top' }) => (
+    <div style={{
+      position: 'absolute',
+      ...(position === 'top'   ? { bottom: '110%', left: '50%', transform: 'translateX(-50%)' } : {}),
+      ...(position === 'right' ? { left: '110%', top: '50%', transform: 'translateY(-50%)' }   : {}),
+      ...(position === 'left'  ? { right: '110%', top: '50%', transform: 'translateY(-50%)' }  : {}),
+      background: 'rgba(10,10,15,0.95)',
+      backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+      border: '1px solid var(--win)', borderLeft: '2px solid var(--eff-col)',
+      padding: '5px 10px', borderRadius: '4px',
+      zIndex: 9999, whiteSpace: 'nowrap', pointerEvents: 'none',
+      boxShadow: '0 0 15px rgba(0,229,255,0.15)',
+    }}>
+      {lines.map((l, i) => (
+        <div key={i} className="mono" style={{ fontSize: '0.58rem', color: 'var(--win)', letterSpacing: '1px', lineHeight: 1.6 }}>{l}</div>
+      ))}
+    </div>
+  );
   const [activeCrisis, setActiveCrisis] = useState(null);
   
-  const [pTurn, setPTurn] = useState(isOnline ? isHost : true);
+  // FIX: Wenn es Co-Op ist, starten BEIDE Spieler in ihrem eigenen "Turn" gegen die KI!
+  const [pTurn, setPTurn] = useState((isOnline && !isCoop) ? isHost : true);
   
   const [pHand, setPHand] = useState(_sc.slice(0, 3));
   const [pDeck, setPDeck] = useState(_sc.slice(3));
-  const [aDeck, setADeck] = useState([...aiChars]);
+  const [aDeck, setADeck] = useState([...(aiChars || [])]);
   
   const [pEffHand, setPEffHand] = useState(_se.slice(0, 1));
   const [pEffDeck, setPEffDeck] = useState(_se.slice(1));
-  const [aEffHand, setAEffHand] = useState([...aiEffs].slice(0, 1));
-  const [aEffDeck, setAEffDeck] = useState([...aiEffs].slice(1));
+  const [aEffHand, setAEffHand] = useState([...(aiEffs || [])].slice(0, 1));
+  const [aEffDeck, setAEffDeck] = useState([...(aiEffs || [])].slice(1));
+  
+  // NEU: Partner State für den War Room (Neural Link)
+  const [partnerHand, setPartnerHand] = useState((partnerChars || []).slice(0, 3));
+  const [partnerEffHand, setPartnerEffHand] = useState((partnerEffs || []).slice(0, 1));
+  
+  // NEU: Data Cannon - Einmal pro Match nutzbar!
+  const [cannonReady, setCannonReady] = useState(true);
   
   const [activeIdx, setActiveIdx] = useState(0);
   const [activeEffObj, setActiveEffObj] = useState(null);
@@ -151,11 +180,41 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
               setRemoteActionData(data);
           } else if (data.type === 'CLASH_ACK') {
               setRemoteClashAck(data);
+          } else if (data.type === 'HAND_SYNC') {
+              setPartnerHand(data.hand);
+              setPartnerEffHand(data.effHand);
+          } else if (data.type === 'EP_SPENT') {
+              setPEP(prev => prev - data.amount);
+          } else if (data.type === 'EP_GAIN') {
+              setPEP(prev => Math.min(25, prev + data.amount));
+          } else if (data.type === 'HP_LOST') {
+              // THE LIFE LINK: Partner hat Schaden gefressen!
+              setPHP(prev => {
+                  const nextHP = Math.max(0, prev - data.amount);
+                  if (nextHP <= 0 && isCoop) {
+                      setTimeout(() => onEndGame({ isWin: false, sarcasmNews: { text: "NEURAL LINK SEVERED: Dein Partner hat das System kollabieren lassen." }, matchData: { dmgDealt: 0, turns: 0 } }), 100);
+                  }
+                  return nextHP;
+              });
+          } else if (data.type === 'TEAM_WIN') {
+              // THE LIFE LINK: Partner hat seinen KI-Boss eliminiert!
+              setTimeout(() => onEndGame({ isWin: true, sarcasmNews: { text: "CO-OP STRIKE: Dein Partner hat den gegnerischen Node gecrackt!" }, matchData: { dmgDealt: 0, turns: 0 } }), 100);
+          } else if (data.type === 'CARD_TRANSFER') {
+              // DATA CANNON: Partner hat dir eine Karte geschickt!
+              playSound('upgrade'); 
+              setPHand(prev => [...prev, data.card]); // Karte zur Hand hinzufügen
           }
       };
       conn.on('data', handleData);
       return () => conn.off('data', handleData);
-  }, [conn, pTurn, isOnline]);
+  }, [conn, pTurn, isOnline, isCoop]);
+
+  // NEU: Sende eigene Handkarten an den Partner, sobald sie sich ändern
+  useEffect(() => {
+      if (isOnline && conn) {
+          conn.send({ type: 'HAND_SYNC', hand: pHand, effHand: pEffHand });
+      }
+  }, [pHand, pEffHand, isOnline, conn]);
 
   useEffect(() => {
       if (myLockedAction && remoteActionData) {
@@ -174,8 +233,9 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
   }, [myClashConfirmed, remoteClashAck, isOnline, clashData]);
 
   useEffect(() => {
-    if (!isOnline && !pTurn && aiCard) {
-      let bestK = getAIBestCategory(aiCard, activeCrisis, difficulty, pHand);
+    // FIX: Im Co-Op Modus muss die KI ihren Zug lokal berechnen, da man gegen die KI spielt!
+    if ((!isOnline || isCoop) && !pTurn && aiCard) {
+      let bestK = getAIBestCategory(aiCard, activeCrisis, difficulty, pHand, aiChars, aEP);
       
       // NEU: KI darf ihren letzten Angriffs-Stat nicht spammen!
       if (bestK === lastAIAttackStat) {
@@ -212,12 +272,36 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
   }, [clashData, showCrisisIntro]);
   const handleStatClick = (statKey) => {
     if (!pTurn) return;
-    
-    // NEU: Verhindert, dass der gleiche Stat 2x hintereinander als Angriff genutzt wird!
     if (statKey === lastAttackStat) return; 
     
     playSound('click');
     setCurK(statKey);
+  };
+
+  // NEU: Data Cannon Abschuss-Sequenz
+  const handleSendCard = () => {
+    if (!isCoop || !conn || !cannonReady || !activeCard) return;
+    playSound('click');
+    
+    // 1. Karte aus der eigenen Hand entfernen
+    const sentCard = { ...activeCard };
+    const nextHand = [...pHand];
+    nextHand.splice(activeIdx, 1);
+    
+    // 2. Sofort eine neue Karte aus dem Deck nachziehen (falls vorhanden)
+    let currentDeck = [...pDeck];
+    if (currentDeck.length > 0) {
+       nextHand.push(currentDeck[0]);
+       currentDeck = currentDeck.slice(1);
+    }
+    
+    setPHand(nextHand);
+    setPDeck(currentDeck);
+    setActiveIdx(0);
+    setCannonReady(false); // Kanone ist jetzt leer!
+    
+    // 3. Über die Neural Bridge an Partner senden
+    conn.send({ type: 'CARD_TRANSFER', card: sentCard });
   };
 
   const handleToggleEffect = () => {
@@ -243,7 +327,7 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
   // NEU: Fraktions-Synergien prüfen (3 Karten derselben Fraktion im Basis-Deck = Buff für alle Karten dieser Fraktion)
   const getActiveFactions = (deck) => {
     const counts = {};
-    deck.forEach(c => {
+    (deck || []).forEach(c => {
        if (c && c.faction && c.type !== 'effect') counts[c.faction] = (counts[c.faction] || 0) + 1;
     });
     return Object.keys(counts).filter(f => counts[f] >= 3);
@@ -410,8 +494,8 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
           return c;
       };
 
-      // Energie-Bug Fix: Wir ziehen die festen +2 ab ohne zusätzliche Skalierungen
-      const newPEP = Math.min(15, pEP - getCost(myLockedAction.action, myLockedAction.effObj) + 2);
+      // FIX: pEP wurde bereits beim Klick abgezogen! Im Offline-Modus geben wir hier nur die +2 Regen mit.
+      const newPEP = Math.min(15, pEP + 2);
       const newAEP = Math.min(15, aEP - getCost(remoteActionData.action, remoteActionData.effObj) + 2); 
 
       setClashData({
@@ -442,14 +526,27 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
     const k = actionType === 'erholen' ? (curK || 'tech') : curK;
     if (actionType !== 'erholen' && !curK) return;
 
+    // NEU: Energie-Kosten sofort berechnen
+    const dynCost = (activeEffObj && activeEffObj.stat === k) ? activeEffObj.cost : 0;
+    const baseCost = actionType === 'std' ? 2 : actionType === 'allin' ? 8 : actionType === 'konter' ? 6 : 0;
+    const totalCost = baseCost + dynCost;
+
     if (isOnline) {
         playSound('click');
+        
+        // GLOBAL ENERGY OVERLOAD: Kosten sofort abziehen und live an Partner senden!
+        setPEP(prev => prev - totalCost);
+        conn.send({ type: 'EP_SPENT', amount: totalCost });
+
         const actData = { action: actionType, category: k, effObj: activeEffObj, card: activeCard };
         setMyLockedAction(actData);
         setWaiting(true);
         conn.send({ type: 'ACTION', ...actData });
         return;
     }
+
+    // Auch offline sofort abziehen für ein noch direkteres UI-Feedback
+    setPEP(prev => prev - totalCost);
 
     let aiActiveEffObj = null;
     if (aEffHand[0] && aEffHand[0].stat === k) {
@@ -458,9 +555,26 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
         }
     }
     
+    // NEU: Echte KI Entscheidungen basierend auf gameLogic anstatt hardcoded "std"/"block"!
+    let aiAction = 'std';
+    if (pTurn) {
+        // Player greift an, KI verteidigt (inkl. Synergien)
+        const aiDefenseVal = (aiCard[k] ?? aiCard.stats?.[k] ?? 0) + (aActiveFactions.includes(aiCard.faction) ? getFactionBuffs(aiCard.faction)[k] || 0 : 0);
+        const pAtkVal = (activeCard[k] ?? activeCard.stats?.[k] ?? 0) + (pActiveFactions.includes(activeCard.faction) ? getFactionBuffs(activeCard.faction)[k] || 0 : 0);
+        aiAction = getAIDefenseAction({ aVal: aiDefenseVal, pVal: pAtkVal, aEP: aEP, difficulty });
+    } else {
+        // KI greift an — The Architect Bait!
+        if (difficulty === 4 && activeCrisis && aEP < 6 && ((activeCrisis.id === 'HYPERINFLATION' && k === 'finance') || (activeCrisis.id === 'BLACKOUT' && k === 'tech'))) {
+            aiAction = 'erholen';
+            aiActiveEffObj = null; // Taktikkarte wird für den Bait gespart!
+        } else {
+            aiAction = getAIAttackAction({ aEP: aEP, difficulty, pEP });
+        }
+    }
+    
     setMyLockedAction({ action: actionType, category: k, effObj: activeEffObj, card: activeCard });
     setRemoteActionData({ 
-        action: pTurn ? (Math.random()>0.5?'block':'konter') : 'std', 
+        action: aiAction, 
         category: k, 
         effObj: aiActiveEffObj,
         card: aiCard 
@@ -523,18 +637,41 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
 
   const confirmClash = () => {
     playSound('click');
-    let finalPHP = clashData.newPHP;
+    
+    // FIX: Dynamische Berechnung des Schadens (NaN Bug behoben, da recoilP bereits in dmgP steckt!)
+    const myDmg = clashData.dmgP || 0; 
+    
+    // Wir nehmen die tagesaktuelle pHP, falls der Partner uns gerade Schaden reingedrückt hat
+    let finalPHP = isCoop ? Math.max(0, pHP - myDmg) : clashData.newPHP;
     let finalAHP = clashData.newAHP;
 
-    setPHP(finalPHP); setAHP(finalAHP); setPEP(clashData.newPEP); setAEP(clashData.newAEP);
+    // THE LIFE LINK: Schaden an Partner senden
+    if (isOnline && isCoop && myDmg > 0 && conn) {
+        conn.send({ type: 'HP_LOST', amount: myDmg });
+    }
+
+    setPHP(finalPHP); setAHP(finalAHP); setAEP(clashData.newAEP);
+    
+    // Team-Regeneration im Koop synchronisieren (+2 pro durchlaufener Kampfrunde)
+    if (isOnline && conn) {
+        setPEP(prev => Math.min(25, prev + 2));
+        conn.send({ type: 'EP_GAIN', amount: 2 });
+    } else {
+        setPEP(clashData.newPEP);
+    }
 
     if (finalPHP <= 0 || finalAHP <= 0) {
       const isWin = finalAHP <= 0 && finalPHP > 0;
+      
+      // THE LIFE LINK: Wenn wir den Boss getötet haben, gewinnt das Team!
+      if (isWin && isOnline && isCoop && conn) {
+          conn.send({ type: 'TEAM_WIN' });
+      }
+
       onEndGame({ 
         isWin, 
         sarcasmNews: getSarcasticNews(isWin), 
         ...(isRoguelike ? { remainingHP: finalPHP } : {}),
-        // NEU: Alle gesammelten Daten mitschicken
         matchData: {
           ...matchStats,
           finalPHP: finalPHP,
@@ -567,7 +704,8 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
   const canBlock = curK && pEP >= dynEffCost;
   const canKonter = curK && pEP >= (6 + dynEffCost);
   
-  const canDefend = !isOnline || remoteActionData !== null;
+  // FIX: Im Co-Op Modus (gegen KI) darf man SOFORT blocken, man muss nicht auf Remote-Daten warten!
+  const canDefend = (!isOnline || isCoop) ? true : (remoteActionData !== null);
 
   let localWins = false;
   let remoteWins = false;
@@ -586,8 +724,8 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
   const activeEffOnCard = pEffHand[0];
   const isSynergyAvailable = activeEffOnCard && (
     Array.isArray(activeEffOnCard.syn) 
-      ? activeEffOnCard.syn.some(name => activeCard?.name?.includes(name))
-      : activeCard?.name?.includes(activeEffOnCard.syn)
+      ? activeEffOnCard.syn.some(name => (activeCard?.name || '').includes(name))
+      : (activeCard?.name || '').includes(activeEffOnCard.syn)
   );
 
   return (
@@ -655,7 +793,7 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
       )}
 
       <div className="top-bar">
-        <div className="game-title-small">ARCHITECTS OF CHAOS {isOnline ? '[ONLINE]' : ''}</div>
+        <div className="game-title-small">ARCHITECTS OF CHAOS {isOnline ? (isCoop ? '[CO-OP]' : '[1v1 PVP]') : ''}</div>
         <div id="turn-ind" className={pTurn ? 'turn-player' : 'turn-ai'}>{pTurn ? "▶ DEIN ZUG" : "⚠ GEGNER GREIFT AN"}</div>
         <div style={{ display: 'flex', gap: '10px' }}>
           <div className="mono" style={{ alignSelf: 'center', opacity: 0.6, fontSize: '0.8rem' }}>
@@ -665,6 +803,46 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
           <button className="btn-back" onClick={handleAbort}>ABORT</button>
         </div>
       </div>
+
+      {/* FIX: War Room absolut positioniert, schützt das CSS Grid! */}
+      {isOnline && isCoop && partnerHand.length > 0 && (
+        <div className="partner-war-room" style={{ position: 'absolute', top: '70px', left: '20px', zIndex: 100, display: 'flex', flexDirection: 'column', padding: '12px', background: 'rgba(5, 5, 10, 0.85)', backdropFilter: 'blur(5px)', border: '1px solid rgba(0, 229, 255, 0.3)', borderRadius: '8px', pointerEvents: 'none', boxShadow: '0 5px 25px rgba(0,0,0,0.8)' }}>
+          <div className="mono" style={{ color: 'var(--ep)', letterSpacing: '2px', fontSize: '0.7rem', marginBottom: '10px', textShadow: '0 0 8px var(--ep)' }}>
+            [NEURAL LINK: PARTNER]
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+             {partnerHand.map((c, i) => (
+                <div key={i} style={{ position: 'relative', width: '56px', height: '80px', borderRadius: '4px', opacity: 0.9, border: `1px solid ${getRarityColor(c)}`, background: '#000', overflow: 'hidden' }}>
+                   {/* Kleines Rating/Kosten Tag wie im Inventar */}
+                   <div className="mono" style={{ position: 'absolute', top: '2px', right: '4px', fontSize: '0.55rem', color: '#fff', zIndex: 5, textShadow: '0 0 5px #000' }}>
+                     {c.gti || c.cost}
+                   </div>
+                   {/* Typ-Indikator Balken */}
+                   <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '3px', background: getRarityColor(c), zIndex: 5 }} />
+                   
+                   <div style={{ transform: 'scale(0.18)', transformOrigin: 'top left', pointerEvents: 'none', filter: 'saturate(0.6)' }}>
+                     <Card card={c} context="hand" forceArtOnly={true} />
+                   </div>
+                </div>
+             ))}
+             {partnerEffHand[0] && (
+                <>
+                  <div style={{ width: '1px', background: 'rgba(255,255,255,0.2)', margin: '0 4px' }} />
+                  <div style={{ position: 'relative', width: '56px', height: '80px', borderRadius: '4px', opacity: 0.9, border: `1px solid var(--eff-col)`, background: '#000', overflow: 'hidden' }}>
+                     <div className="mono" style={{ position: 'absolute', top: '2px', right: '4px', fontSize: '0.55rem', color: 'var(--eff-col)', zIndex: 5, textShadow: '0 0 5px #000' }}>
+                       {partnerEffHand[0].cost}⚡
+                     </div>
+                     <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '3px', background: 'var(--eff-col)', zIndex: 5 }} />
+                     
+                     <div style={{ transform: 'scale(0.18)', transformOrigin: 'top left', pointerEvents: 'none', filter: 'saturate(0.6)' }}>
+                       <Card card={partnerEffHand[0]} context="hand" forceArtOnly={true} />
+                     </div>
+                  </div>
+                </>
+             )}
+          </div>
+        </div>
+      )}
 
       <div className="cockpit-layout">
         {/* ── Draw pile — gleiche Breite wie Action-Column → zentriert Karte ── */}
@@ -677,11 +855,13 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
           <div className="hp-row">
             <div className="hp-bar-pod">
               <div className="hp-label">
-                <span>DU</span>
-                <span className="mono hp-val" style={{ color: 'var(--win)' }}>{Math.floor(pHP)}</span>
+                <span style={{ color: isCoop ? 'var(--ep)' : 'inherit', textShadow: isCoop ? '0 0 8px var(--ep)' : 'none', fontWeight: isCoop ? '900' : 'normal', letterSpacing: isCoop ? '2px' : '0' }}>
+                  {isCoop ? 'TEAM HP' : 'DU'}
+                </span>
+                <span className="mono hp-val" style={{ color: isCoop ? 'var(--ep)' : 'var(--win)' }}>{Math.floor(pHP)}</span>
               </div>
               <div className="hp-bar-bg">
-                <div className="hp-bar-fill win-bg" style={{ width: `${(pHP / initialPHP) * 100}%` }} />
+                <div className={`hp-bar-fill ${isCoop ? 'ep-bg' : 'win-bg'}`} style={{ width: `${(pHP / initialPHP) * 100}%` }} />
               </div>
             </div>
             <div className="hp-divider" />
@@ -696,22 +876,40 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
             </div>
           </div>
 
-          {/* ── Aktive Krise Banner ───────────────────────────────────── */}
+          {/* ── Aktive Krise Banner (FIX: Absolut positioniert, schiebt UI nicht mehr) ───────────────────────────────────── */}
           {activeCrisis && (
-            <div className="active-crisis-banner">
-              <span className="cr-icon">⚠</span>
-              <span className="cr-name">{activeCrisis.name}</span>
-              <span className="cr-turns mono">{activeCrisis.turnsLeft} RND</span>
+            <div style={{ position: 'relative', width: '100%', height: 0, zIndex: 50 }}>
+              <div 
+                className="active-crisis-banner"
+                style={{ position: 'absolute', top: '0', left: '50%', transform: 'translateX(-50%)', cursor: 'help', whiteSpace: 'nowrap' }}
+                onMouseEnter={() => setHoveredEl('crisis-banner')}
+                onMouseLeave={() => setHoveredEl(null)}
+              >
+                {hoveredEl === 'crisis-banner' && (
+                  <TT position="top" lines={[
+                    '⚠ SYSTEMKRISE AKTIV',
+                    activeCrisis.desc,
+                    `Dauer: Noch ${activeCrisis.turnsLeft} Runden`
+                  ]} />
+                )}
+                <span className="cr-icon">⚠</span>
+                <span className="cr-name">{activeCrisis.name}</span>
+                <span className="cr-turns mono">{activeCrisis.turnsLeft} RND</span>
+              </div>
             </div>
           )}
 
           {/* ── Arena: ⚡ links | Karte | KRISE rechts ───────────────── */}
           <div className="arena-row">
             <div className="arena-side-bars left-bars">
-              <div className="bar-pod" style={{ '--accent': 'var(--ep)' }}>
+              <div className="bar-pod" style={{ '--accent': 'var(--ep)', position: 'relative', cursor: 'help' }}
+                onMouseEnter={() => setHoveredEl('ep')}
+                onMouseLeave={() => setHoveredEl(null)}
+              >
+                {hoveredEl === 'ep' && <TT position="right" lines={['+2⚡ Basisregeneration pro Runde', `Aktuell: ${pEP} / ${isOnline ? 25 : 15}`]} />}
                 <div className="v-bar-label">⚡</div>
                 <div className="vertical-bar-container">
-                  <div className="v-bar-fill ep-bg" style={{ height: `${(pEP / 15) * 100}%` }}></div>
+                  <div className="v-bar-fill ep-bg" style={{ height: `${(pEP / (isOnline ? 25 : 15)) * 100}%` }}></div>
                 </div>
                 <div className="v-bar-val">{pEP}</div>
               </div>
@@ -735,7 +933,15 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
             </div>
 
             <div className="arena-side-bars right-bars">
-              <div className="bar-pod" style={{ '--accent': 'var(--crisis)' }}>
+              <div className="bar-pod" style={{ '--accent': 'var(--crisis)', position: 'relative', cursor: 'help' }}
+                onMouseEnter={() => setHoveredEl('crisis')}
+                onMouseLeave={() => setHoveredEl(null)}
+              >
+                {hoveredEl === 'crisis' && <TT position="left" lines={[
+                  `+${crisisLevel === 0 ? 5 : crisisLevel === 1 ? 10 : 20}% pro Runde`,
+                  `Stufe ${crisisLevel + 1} von 3`,
+                  activeCrisis ? `Aktiv: ${activeCrisis.name}` : 'Kein aktives Ereignis'
+                ]} />}
                 <div className="v-bar-label">KRISE</div>
                 <div className="vertical-bar-container">
                   <div className="v-bar-fill crisis-bg" style={{ height: `${crisisRisk}%` }}></div>
@@ -746,7 +952,19 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
           </div>
 
           {/* HANDKARTEN UNTER DER ARENA */}
-          <div className="hand-hub">
+          <div className="hand-hub" style={{ position: 'relative' }}>
+            
+            {/* NEU: DATA CANNON BUTTON */}
+            {isOnline && isCoop && cannonReady && pTurn && activeCard && (
+               <button 
+                 onClick={handleSendCard}
+                 className="menu-btn" 
+                 style={{ position: 'absolute', top: '-45px', left: '0', background: 'rgba(188,19,254,0.15)', borderColor: '#bc13fe', color: '#bc13fe', padding: '5px 15px', fontSize: '0.65rem', letterSpacing: '2px', zIndex: 50, boxShadow: '0 0 10px rgba(188,19,254,0.3)', margin: 0 }}
+               >
+                 ⇡ DATA CANNON: [{activeCard.name.toUpperCase()}] AN PARTNER SENDEN
+               </button>
+            )}
+
             <div className="hand-grid">
               {pHand.map((c, i) => {
                 const isActive = i === activeIdx;
@@ -772,7 +990,19 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
                 <div
                   className={`hand-card-wrapper ${activeEffObj ? 'active' : ''}`}
                   onClick={handleToggleEffect}
+                  style={{ position: 'relative' }}
+                  onMouseEnter={() => setHoveredEl('tactic')}
+                  onMouseLeave={() => setHoveredEl(null)}
                 >
+                  {hoveredEl === 'tactic' && (
+                    <TT position="top" lines={[
+                      `${pEffHand[0].name} — +${pEffHand[0].buff} ${pEffHand[0].stat?.toUpperCase()}`,
+                      '── Synergien ──',
+                      ...(pEffHand[0].syn
+                        ? (Array.isArray(pEffHand[0].syn) ? pEffHand[0].syn : [pEffHand[0].syn])
+                        : ['Keine Synergie'])
+                    ]} />
+                  )}
                   <div className="hand-card-inner">
                     <Card card={pEffHand[0]} context="hand" />
                   </div>
@@ -795,29 +1025,44 @@ export default function MatchEngine({ playerChars, playerEffs, aiChars, aiEffs, 
           <div className="action-container">
             {pTurn ? (
               <>
-                <button className="btn-act" onClick={() => executeAction('erholen')}>
-                  <span className="act-title">ERHOLEN</span>
-                  <span className="act-cost">+2⚡</span>
-                </button>
-                <button className="btn-act btn-primary" style={{ opacity: canStd ? 1 : 0.4 }} onClick={() => canStd && executeAction('std')}>
-                  <span className="act-title">STANDARD</span>
-                  <span className="act-cost">-{2 + dynEffCost}⚡</span>
-                </button>
-                <button className="btn-act btn-danger" style={{ opacity: canAllIn ? 1 : 0.4 }} onClick={() => canAllIn && executeAction('allin')}>
-                  <span className="act-title">ALL-IN</span>
-                  <span className="act-cost">-{8 + dynEffCost}⚡</span>
-                </button>
+                <div style={{ position: 'relative' }} onMouseEnter={() => setHoveredEl('erholen')} onMouseLeave={() => setHoveredEl(null)}>
+                  {hoveredEl === 'erholen' && <TT position="top" lines={['Regeneriere +2⚡', 'Kein Angriff — du erleidest 1.5x Schaden']} />}
+                  <button className="btn-act" onClick={() => executeAction('erholen')}>
+                    <span className="act-title">ERHOLEN</span>
+                    <span className="act-cost">+2⚡</span>
+                  </button>
+                </div>
+                <div style={{ position: 'relative' }} onMouseEnter={() => setHoveredEl('std')} onMouseLeave={() => setHoveredEl(null)}>
+                  {hoveredEl === 'std' && <TT position="top" lines={['Standardangriff auf gewählten Stat', `Kosten: ${2 + dynEffCost}⚡`]} />}
+                  <button className="btn-act btn-primary" style={{ opacity: canStd ? 1 : 0.4 }} onClick={() => canStd && executeAction('std')}>
+                    <span className="act-title">STANDARD</span>
+                    <span className="act-cost">-{2 + dynEffCost}⚡</span>
+                  </button>
+                </div>
+                <div style={{ position: 'relative' }} onMouseEnter={() => setHoveredEl('allin')} onMouseLeave={() => setHoveredEl(null)}>
+                  {hoveredEl === 'allin' && <TT position="top" lines={['Angriff mit 1.5x Schaden', `Kosten: ${8 + dynEffCost}⚡`]} />}
+                  <button className="btn-act btn-danger" style={{ opacity: canAllIn ? 1 : 0.4 }} onClick={() => canAllIn && executeAction('allin')}>
+                    <span className="act-title">ALL-IN</span>
+                    <span className="act-cost">-{8 + dynEffCost}⚡</span>
+                  </button>
+                </div>
               </>
             ) : (
               <>
-                <button className="btn-act btn-primary" style={{ opacity: canBlock && canDefend ? 1 : 0.4 }} onClick={() => canBlock && canDefend && executeAction('block')}>
-                  <span className="act-title">BLOCKEN</span>
-                  <span className="act-cost">-{dynEffCost}⚡</span>
-                </button>
-                <button className="btn-act btn-danger" style={{ opacity: canKonter && canDefend ? 1 : 0.4 }} onClick={() => canKonter && canDefend && executeAction('konter')}>
-                  <span className="act-title">KONTER</span>
-                  <span className="act-cost">-{6 + dynEffCost}⚡</span>
-                </button>
+                <div style={{ position: 'relative' }} onMouseEnter={() => setHoveredEl('block')} onMouseLeave={() => setHoveredEl(null)}>
+                  {hoveredEl === 'block' && <TT position="top" lines={['Reduziert erlittenen Schaden um 50%', `Kosten: ${dynEffCost}⚡`]} />}
+                  <button className="btn-act btn-primary" style={{ opacity: canBlock && canDefend ? 1 : 0.4 }} onClick={() => canBlock && canDefend && executeAction('block')}>
+                    <span className="act-title">BLOCKEN</span>
+                    <span className="act-cost">-{dynEffCost}⚡</span>
+                  </button>
+                </div>
+                <div style={{ position: 'relative' }} onMouseEnter={() => setHoveredEl('konter')} onMouseLeave={() => setHoveredEl(null)}>
+                  {hoveredEl === 'konter' && <TT position="top" lines={['Bei Erfolg: Schaden zurückwerfen', `Kosten: ${6 + dynEffCost}⚡`]} />}
+                  <button className="btn-act btn-danger" style={{ opacity: canKonter && canDefend ? 1 : 0.4 }} onClick={() => canKonter && canDefend && executeAction('konter')}>
+                    <span className="act-title">KONTER</span>
+                    <span className="act-cost">-{6 + dynEffCost}⚡</span>
+                  </button>
+                </div>
               </>
             )}
           </div>

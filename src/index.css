@@ -159,47 +159,46 @@ body, html {
   display: inline-block;
 }
 
-/* Das Aura-Div liegt VOR dem card-drop-shadow im DOM aber dahinter visuell,
-   weil card-drop-shadow durch seinen filter-Stacking-Context obendrüber rendert */
+/* :has() macht Parent-Wrapper overflow:visible → Glow wird nicht mehr geclipt */
+.mini-card-wrapper:has(.synergy-aura-active),
+.hand-card-wrapper:has(.synergy-aura-active) {
+  overflow: visible;
+}
+
+/* Glow-Div liegt im DOM VOR card-drop-shadow → rendert hinter der Karte */
 .synergy-aura-glow {
   position: absolute;
-  inset: -45px;
+  inset: -50px;
   z-index: 0;
   border-radius: 50%;
   pointer-events: none;
   background: radial-gradient(
-    ellipse at 50% 58%,
-    rgba(255, 205, 60, 0.52) 0%,
-    rgba(220, 155, 20, 0.28) 35%,
-    rgba(180, 100, 0, 0.10) 60%,
-    transparent 75%
+    ellipse at 50% 60%,
+    rgba(255, 210, 40, 0.85) 0%,
+    rgba(240, 160, 0,  0.50) 35%,
+    rgba(200, 100, 0,  0.18) 62%,
+    transparent 78%
   );
-  filter: blur(22px);
-  animation: goldAuraPulse 2.8s ease-in-out infinite;
+  filter: blur(20px);
 }
 
-/* Subtle border ring on the aura host when active */
+/* Dünner Gold-Ring um die Karte */
 .synergy-aura-active::after {
   content: '';
   position: absolute;
-  inset: -5px;
-  z-index: 0;
+  inset: -3px;
+  z-index: 20;
   border-radius: 10px;
-  border: 1px solid rgba(255, 200, 50, 0.22);
-  box-shadow: 0 0 18px rgba(255, 185, 30, 0.18);
+  border: 1px solid rgba(255, 200, 50, 0.55);
+  box-shadow: 0 0 14px rgba(255, 185, 30, 0.45);
   pointer-events: none;
 }
 
-@keyframes goldAuraPulse {
-  0%, 100% { opacity: 0.55; transform: scale(0.95); }
-  50%       { opacity: 1;    transform: scale(1.06); }
-}
-
-/* Stat-Highlight: jetzt gold statt cyan — passt zur Aura */
+/* Stat-Highlight gold */
 .card-stat.synergy-active-glow {
-  background: rgba(255,200,50,0.12) !important;
-  border: 1px solid rgba(255,185,30,0.55) !important;
-  box-shadow: 0 0 8px rgba(255,180,0,0.3);
+  background: rgba(255, 200, 50, 0.14) !important;
+  border: 1px solid rgba(255, 185, 30, 0.65) !important;
+  box-shadow: 0 0 10px rgba(255, 180, 0, 0.4);
 }
 .card-ui.type-effect { border: 2px solid var(--eff-col); box-shadow: inset 0 0 30px #000, inset 0 0 10px rgba(0,255,204,0.3); }
 .stat-bonus-label { color: var(--eff-col); font-size: 0.72rem; background: rgba(0,255,204,0.1); padding: 1px 4px; border-radius: 3px; }
@@ -595,7 +594,7 @@ body, html {
 /* Inventory Base */
 .inv-column { flex: 1; display: flex; flex-direction: column; padding: 25px; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; position: relative; z-index: 100;}
 .inv-column::-webkit-scrollbar { display: none; }
-.mini-card-wrapper { width: 216px; height: 302px; margin: 0 auto; position: relative; cursor: pointer; transition: 0.2s; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); border-radius: 8px; overflow: hidden; }
+.mini-card-wrapper { width: 216px; height: 302px; margin: 0 auto; position: relative; cursor: pointer; transition: 0.2s; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); border-radius: 8px; overflow: hidden; content-visibility: auto; contain-intrinsic-size: 216px 302px; contain: layout style; }
 .mini-card-wrapper:hover { transform: translateY(-5px) scale(1.05); filter: brightness(1.15); z-index: 10; }
 .mini-card-scaler { width: 360px; height: 504px; transform: scale(0.6); transform-origin: top left; position: absolute; top: 0; left: 0; pointer-events: none; z-index: 1;}
 @keyframes popIn { 0% { opacity: 0; transform: scale(0.5); } 100% { opacity: 1; transform: scale(1); } }

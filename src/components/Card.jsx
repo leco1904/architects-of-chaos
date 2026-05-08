@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, memo } from 'react';
 
 export const CAT_CONFIG = {
   tech: { name: 'Tech-Hebel', short: 'TECH' },
@@ -76,13 +76,14 @@ const getSafeImageName = (name) => {
     .replace(/[^a-z0-9]/g, ''); // Entfernt Leerzeichen, Bindestriche etc.
 };
 
-export default function Card({
+const Card = memo(function Card({
   card, context = 'deck', activeEffect = null, apexBuffs = {}, activeCrisis = null,
   curCategory = '', isPlayerTurn = true, onStatClick, isInspecting = false,
   lightGyro = false,
   highlightSynergyStat = null,
   lockedStat = null,
-  isFactionSynergyActive = false /* NEU */
+  isFactionSynergyActive = false,
+  forceArtOnly = false   /* NEU: überspringt Stats/Header im DOM komplett */
 }) {
   const wrapperRef = useRef(null);
   const cardRef    = useRef(null);
@@ -90,6 +91,7 @@ export default function Card({
   // FIX #1: renderTrigger wurde deklariert aber nie gelesen → ESLint no-unused-vars.
   // Destructure mit _ um klarzumachen dass der Wert absichtlich ignoriert wird.
   const [, setRenderTrigger] = useState(0);
+  const [hoveredStat, setHoveredStat] = useState(null);
 
   // ── Flip-Feature (nur in Lexikon & Pack-Opening) ───────────────────────────
   // 0 = Art-Only, 1 = Full Card, 2 = Rückseite
@@ -379,6 +381,8 @@ export default function Card({
             <img
               src={photoSrc}
               alt={card.name}
+              loading="lazy"
+              decoding="async"
               onError={handleImgError}
               style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 10%', filter: 'saturate(0.65) contrast(1.1) brightness(0.95)' }}
             />
@@ -398,6 +402,9 @@ export default function Card({
           {card.isLevelUp       && <div className="levelup-tag">LEVEL UP!</div>}
           {card.isMaxLevelRefund && <div className="refund-tag">MAX LVL (+{card.gti >= 90 ? 100 : 50}💳)</div>}
         </div>
+
+        {/* Alles folgende wird im art-only Modus NICHT gerendert → kein DOM, kein Rechenaufwand */}
+        {!forceArtOnly && (<>
 
         {/* GTI Rating (für Agenten) ODER Energie-Kosten (für Effekte) */}
         {!isEffect ? (
@@ -463,9 +470,13 @@ export default function Card({
           {STAT_KEYS.map(k => {
             let val = Math.floor(card[k] ?? card.stats?.[k] ?? 0);
             val += (currentLevel - 1) * 2;
-            val += apexBuffs[k] || 0;
 
-            // fBuffs ist jetzt einmal außerhalb des map() berechnet (FIX #2)
+            // apexBuffs unterstützt beide Formate: { val, sources } (MatchEngine) und Zahl (Legacy)
+            const apexEntry = apexBuffs[k];
+            const apexVal   = apexEntry?.val ?? apexEntry ?? 0;
+            val += apexVal;
+
+            // fBuffs ist einmal außerhalb des map() berechnet (FIX #2)
             val += fBuffs[k] || 0;
 
             let effBuff  = 0;
@@ -489,42 +500,97 @@ export default function Card({
             val = Math.floor(val * crisisMult);
 
             const isSelected    = curCategory === k;
-            const isLocked      = lockedStat === k; // NEU: Checkt, ob dieser Stat Cooldown hat
+            const isLocked      = lockedStat === k;
             const selectedClass = isSelected ? (isPlayerTurn ? 'selected-player' : 'selected-ai') : '';
             const statStyle     = { color: isCrisisAffected ? 'var(--lose)' : '#fff' };
 
             const fillPct  = Math.min(100, Math.max(0, val));
             const barColor = val >= 100 ? 'var(--apex-pink)' : val >= 90 ? 'var(--ep)' : val >= 70 ? 'var(--win)' : '#444';
 
+            // ── Boost-Quellen für Tooltip ──────────────────────────────────
+            const totalBoost = apexVal + effBuff + synBonus + (fBuffs[k] || 0);
+            const boostSources = [];
+            if (apexVal > 0) {
+              const srcs = apexEntry?.sources;
+              if (srcs?.length) srcs.forEach(s => boostSources.push(`${s} (Apex)`));
+              else boostSources.push('Apex Einheit');
+            }
+            if (effBuff > 0 && activeEffect) boostSources.push(activeEffect.name || 'Taktik');
+            if (synBonus > 0 && activeEffect) boostSources.push(`${activeEffect.name} Synergie`);
+            if (fBuffs[k] > 0) boostSources.push(`${card.faction} Fraktion`);
+
             return (
               <div
                 key={k}
                 className={`card-stat ${selectedClass} ${highlightSynergyStat === k ? 'synergy-active-glow' : ''}`}
                 onClick={isLocked ? undefined : () => onStatClick?.(k)}
+                onMouseEnter={() => setHoveredStat(`${k}_locked`)}
+                onMouseLeave={() => setHoveredStat(null)}
                 style={{
-                  opacity: isLocked ? 0.3 : 1,
+                  /* FIX: Opacity hier entfernt, damit der Tooltip 100% sichtbar bleibt! */
                   cursor: isLocked ? 'not-allowed' : (onStatClick ? 'pointer' : 'default'),
                   background: isLocked ? 'rgba(255,0,50,0.15)' : '',
-                  border: isLocked ? '1px solid rgba(255,0,50,0.3)' : '1px solid transparent'
+                  border: isLocked ? '1px solid rgba(255,0,50,0.3)' : '1px solid transparent',
+                  position: 'relative'
                 }}
               >
-                <div className="stat-header">
+                {/* Tooltip für Cooldown / gelockte Stats */}
+                {isLocked && hoveredStat === `${k}_locked` && (
+                  <div style={{
+                    position: 'absolute', bottom: '90%', left: '50%', transform: 'translateX(-50%)',
+                    background: 'rgba(10,10,15,0.98)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+                    border: '1px solid var(--lose)', padding: '6px 12px', borderRadius: '4px',
+                    zIndex: 99999, whiteSpace: 'nowrap', pointerEvents: 'none',
+                    boxShadow: '0 0 20px rgba(255,0,50,0.6)'
+                  }}>
+                    <div className="mono" style={{ fontSize: '0.65rem', color: 'var(--lose)', letterSpacing: '1px', fontWeight: 'bold' }}>
+                      STAT GESPERRT (COOLDOWN)
+                    </div>
+                  </div>
+                )}
+                <div className="stat-header" style={{ opacity: isLocked ? 0.3 : 1 }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     {STAT_ICONS[k]}
                     {CAT_CONFIG[k].name} {isLocked && '🔒'}
-                  </span> 
-                  {/* Fixed-width value container so boost badge never shifts the number (#2 #3) */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '3px', flexShrink: 0, minWidth: '44px' }}>
-                    {(apexBuffs[k] > 0 || effBuff > 0 || synBonus > 0 || fBuffs[k] > 0) && (
-                      <span className="mono" style={{ color: 'var(--eff-col)', fontSize: '0.62rem', lineHeight: 1 }}>
-                        +{(apexBuffs[k] || 0) + effBuff + synBonus + (fBuffs[k] || 0)}
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'flex-end', gap: '3px', flexShrink: 0, minWidth: '44px' }}>
+                    {totalBoost > 0 && (
+                      <span
+                        className="mono"
+                        style={{ position: 'relative', color: 'var(--eff-col)', fontSize: '0.62rem', lineHeight: 1, cursor: 'help' }}
+                        onMouseEnter={() => setHoveredStat(k)}
+                        onMouseLeave={() => setHoveredStat(null)}
+                      >
+                        +{totalBoost}
+                        {hoveredStat === k && boostSources.length > 0 && (
+                          <div style={{
+                            position: 'absolute', bottom: '140%', right: 0,
+                            background: 'rgba(10,10,15,0.95)',
+                            backdropFilter: 'blur(10px)',
+                            WebkitBackdropFilter: 'blur(10px)',
+                            border: '1px solid var(--win)',
+                            borderLeft: '2px solid var(--eff-col)',
+                            padding: '5px 10px',
+                            borderRadius: '4px',
+                            zIndex: 1000,
+                            whiteSpace: 'nowrap',
+                            pointerEvents: 'none',
+                            boxShadow: '0 0 15px rgba(0,229,255,0.15)',
+                          }}>
+                            {boostSources.map((s, i) => (
+                              <div key={i} className="mono" style={{ fontSize: '0.58rem', color: 'var(--win)', letterSpacing: '1px', lineHeight: 1.6 }}>
+                                {s}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </span>
                     )}
                     <b className={`mono ${val >= 100 ? 'stat-val-max' : ''}`}
                        style={{ ...statStyle, minWidth: '1.8ch', textAlign: 'right', display: 'inline-block' }}>{val}</b>
                   </div>
                 </div>
-                <div className="stat-bar-bg">
+                <div className="stat-bar-bg" style={{ opacity: isLocked ? 0.3 : 1 }}>
                   <div
                     className="stat-bar-fill"
                     style={{ width: `${fillPct}%`, background: barColor, boxShadow: val >= 70 ? `0 0 5px ${barColor}` : 'none' }}
@@ -537,6 +603,8 @@ export default function Card({
         )}
 
         <div className="card-micro-data mono parallax-layer">LOC: SYS_NODE // AUTH: GRANTED</div>
+
+        </>)} {/* end !forceArtOnly */}
       </div>
         </>
       )}
@@ -544,4 +612,6 @@ export default function Card({
     </div>
     </div>
   );
-}
+});
+
+export default Card;

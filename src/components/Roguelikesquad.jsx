@@ -60,7 +60,7 @@ function FilledSlot({ card, locked, onRemove }) {
 }
 
 // ── New Visual Draft Card ─────────────────────────────────────────────────
-function DraftCard({ card, selected, disabled, onToggle }) {
+function DraftCard({ card, selected, disabled, onToggle, isFactionSynergyActive = false }) {
   const tc = typeColor(card);
   return (
     <div
@@ -76,7 +76,7 @@ function DraftCard({ card, selected, disabled, onToggle }) {
       }}
     >
       <div style={{ width: '360px', height: '504px', transform: 'scale(0.6)', transformOrigin: 'top left', pointerEvents: 'none' }}>
-        <Card card={card} context="inventory" />
+        <Card card={card} context="inventory" isFactionSynergyActive={isFactionSynergyActive} />
       </div>
       
       {selected && (

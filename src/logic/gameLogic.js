@@ -29,9 +29,29 @@ export function getAIAttackAction({ aEP, difficulty = 1, pEP = 10 }) {
   return aEP >= 8 && Math.random() > 0.5 ? 'allin' : 'std'
 }
 
-export function getAIBestCategory(aiCard, activeCrisis = null, difficulty = 1, playerHand = []) {
+// Hilfsfunktion zur Berechnung des deterministischen Fraktions-Buffs
+function getFactionBuffs(faction) {
+  if (!faction) return {};
+  let h = 0;
+  for (let i = 0; i < faction.length; i++) h = Math.imul(31, h) + faction.charCodeAt(i) | 0;
+  h = Math.abs(h);
+  const keys = ['tech','finance','manipulation','erosion','kingmaking','system','arsenal','legitimacy'];
+  return { [keys[h % 8]]: 20, [keys[(h + 3) % 8]]: 15 };
+}
+
+export function getAIBestCategory(aiCard, activeCrisis = null, difficulty = 1, playerHand = [], aiDeckChars = [], aEP = 10) {
   const cats = ['tech', 'finance', 'manipulation', 'erosion', 'kingmaking', 'system', 'arsenal'];
   
+  const factionCounts = {};
+  (aiDeckChars || []).forEach(c => { if (c && c.faction) factionCounts[c.faction] = (factionCounts[c.faction] || 0) + 1; });
+  const aActiveFactions = Object.keys(factionCounts).filter(f => factionCounts[f] >= 3);
+  
+  // THE ARCHITECT BAIT: Nutzt eine Krise gezielt aus, um sich mit 'erholen' zu heilen!
+  if (difficulty === 4 && activeCrisis && aEP < 6 && Math.random() < 0.7) {
+      if (activeCrisis.id === 'HYPERINFLATION') return 'finance';
+      if (activeCrisis.id === 'BLACKOUT') return 'tech';
+  }
+
   if (difficulty >= 3 && activeCrisis) {
       if (activeCrisis.id === 'NUCLEAR_WAR') return 'arsenal';
       if (activeCrisis.id === 'ANARCHY') return 'erosion';
@@ -47,27 +67,28 @@ export function getAIBestCategory(aiCard, activeCrisis = null, difficulty = 1, p
 
   const targetPool = validCats.length > 0 ? validCats : cats;
 
+  const getStatWithSynergy = (card, stat) => {
+      let v = card[stat] ?? card.stats?.[stat] ?? 0;
+      if (aActiveFactions.includes(card.faction)) v += getFactionBuffs(card.faction)[stat] || 0;
+      return v;
+  };
+
   if (difficulty === 4 && playerHand && playerHand.length > 0) {
-    // Die KI scannt deine KOMPLETTE Hand und findet die Kategorie,
-    // in der du selbst mit deiner besten Karte am schwächsten verteidigen kannst.
+    // Architekt scannt KOMPLETTE Hand und bezieht Synergien ein!
     return [...targetPool].sort((a, b) => {
-      const aiA = (aiCard[a] ?? aiCard.stats?.[a] ?? 0);
-      const aiB = (aiCard[b] ?? aiCard.stats?.[b] ?? 0);
+      const aiA = getStatWithSynergy(aiCard, a);
+      const aiB = getStatWithSynergy(aiCard, b);
       
       const plBestA = Math.max(...playerHand.filter(c=>c).map(c => c[a] ?? c.stats?.[a] ?? 0), 0);
       const plBestB = Math.max(...playerHand.filter(c=>c).map(c => c[b] ?? c.stats?.[b] ?? 0), 0);
       
-      // Berechne den Vorteil der KI: Eigener Wert minus deine beste mögliche Verteidigung
-      const advantageA = aiA - plBestA;
-      const advantageB = aiB - plBestB;
-
-      return advantageB - advantageA; // Absteigend sortieren
+      return (aiB - plBestB) - (aiA - plBestA); // Absteigend sortieren
     })[0];
   }
 
-  // Difficulty 1-3: Nimmt einfach den besten eigenen Stat
+  // Difficulty 1-3: Nimmt den besten Stat (inklusive Synergien)
   return [...targetPool].sort(
-    (a, b) => (aiCard[b] ?? aiCard.stats?.[b] ?? 0) - (aiCard[a] ?? aiCard.stats?.[a] ?? 0)
+    (a, b) => getStatWithSynergy(aiCard, b) - getStatWithSynergy(aiCard, a)
   )[0];
 }
 export function getPlayerRegen(pHandCards) {
@@ -130,7 +151,6 @@ export function resolveRound({
   }
 
   aVal += aLevelBonus;
-  if (difficulty === 4) aVal += 15;
 
   if (aiActiveEffect?.stat === category) {
     aEffCost = aiActiveEffect.cost ?? 0;

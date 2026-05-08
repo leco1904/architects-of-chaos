@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, memo } from 'react';
 import Card, { getRarityClass } from './Card';
 import { getSellValue } from '../logic/gameLogic';
 import { playSound } from '../logic/audio';
@@ -15,7 +15,7 @@ function getMiniCardColor(card) {
   return 'transparent';
 }
 
-const MiniCard = ({ card, onClick, onRightClick, onHover, isFactionSynergyActive }) => {
+const MiniCard = memo(function MiniCard({ card, onClick, onRightClick, onHover, isFactionSynergyActive }) {
   const rc = getMiniCardColor(card);
   return (
   <div 
@@ -34,7 +34,7 @@ const MiniCard = ({ card, onClick, onRightClick, onHover, isFactionSynergyActive
     </div>
   </div>
   );
-};
+});
 
 const InspectorModal = ({ card, isInDeck, isEffect, onClose, onAdd, onRemove, isFactionSynergyActive }) => {
   const [gyroActive, setGyroActive] = useState(true);
@@ -191,6 +191,9 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
   const [mode, setMode] = useState('deck'); 
   const [mobileTab, setMobileTab] = useState('deck'); 
   
+  const [deckTab,  setDeckTab]  = useState('chars');    // 'chars' | 'taktiken'
+  const [poolTab,  setPoolTab]  = useState('chars');    // 'chars' | 'taktiken'
+
   const [activeEditId, setActiveEditId] = useState(decks.find(d => d.isActive)?.id || decks[0]?.id);
   const activeEditDeck = decks.find(d => d.id === activeEditId) || decks[0];
 
@@ -428,27 +431,39 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
     return (b.gti || 0) - (a.gti || 0);
   };
 
-  const groupedInventory = getGroupedInventory();
+  const groupedInventory = useMemo(() => getGroupedInventory(), [safeInv]);
   
   const totalCardsInGame = cardsData.characters.length + cardsData.effects.length;
   const currentCollected = Object.keys(groupedInventory).length;
   
-  const hasUpgradesAvailable = Object.values(groupedInventory).some(g => g.count >= 3 && (g.main.level || 1) < 3 && g.main.type !== 'effect');
+  const hasUpgradesAvailable = useMemo(() =>
+    Object.values(groupedInventory).some(g => g.count >= 3 && (g.main.level || 1) < 3 && g.main.type !== 'effect'),
+    [groupedInventory]
+  );
 
-  const uniqueInvChars = Object.values(groupedInventory)
-    .map(g => g.main)
-    .filter(c => c.type !== 'effect' && !safeChars.some(dc => dc.name === c.name))
-    .filter(c => (c.name || '').toLowerCase().includes(search.toLowerCase()))
-    .filter(c => factionFilter === 'ALL' || c.faction === factionFilter)
-    .sort(sortLogic);
+  const uniqueInvChars = useMemo(() =>
+    Object.values(groupedInventory)
+      .map(g => g.main)
+      .filter(c => c.type !== 'effect' && !safeChars.some(dc => dc.name === c.name))
+      .filter(c => (c.name || '').toLowerCase().includes(search.toLowerCase()))
+      .filter(c => factionFilter === 'ALL' || c.faction === factionFilter)
+      .sort(sortLogic),
+    [groupedInventory, safeChars, search, factionFilter, sortBy]
+  );
 
-  const uniqueInvEffs = Object.values(groupedInventory)
-    .map(g => g.main)
-    .filter(c => c.type === 'effect' && !safeEffs.some(de => de.name === c.name))
-    .filter(c => (c.name || '').toLowerCase().includes(search.toLowerCase()))
-    .sort(sortLogic);
+  const uniqueInvEffs = useMemo(() =>
+    Object.values(groupedInventory)
+      .map(g => g.main)
+      .filter(c => c.type === 'effect' && !safeEffs.some(de => de.name === c.name))
+      .filter(c => (c.name || '').toLowerCase().includes(search.toLowerCase()))
+      .sort(sortLogic),
+    [groupedInventory, safeEffs, search, sortBy]
+  );
 
-  const sortedDeckChars = [...safeChars].sort((a, b) => (b.gti || 0) - (a.gti || 0));
+  const sortedDeckChars = useMemo(() =>
+    [...safeChars].sort((a, b) => (b.gti || 0) - (a.gti || 0)),
+    [safeChars]
+  );
   const isDeckValid = safeChars.length === 12 && safeEffs.length === 3;
 
   return (
@@ -549,32 +564,54 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
                    {isDeckValid ? <span style={{ marginLeft: 'auto', color: 'var(--win)' }}>BEREIT ✓</span> : <span style={{ marginLeft: 'auto', color: 'var(--lose)' }}>UNVOLLSTÄNDIG ⚠</span>}
                  </div>
               </div>
-              
-              <h3 style={{color: '#888', margin: '0 0 15px 0'}}>CHARAKTERE</h3>
-              <div className="mini-grid">
-                {sortedDeckChars.map((c) => (
-                  <MiniCard 
-                    key={`deckc-${c.name}`} 
-                    card={c} 
-                    onClick={() => handleCardClick(c, false, true)} 
-                    onRightClick={(evt) => handleCardRightClick(evt, c, false)} 
-                    onHover={() => onClearNew(c.name)} 
-                    isFactionSynergyActive={activeFactions.includes(c.faction)}
-                  />
-                ))}
+
+              {/* DECK SUB-TABS */}
+              <div style={{ display: 'flex', gap: '0', marginBottom: '20px', borderBottom: '1px solid #333' }}>
+                <button
+                  onClick={() => { playSound('click'); setDeckTab('chars'); }}
+                  style={{ flex: 1, padding: '8px', background: 'transparent', border: 'none', borderBottom: deckTab === 'chars' ? '2px solid #888' : '2px solid transparent', color: deckTab === 'chars' ? '#fff' : '#555', fontFamily: "'Roboto Mono', monospace", fontSize: '0.75rem', letterSpacing: '2px', cursor: 'pointer', transition: '0.2s' }}
+                >
+                  CHARAKTERE ({safeChars.length}/12)
+                </button>
+                <button
+                  onClick={() => { playSound('click'); setDeckTab('taktiken'); }}
+                  style={{ flex: 1, padding: '8px', background: 'transparent', border: 'none', borderBottom: deckTab === 'taktiken' ? `2px solid var(--eff-col)` : '2px solid transparent', color: deckTab === 'taktiken' ? 'var(--eff-col)' : '#555', fontFamily: "'Roboto Mono', monospace", fontSize: '0.75rem', letterSpacing: '2px', cursor: 'pointer', transition: '0.2s' }}
+                >
+                  TAKTIKEN ({safeEffs.length}/3)
+                </button>
               </div>
-              <h3 style={{color: 'var(--eff-col)', margin: '20px 0 15px 0', borderTop: '1px dashed #333', paddingTop: '20px'}}>EFFEKTE</h3>
-              <div className="mini-grid" style={{ paddingBottom: '30px' }}>
-                {safeEffs.map((eff) => (
-                  <MiniCard 
-                    key={`decke-${eff.name}`} 
-                    card={eff} 
-                    onClick={() => handleCardClick(eff, true, true)} 
-                    onRightClick={(evt) => handleCardRightClick(evt, eff, true)} 
-                    onHover={() => onClearNew(eff.name)} 
-                  />
-                ))}
-              </div>
+
+              {deckTab === 'chars' && (
+                <div className="mini-grid">
+                  {sortedDeckChars.map((c) => (
+                    <MiniCard
+                      key={`deckc-${c.name}`}
+                      card={c}
+                      onClick={() => handleCardClick(c, false, true)}
+                      onRightClick={(evt) => handleCardRightClick(evt, c, false)}
+                      onHover={() => onClearNew(c.name)}
+                      isFactionSynergyActive={activeFactions.includes(c.faction)}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {deckTab === 'taktiken' && (
+                <div className="mini-grid" style={{ paddingBottom: '30px' }}>
+                  {safeEffs.map((eff) => (
+                    <MiniCard
+                      key={`decke-${eff.name}`}
+                      card={eff}
+                      onClick={() => handleCardClick(eff, true, true)}
+                      onRightClick={(evt) => handleCardRightClick(evt, eff, true)}
+                      onHover={() => onClearNew(eff.name)}
+                    />
+                  ))}
+                  {safeEffs.length === 0 && (
+                    <p className="mono" style={{ color: '#555', fontSize: '0.75rem', letterSpacing: '1px' }}>KEINE TAKTIKEN IM DECK</p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* POOL SPALTE */}
@@ -586,10 +623,12 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
                        <option value="new">NACH NEU</option>
                     </select>
                     <input type="text" placeholder="Suche..." value={search} onChange={e => setSearch(e.target.value)} style={{ padding: '6px 10px', background: 'rgba(0,0,0,0.5)', border: '1px solid #444', color: '#fff', borderRadius: '4px', outline: 'none' }} />
-                    <select value={factionFilter} onChange={e => setFactionFilter(e.target.value)} style={{ padding: '6px 10px', background: 'rgba(0,0,0,0.5)', border: '1px solid #444', color: '#fff', borderRadius: '4px', outline: 'none' }}>
-                       <option value="ALL">ALLE FRAKTIONEN</option>
-                       {allFactions.map(f => <option key={f} value={f}>{f}</option>)}
-                    </select>
+                    {poolTab === 'chars' && (
+                      <select value={factionFilter} onChange={e => setFactionFilter(e.target.value)} style={{ padding: '6px 10px', background: 'rgba(0,0,0,0.5)', border: '1px solid #444', color: '#fff', borderRadius: '4px', outline: 'none' }}>
+                         <option value="ALL">ALLE FRAKTIONEN</option>
+                         {allFactions.map(f => <option key={f} value={f}>{f}</option>)}
+                      </select>
+                    )}
                   </div>
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '15px' }}>
@@ -597,33 +636,56 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
                   </div>
               </div>
 
-              {uniqueInvChars.length === 0 && uniqueInvEffs.length === 0 && <p style={{ color: '#555', marginTop: '20px' }}>Keine passenden Karten gefunden.</p>}
-              
-              <h3 style={{color: '#888', margin: '0 0 15px 0'}}>VERFÜGBARE CHARAKTERE</h3>
-              <div className="mini-grid">
-                {uniqueInvChars.map((c) => (
-                  <MiniCard 
-                    key={`invc-${c.name}`} 
-                    card={c} 
-                    onClick={() => handleCardClick(c, false, false)} 
-                    onRightClick={(evt) => handleCardRightClick(evt, c, false)} 
-                    onHover={() => onClearNew(c.name)} 
-                    isFactionSynergyActive={activeFactions.includes(c.faction)}
-                  />
-                ))}
+              {/* POOL SUB-TABS */}
+              <div style={{ display: 'flex', gap: '0', marginBottom: '20px', borderBottom: '1px solid #333' }}>
+                <button
+                  onClick={() => { playSound('click'); setPoolTab('chars'); }}
+                  style={{ flex: 1, padding: '8px', background: 'transparent', border: 'none', borderBottom: poolTab === 'chars' ? '2px solid #888' : '2px solid transparent', color: poolTab === 'chars' ? '#fff' : '#555', fontFamily: "'Roboto Mono', monospace", fontSize: '0.75rem', letterSpacing: '2px', cursor: 'pointer', transition: '0.2s' }}
+                >
+                  CHARAKTERE ({uniqueInvChars.length})
+                </button>
+                <button
+                  onClick={() => { playSound('click'); setPoolTab('taktiken'); }}
+                  style={{ flex: 1, padding: '8px', background: 'transparent', border: 'none', borderBottom: poolTab === 'taktiken' ? `2px solid var(--eff-col)` : '2px solid transparent', color: poolTab === 'taktiken' ? 'var(--eff-col)' : '#555', fontFamily: "'Roboto Mono', monospace", fontSize: '0.75rem', letterSpacing: '2px', cursor: 'pointer', transition: '0.2s' }}
+                >
+                  TAKTIKEN ({uniqueInvEffs.length})
+                </button>
               </div>
-              <h3 style={{color: 'var(--eff-col)', margin: '20px 0 15px 0', borderTop: '1px dashed #333', paddingTop: '20px'}}>VERFÜGBARE EFFEKTE</h3>
-              <div className="mini-grid" style={{ paddingBottom: '30px' }}>
-                {uniqueInvEffs.map((eff) => (
-                  <MiniCard 
-                    key={`inve-${eff.name}`} 
-                    card={eff} 
-                    onClick={() => handleCardClick(eff, true, false)} 
-                    onRightClick={(evt) => handleCardRightClick(evt, eff, true)} 
-                    onHover={() => onClearNew(eff.name)} 
-                  />
-                ))}
-              </div>
+
+              {poolTab === 'chars' && (
+                <>
+                  {uniqueInvChars.length === 0 && <p style={{ color: '#555', marginTop: '20px' }}>Keine passenden Karten gefunden.</p>}
+                  <div className="mini-grid">
+                    {uniqueInvChars.map((c) => (
+                      <MiniCard
+                        key={`invc-${c.name}`}
+                        card={c}
+                        onClick={() => handleCardClick(c, false, false)}
+                        onRightClick={(evt) => handleCardRightClick(evt, c, false)}
+                        onHover={() => onClearNew(c.name)}
+                        isFactionSynergyActive={activeFactions.includes(c.faction)}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {poolTab === 'taktiken' && (
+                <>
+                  {uniqueInvEffs.length === 0 && <p style={{ color: '#555', marginTop: '20px' }}>Keine passenden Taktiken gefunden.</p>}
+                  <div className="mini-grid" style={{ paddingBottom: '30px' }}>
+                    {uniqueInvEffs.map((eff) => (
+                      <MiniCard
+                        key={`inve-${eff.name}`}
+                        card={eff}
+                        onClick={() => handleCardClick(eff, true, false)}
+                        onRightClick={(evt) => handleCardRightClick(evt, eff, true)}
+                        onHover={() => onClearNew(eff.name)}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

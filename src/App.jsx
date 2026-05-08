@@ -332,10 +332,22 @@ export default function App() {
   const [remotePeerId, setRemotePeerId] = useState('');
   const [conn, setConn] = useState(null);
   const [lobbyMode, setLobbyMode] = useState('select'); 
+  const [isCoopMode, setIsCoopMode] = useState(false); // NEU: Unterscheidet 1v1 vs Co-Op
   
   const [myOnlineDeck, setMyOnlineDeck] = useState(null);
   const [remoteDeck, setRemoteDeck] = useState(null);
+  const [coopAIDecks, setCoopAIDecks] = useState(null); // NEU: Speichert die KI-Decks für das Koop-Match
   const activeDeck = decks.find(d => d.isActive) || decks[0];
+
+  // NEU: Synchronisiert das Roguelike-Deck und den Run-State im Co-Op permanent
+  useEffect(() => {
+    if (conn && isCoopMode && roguelikeRun) {
+       conn.send({ type: 'DECK_SYNC', chars: roguelikeRun.runDeck.chars, effs: roguelikeRun.runDeck.effs });
+       if (lobbyMode === 'host') {
+           conn.send({ type: 'SYNC_RUN_STATE', run: roguelikeRun });
+       }
+    }
+  }, [conn, isCoopMode, roguelikeRun, lobbyMode]);
 
   useEffect(()=>{
     localStorage.setItem('aoc_credits',   credits.toString());
@@ -547,6 +559,11 @@ export default function App() {
   const startRoguelikeEvent = (nodeObj) => {
     setRoguelikeEventData(nodeObj);
     setCurrentView('roguelikeevent');
+    
+    // NEU: Partner in das Event-Fenster mitziehen
+    if (conn && isCoopMode) {
+        conn.send({ type: 'START_RL_EVENT', nodeObj });
+    }
   };   
 
   const generateAIDeck = (nodeObj, sector) => {
@@ -568,24 +585,36 @@ export default function App() {
     // 4. ENDLESS STAT-BUFF (Sanftes Scaling: Ab Sektor 6 gibt es +3 Stats pro Sektor)
     const extraGtiBuff = sector > 5 ? (sector - 5) * 3 : 0;
 
-    // 5. DECK ZUSAMMENSTELLEN
+    // 5. DECK ZUSAMMENSTELLEN (Mit stufenabhängigen Fraktions-Synergien!)
     let charPool = [...cardsData.characters];
-    const rand = Math.random();
     let archetype = nodeObj.type;
+    let pickedChars = [];
 
-    if (nodeObj.type !== 'boss' && rand > 0.7) {
-      archetype = 'assassin'; 
-      const apexCards = charPool.filter(c => c.type === 'apex' || c.type === 'legacy');
-      if (apexCards.length > 0) {
-        charPool = [apexCards[Math.floor(Math.random() * apexCards.length)], ...charPool];
-      }
-    } else if (nodeObj.type !== 'boss' && rand > 0.4) {
-      archetype = 'tank'; 
-      charPool = charPool.filter(c => (c.gti || 0) < 85);
+    if (diff === 1) {
+        // Trainee: Keine Synergien, pures Chaos
+        pickedChars = shuffle(charPool).slice(0, 4);
+    } else if (diff === 2) {
+        // Operative: Genau 1 Synergie (3 Karten einer Fraktion)
+        const factions = shuffle(allFactions);
+        const synFac = factions.find(f => charPool.filter(c => c.faction === f).length >= 3) || factions[0];
+        const synCards = charPool.filter(c => c.faction === synFac).slice(0, 3);
+        const other = shuffle(charPool.filter(c => c.faction !== synFac))[0] || charPool[0];
+        pickedChars = [...synCards, other];
+    } else if (diff >= 3) {
+        // Executive / Architect: Perfekte 3er Synergie + stärkster Apex/Legacy
+        const factions = shuffle(allFactions);
+        const synFac = factions.find(f => charPool.filter(c => c.faction === f).length >= 3) || factions[0];
+        const synCards = charPool.filter(c => c.faction === synFac).sort((a,b) => (b.gti||0)-(a.gti||0)).slice(0, 3);
+        const topBoss = charPool.filter(c => c.type === 'apex' || c.type === 'legacy').sort((a,b) => (b.gti||0)-(a.gti||0))[0] || shuffle(charPool)[0];
+        pickedChars = [...synCards, topBoss];
     }
 
-    const shuffledChars = shuffle(charPool);
-    const aiChars = shuffledChars.slice(0, 4).map(c => {
+    // Fallback, falls Duplicate entstehen
+    pickedChars = [...new Set(pickedChars)];
+    while (pickedChars.length < 4) { pickedChars.push(shuffle(charPool.filter(c => !pickedChars.includes(c)))[0]); }
+
+    const shuffledChars = shuffle(pickedChars);
+    const aiChars = shuffledChars.map(c => {
       // Deep-Copy der Stats, um Abstürze zu verhindern
       let card = { ...c, level: finalLevel, stats: c.stats ? { ...c.stats } : undefined };
       if (extraGtiBuff > 0) {
@@ -606,13 +635,16 @@ export default function App() {
   const startRoguelikeRunWithDeck = (selectedChars, selectedEffs) => {
     if (!avatarCard) return;
     const newRun = {
-      currentHP: 500, maxHP: 500, sector: 1, node: 1, seed: Math.random(), // NEU: Einzigartiger Run-Seed!
+      currentHP: 500, maxHP: 500, sector: 1, node: 1, seed: Math.random(),
+      isCoop: isCoopMode, // Markiert den Run als Co-Op Mission
       runDeck: {
         chars: [{ ...avatarCard }, ...selectedChars],
         effs:  selectedEffs,
       },
     };
     setRoguelikeRun(newRun);
+    // Den neuen Run-State sofort an den Partner funken
+    if (conn && isCoopMode) conn.send({ type: 'SYNC_RUN_STATE', run: newRun });
     setCurrentView('roguelikemap');
   };
 
@@ -628,6 +660,11 @@ export default function App() {
     const data = generateAIDeck(nodeObj, roguelikeRun.sector);
     setRoguelikeMatchData(data);
     setCurrentView('match');
+    
+    // NEU: Im Co-Op Modus triggert der Starter den Client, damit beide das Match betreten!
+    if (conn && isCoopMode) {
+        conn.send({ type: 'START_RL_MATCH', aiData: data });
+    }
   };
 
   // --- DIE REPARIERTE LOOT & DRAFT LOGIK ---
@@ -811,6 +848,7 @@ export default function App() {
     setLobbyMode('select');
     setMyOnlineDeck(null);
     setRemoteDeck(null);
+    setCoopAIDecks(null);
   };
 
   const navTo = (view) => {
@@ -830,14 +868,22 @@ export default function App() {
     return readyDeck;
   };
 
-  const startHosting = () => {
+  const startHosting = (mode = 'pvp') => {
     if (activeDeck.chars.length !== 12 || activeDeck.effs.length !== 3) {
       alert("Dein aktives Deck ist unvollständig! (12 Chars, 3 Effekte benötigt)");
       return;
     }
     playSound('click');
+    setIsCoopMode(mode === 'coop');
     setLobbyMode('host');
     const myDeck = prepareMyDeck();
+
+    let hostAI, clientAI;
+    if (mode === 'coop') {
+        hostAI = getAIDeck();
+        clientAI = getAIDeck();
+        setCoopAIDecks({ myAI: hostAI, partnerAI: clientAI });
+    }
 
     const newPeer = new Peer();
     newPeer.on('open', (id) => setMyPeerId(id));
@@ -845,17 +891,29 @@ export default function App() {
     newPeer.on('connection', (connection) => {
       setConn(connection);
       connection.on('open', () => {
-        connection.send({ type: 'DECK_SYNC', chars: myDeck.chars, effs: myDeck.effs });
+        if (mode === 'coop') {
+           connection.send({ type: 'COOP_INIT', hostDeck: myDeck, clientAI: clientAI, difficulty: difficulty });
+        } else {
+           connection.send({ type: 'PVP_INIT', chars: myDeck.chars, effs: myDeck.effs });
+        }
       });
       connection.on('data', (data) => {
-        if (data.type === 'DECK_SYNC') setRemoteDeck({ chars: data.chars, effs: data.effs });
+        if (data.type === 'DECK_SYNC') {
+            setRemoteDeck({ chars: data.chars, effs: data.effs });
+        } else if (data.type === 'START_RL_MATCH') {
+            setRoguelikeMatchData(data.aiData);
+            setCurrentView('match');
+        } else if (data.type === 'START_RL_EVENT') {
+            setRoguelikeEventData(data.nodeObj);
+            setCurrentView('roguelikeevent');
+        } else if (data.type === 'SYNC_RUN_STATE') {
+            setRoguelikeRun(data.run);
+        } else if (data.type === 'NAV_TO') {
+            setCurrentView(data.view);
+        }
       });
       connection.on('close', () => { 
-        if (currentView !== 'postmatch') {
-           alert("Gegner hat die Verbindung getrennt."); 
-           disconnectPeer(); 
-           setCurrentView('menu');
-        }
+        if (currentView !== 'postmatch') { alert("Netzwerkverbindung unterbrochen."); disconnectPeer(); setCurrentView('menu'); }
       });
     });
     setPeer(newPeer);
@@ -881,14 +939,30 @@ export default function App() {
       connection.send({ type: 'DECK_SYNC', chars: myOnlineDeck.chars, effs: myOnlineDeck.effs });
     });
     connection.on('data', (data) => {
-      if (data.type === 'DECK_SYNC') setRemoteDeck({ chars: data.chars, effs: data.effs });
+      if (data.type === 'COOP_INIT') {
+          setIsCoopMode(true);
+          setRemoteDeck(data.hostDeck);
+          setCoopAIDecks({ myAI: data.clientAI });
+          setDifficulty(data.difficulty);
+      } else if (data.type === 'PVP_INIT') {
+          setIsCoopMode(false);
+          setRemoteDeck({ chars: data.chars, effs: data.effs });
+      } else if (data.type === 'DECK_SYNC') {
+          setRemoteDeck({ chars: data.chars, effs: data.effs });
+      } else if (data.type === 'START_RL_MATCH') {
+          setRoguelikeMatchData(data.aiData);
+          setCurrentView('match');
+      } else if (data.type === 'START_RL_EVENT') {
+          setRoguelikeEventData(data.nodeObj);
+          setCurrentView('roguelikeevent');
+      } else if (data.type === 'SYNC_RUN_STATE') {
+          setRoguelikeRun(data.run);
+      } else if (data.type === 'NAV_TO') {
+          setCurrentView(data.view);
+      }
     });
     connection.on('close', () => { 
-        if (currentView !== 'postmatch') {
-           alert("Host hat die Verbindung getrennt."); 
-           disconnectPeer(); 
-           setCurrentView('menu');
-        }
+        if (currentView !== 'postmatch') { alert("Host hat die Verbindung geschlossen."); disconnectPeer(); setCurrentView('menu'); }
     });
   };
 
@@ -998,7 +1072,7 @@ export default function App() {
     if (currentView === 'roguelikesquad') return <RoguelikeSquad avatarCard={avatarCard} inventory={inventory} onConfirm={startRoguelikeRunWithDeck} onBack={() => setCurrentView('ghostnodemenu')} />;
     if (currentView === 'roguelikemap') {
       if (!roguelikeRun) return <div className="screen active" style={{ justifyContent: 'center', alignItems: 'center' }}><div className="mono" style={{ color: 'var(--ep)', fontSize: '1.2rem', animation: 'pulse 1s infinite' }}>INITIALISIERE THE GRID...</div></div>;
-      return <RoguelikeMap avatarCard={avatarCard} roguelikeRun={roguelikeRun} onStartRun={startRoguelikeRun} onStartBattle={startRoguelikeMatch} onStartEvent={startRoguelikeEvent} onBack={() => setCurrentView('ghostnodemenu')} onGoToLab={() => setCurrentView('avatarlab')} />;
+      return <RoguelikeMap avatarCard={avatarCard} roguelikeRun={roguelikeRun} onStartRun={startRoguelikeRun} onStartBattle={startRoguelikeMatch} onStartEvent={startRoguelikeEvent} onBack={() => setCurrentView('ghostnodemenu')} onGoToLab={() => setCurrentView('avatarlab')} isCoop={isCoopMode} conn={conn} isHost={lobbyMode === 'host'} />;
     }
     if (currentView === 'roguelikeevent' && roguelikeEventData) return <RoguelikeEventScreen nodeObj={roguelikeEventData} roguelikeRun={roguelikeRun} avatarCard={avatarCard} cardsData={cardsData} onComplete={(nextRun, nextAvatar) => { playSound('click'); setRoguelikeRun(nextRun); setAvatarCard(nextAvatar); saveToCloud({ active_run: nextRun, avatar_card: nextAvatar }); setRoguelikeEventData(null); setCurrentView('roguelikemap'); }} />;
     if (currentView === 'roguelikereward') return <RoguelikeReward rewardData={rewardData} roguelikeRun={roguelikeRun} onApplyDraft={applyRoguelikeDraft} onSkip={() => { setRewardData(null); setCurrentView('roguelikemap'); }} />;
@@ -1020,13 +1094,37 @@ export default function App() {
   const getAIDeck = () => {
     const lvl = DIFFICULTY_CONFIG[difficulty].lvl;
     let baseChars, baseEffs;
-    if (difficulty === 4) {
-      baseChars = [...cardsData.characters].sort((a,b) => (b.gti||0) - (a.gti||0)).slice(0, 12).map(c => ({...c, level: lvl}));
-      baseEffs = [...cardsData.effects].sort((a,b) => (b.buff||0) - (a.buff||0)).slice(0, 3).map(e => ({...e, level: lvl}));
+    
+    if (difficulty === 1) {
+      baseChars = shuffle(cardsData.characters).slice(0, 12);
+    } else if (difficulty === 2) {
+      const f = shuffle(allFactions).find(f => cardsData.characters.filter(c => c.faction === f).length >= 3) || allFactions[0];
+      const syn = cardsData.characters.filter(c => c.faction === f).slice(0, 3);
+      const other = shuffle(cardsData.characters.filter(c => c.faction !== f)).slice(0, 9);
+      baseChars = shuffle([...syn, ...other]);
+    } else if (difficulty === 3) {
+      const f1 = shuffle(allFactions).find(f => cardsData.characters.filter(c => c.faction === f).length >= 3) || allFactions[0];
+      const f2 = shuffle(allFactions).find(f => f !== f1 && cardsData.characters.filter(c => c.faction === f).length >= 3) || allFactions[1];
+      const syn1 = cardsData.characters.filter(c => c.faction === f1).slice(0, 3);
+      const syn2 = cardsData.characters.filter(c => c.faction === f2).slice(0, 3);
+      const other = shuffle(cardsData.characters.filter(c => c.faction !== f1 && c.faction !== f2)).slice(0, 6);
+      baseChars = shuffle([...syn1, ...syn2, ...other]);
     } else {
-      baseChars = shuffle(cardsData.characters).slice(0, 12).map(c => ({...c, level: lvl}));
-      baseEffs = shuffle(cardsData.effects).slice(0, 3).map(e => ({...e, level: lvl}));
+      // Architect: Maximal optimiert, füllt mit Top-Stats
+      let meta = [];
+      shuffle(allFactions).forEach(f => {
+        if (meta.length < 12) {
+           const fc = cardsData.characters.filter(c => c.faction === f).sort((a,b)=> (b.gti||0)-(a.gti||0));
+           if (fc.length >= 3) meta.push(...fc.slice(0,3));
+        }
+      });
+      const top = cardsData.characters.filter(c => c.type === 'apex' || c.type === 'legacy').sort((a,b)=> (b.gti||0)-(a.gti||0)).slice(0, 3);
+      baseChars = [...new Set([...meta, ...top])].slice(0, 12);
+      if (baseChars.length < 12) baseChars = [...baseChars, ...cardsData.characters.filter(c => !baseChars.includes(c)).sort((a,b)=> (b.gti||0)-(a.gti||0))].slice(0,12);
     }
+
+    baseChars = baseChars.map(c => ({...c, level: lvl}));
+    baseEffs = [...cardsData.effects].sort((a,b) => (b.buff||0) - (a.buff||0)).slice(0, 3).map(e => ({...e, level: lvl}));
     return { chars: baseChars, effs: baseEffs };
   };
 
@@ -1114,6 +1212,15 @@ export default function App() {
             playerEffs={roguelikeRun.runDeck.effs}
             aiChars={roguelikeMatchData.aiChars}
             aiEffs={roguelikeMatchData.aiEffs}
+            
+            /* NEU: CO-OP PROPS FÜR DEN GHOST NODE RUN */
+            partnerChars={conn && isCoopMode ? (remoteDeck?.chars || []) : null}
+            partnerEffs={conn && isCoopMode ? (remoteDeck?.effs || []) : null}
+            isOnline={!!conn}
+            isCoop={isCoopMode}
+            conn={conn}
+            isHost={lobbyMode === 'host'}
+
             difficulty={roguelikeMatchData.difficulty}
             isRoguelike={true}
             contextLabel={`SEKTOR ${roguelikeRun.sector} // NODE ${roguelikeRun.node}`}
@@ -1123,14 +1230,17 @@ export default function App() {
             onShowRules={() => { playSound('click'); setShowGlobalRules(true); }}
           />
         ) : (
-          /* ── NORMALES MATCH ─── */
+          /* ── MULTIPLAYER & SOLO MATCH ENGINE ─── */
           <MatchEngine
-            playerChars={conn ? myOnlineDeck.chars : shuffle(activeDeck.chars)}
-            playerEffs={conn ? myOnlineDeck.effs : shuffle(activeDeck.effs)}
-            aiChars={conn ? remoteDeck.chars : aiDeck.chars}
-            aiEffs={conn ? remoteDeck.effs : aiDeck.effs}
+            playerChars={conn ? (myOnlineDeck?.chars || []) : shuffle(activeDeck.chars)}
+            playerEffs={conn ? (myOnlineDeck?.effs || []) : shuffle(activeDeck.effs)}
+            aiChars={conn ? (isCoopMode ? (coopAIDecks?.myAI?.chars || []) : (remoteDeck?.chars || [])) : (aiDeck?.chars || [])}
+            aiEffs={conn ? (isCoopMode ? (coopAIDecks?.myAI?.effs || []) : (remoteDeck?.effs || [])) : (aiDeck?.effs || [])}
+            partnerChars={conn && isCoopMode ? (remoteDeck?.chars || []) : []}
+            partnerEffs={conn && isCoopMode ? (remoteDeck?.effs || []) : []}
             difficulty={difficulty}
             isOnline={!!conn}
+            isCoop={isCoopMode}
             isHost={lobbyMode === 'host'}
             conn={conn}
             onEndGame={handleEndGame}
@@ -1174,8 +1284,11 @@ export default function App() {
               <>
                 {lobbyMode === 'select' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    <button className="menu-btn btn-primary" onClick={startHosting}>SPIEL HOSTEN</button>
-                    <button className="menu-btn" style={{ borderColor: 'var(--win)', color: 'var(--win)' }} onClick={startJoining}>SPIEL BEITRETEN</button>
+                    <div className="mono" style={{ color: '#888', marginBottom: '-10px' }}>HOST OPTIONS</div>
+                    <button className="menu-btn btn-primary" onClick={() => startHosting('pvp')}>1v1 PVP DUELL HOSTEN</button>
+                    <button className="menu-btn" style={{ borderColor: 'var(--apex-pink)', color: 'var(--apex-pink)' }} onClick={() => startHosting('coop')}>CO-OP MISSION HOSTEN</button>
+                    <div className="mono" style={{ color: '#888', marginTop: '10px', marginBottom: '-10px' }}>JOIN OPTIONS</div>
+                    <button className="menu-btn" style={{ borderColor: 'var(--win)', color: 'var(--win)' }} onClick={startJoining}>ALS CLIENT BEITRETEN</button>
                   </div>
                 )}
                 {lobbyMode === 'host' && (
@@ -1205,7 +1318,27 @@ export default function App() {
                  ) : (
                     <div style={{marginTop: '20px', width: '100%'}}>
                         <p style={{ color: 'var(--win)', fontWeight: 'bold', letterSpacing: '2px', marginBottom: '20px' }}>✓ DECKS SYNCHRONISIERT</p>
-                        <button className="menu-btn btn-primary" onClick={() => setCurrentView('match')}>ONLINE MATCH STARTEN</button>
+                        <button className="menu-btn btn-primary" 
+                          disabled={isCoopMode && lobbyMode !== 'host'}
+                          onClick={() => {
+                            playSound('click');
+                            if (isCoopMode) {
+                                if (lobbyMode === 'host') {
+                                    // Prüfen: Haben wir einen echten Co-Op Run oder nur alten SP-Müll?
+                                    const targetView = (!roguelikeRun || !roguelikeRun.isCoop) ? 'roguelikesquad' : 'roguelikemap';
+                                    
+                                    // Falls wir neu starten, SP-Run für diese Session ignorieren
+                                    if (targetView === 'roguelikesquad') setRoguelikeRun(null);
+                                    
+                                    setCurrentView(targetView);
+                                    conn.send({ type: 'NAV_TO', view: targetView });
+                                }
+                            } else {
+                                setCurrentView('match');
+                            }
+                        }} style={ (isCoopMode && lobbyMode !== 'host') ? { opacity: 0.5, cursor: 'not-allowed' } : {} }>
+                           {isCoopMode ? (lobbyMode === 'host' ? 'KOOP MISSION STARTEN' : 'WARTE AUF HOST...') : 'ONLINE MATCH STARTEN'}
+                        </button>
                     </div>
                  )}
 

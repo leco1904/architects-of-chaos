@@ -63,12 +63,13 @@ function Corners({ color='var(--win)', size=8 }) {
 }
 
 // ── Node Preview Modal ────────────────────────────────────────────────────
-function NodeModal({ nodeObj, sector, currentNode, onClose, onStartBattle, onStartEvent }) {
+function NodeModal({ nodeObj, sector, currentNode, onClose, onStartBattle, onStartEvent, isCoop }) {
   if (!nodeObj) return null;
   const n = nodeObj.step;
   const info = NODE_TYPES[nodeObj.type];
   const done = n < currentNode;
-  const isActive = n === currentNode;
+  // FIX: Im Co-Op ist der Node "aktiv", sobald er durch das Voting ausgewählt wurde (auch wenn man noch davor steht)
+  const isActive = isCoop ? true : (n === currentNode);
   
   const isEvent = info.type === 'event';
   const eventData = isEvent ? EVENT_DETAILS[nodeObj.type] : null;
@@ -191,8 +192,8 @@ function NodeModal({ nodeObj, sector, currentNode, onClose, onStartBattle, onSta
 }
 
 // ── Big Map Node ──────────────────────────────────────────────────────────
-function MapNode({ nodeObj, currentNode, onSelect }) {
-  const n      = nodeObj.step;
+function MapNode({ nodeObj, currentNode, onSelect, myVote, partnerVote, isCoop }) {
+  const n      = nodeObj.step;3
   const info   = NODE_TYPES[nodeObj.type];
   const done   = n < currentNode;
   const active = n === currentNode;
@@ -216,10 +217,19 @@ function MapNode({ nodeObj, currentNode, onSelect }) {
           display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'2px',
           boxShadow:active?`0 0 25px ${info.glow}, inset 0 0 15px ${info.color}14`:done?'none':`0 0 10px ${info.glow}33`,
           transition:'all 0.3s',
+          position: 'relative'
         }}>
           <div style={{fontSize:done?'1rem':active?'1.5rem':'1.1rem',color:done?'#2a6a3a':info.color,lineHeight:1}}>
             {done?'✓':info.icon}
           </div>
+          
+          {/* VOTING INDICATORS */}
+          {isCoop && myVote === nodeObj.id && (
+            <div style={{position:'absolute', top:'-10px', left:'-10px', background:'var(--win)', color:'#000', fontSize:'0.5rem', fontWeight:'bold', padding:'2px 5px', borderRadius:'4px', zIndex:10}}>DU</div>
+          )}
+          {isCoop && partnerVote === nodeObj.id && (
+            <div style={{position:'absolute', top:'-10px', right:'-10px', background:'var(--ep)', color:'#000', fontSize:'0.5rem', fontWeight:'bold', padding:'2px 5px', borderRadius:'4px', zIndex:10}}>MATE</div>
+          )}
         </div>
       </div>
       <div className="mono" style={{fontSize:'0.48rem',color:done?'#2a6a3a':active?'#fff':color,letterSpacing:'1px',fontWeight:active?700:400}}>
@@ -244,8 +254,12 @@ function MiniCard({ card }) {
 }
 
 // ── Main Component ────────────────────────────────────────────────────────
-export default function RoguelikeMap({ avatarCard, roguelikeRun, onStartRun, onStartBattle, onStartEvent, onBack, onGoToLab }) {
+export default function RoguelikeMap({ avatarCard, roguelikeRun, onStartRun, onStartBattle, onStartEvent, onBack, onGoToLab, isCoop = false, conn = null, isHost = false }) {
   const [selectedNodeObj, setSelectedNodeObj] = useState(null);
+  
+  // CO-OP VOTING STATES
+  const [myVote, setMyVote] = useState(null);
+  const [partnerVote, setPartnerVote] = useState(null);
 
   // START SCREEN WENN KEIN RUN AKTIV IST
   if (!roguelikeRun) return (
@@ -284,6 +298,53 @@ export default function RoguelikeMap({ avatarCard, roguelikeRun, onStartRun, onS
 
   // Generiert das Layout basierend auf dem aktuellen Sektor UND dem einmaligen Run-Seed!
   const layout = React.useMemo(() => getMapLayout(sector, roguelikeRun.seed || 0), [sector, roguelikeRun.seed]);
+
+  // ── CO-OP VOTING LOGIC ──
+  React.useEffect(() => {
+    if (!conn || !isCoop) return;
+    const handleData = (data) => {
+      if (data.type === 'MAP_VOTE') {
+         setPartnerVote(data.nodeId);
+      } else if (data.type === 'MAP_VOTE_RESOLVE') {
+         const chosenNode = layout.flat().find(n => n.id === data.nodeId);
+         setSelectedNodeObj(chosenNode);
+         setMyVote(null); setPartnerVote(null);
+      }
+    };
+    conn.on('data', handleData);
+    return () => conn.off('data', handleData);
+  }, [conn, isCoop, layout]);
+
+  React.useEffect(() => {
+    // Der Host sammelt beide Votes und löst auf
+    if (isCoop && isHost && myVote && partnerVote) {
+       const timer = setTimeout(() => {
+         let chosenId = myVote;
+         if (myVote !== partnerVote) {
+           // 1:1 Gleichstand -> Zufall entscheidet!
+           chosenId = Math.random() > 0.5 ? myVote : partnerVote;
+         }
+         conn.send({ type: 'MAP_VOTE_RESOLVE', nodeId: chosenId });
+         const chosenNode = layout.flat().find(n => n.id === chosenId);
+         setSelectedNodeObj(chosenNode);
+         setMyVote(null); setPartnerVote(null);
+       }, 1200); // 1.2 Sekunden dramatische Pause
+       return () => clearTimeout(timer);
+    }
+  }, [myVote, partnerVote, isHost, isCoop, conn, layout]);
+
+  const handleNodeSelect = (nodeObj) => {
+    // Man darf nur Nodes der genau EINEN nächsten Stufe anklicken
+    if (nodeObj.step > node + 1 || nodeObj.step <= node) return; 
+    
+    if (!isCoop) {
+      setSelectedNodeObj(nodeObj);
+      return;
+    }
+    
+    setMyVote(nodeObj.id);
+    if (conn) conn.send({ type: 'MAP_VOTE', nodeId: nodeObj.id });
+  };
 
   return (
     <div style={{position:'fixed',inset:0,overflow:'hidden',background:'#05020e',display:'flex',flexDirection:'column',fontFamily:"'Roboto Mono',monospace"}}>
@@ -345,7 +406,15 @@ export default function RoguelikeMap({ avatarCard, roguelikeRun, onStartRun, onS
               {layout.map((column, colIdx) => (
                 <div key={colIdx} style={{display:'flex', flexDirection:'column', gap:'25px', zIndex: 10}}>
                   {column.map((nodeObj) => (
-                     <MapNode key={nodeObj.id} nodeObj={nodeObj} currentNode={node} onSelect={setSelectedNodeObj} />
+                     <MapNode 
+                       key={nodeObj.id} 
+                       nodeObj={nodeObj} 
+                       currentNode={node} 
+                       onSelect={handleNodeSelect} 
+                       myVote={myVote}
+                       partnerVote={partnerVote}
+                       isCoop={isCoop}
+                     />
                   ))}
                 </div>
               ))}
@@ -354,10 +423,22 @@ export default function RoguelikeMap({ avatarCard, roguelikeRun, onStartRun, onS
 
           <div style={{flex:1,padding:'15px',background:'rgba(0,0,0,0.3)',border:'1px solid rgba(255,255,255,0.04)',position:'relative',overflow:'hidden'}}>
             <Corners color="rgba(255,255,255,0.06)" size={5}/>
-            <div className="mono" style={{fontSize:'0.55rem',color:'rgba(255,255,255,0.2)',letterSpacing:'3px',marginBottom:'15px'}}>▸ MISSION BRIEFING</div>
+            <div className="mono" style={{fontSize:'0.55rem',color:'rgba(255,255,255,0.2)',letterSpacing:'3px',marginBottom:'15px'}}>
+              ▸ MISSION BRIEFING {isCoop && <span style={{color:'var(--ep)', marginLeft:'10px'}}>// CO-OP ABSTIMMUNG AKTIV</span>}
+            </div>
             
-            <div style={{fontSize:'0.85rem', color:'#ccc', lineHeight:'1.6', marginBottom:'15px', paddingLeft:'10px', borderLeft:'2px solid var(--win)'}}>
-              Wähle deinen Pfad weise. <b>Sichere Nodes</b> bieten Standard-Belohnungen. <b>Elite Nodes</b> sind gefährlicher, aber sichern wertvollen Loot. <b>Event Nodes</b> wie Safehouses oder Black Markets erfordern keinen Kampf, sondern fordern taktische Entscheidungen.
+            <div style={{fontSize:'0.85rem', color:'#ccc', lineHeight:'1.6', marginBottom:'15px', paddingLeft:'10px', borderLeft:'2px solid var(--win)', position: 'relative'}}>
+              {isCoop ? (
+                <>
+                  Ihr seid im <b>Co-Op Modus</b>. Beide Agenten müssen einen Node wählen. Bei einem 1:1 Gleichstand wählt das System zufällig einen eurer Pfade aus.
+                  <div style={{marginTop: '10px', padding: '10px', background: 'rgba(0,0,0,0.5)', border: '1px dashed var(--ep)', display: 'flex', gap: '20px', alignItems: 'center'}}>
+                    <div style={{color: myVote ? 'var(--win)' : '#888'}}>{myVote ? '✓ DEIN VOTE EINGELOGGT' : 'Warte auf deinen Vote...'}</div>
+                    <div style={{color: partnerVote ? 'var(--ep)' : '#888'}}>{partnerVote ? '✓ PARTNER VOTE EINGELOGGT' : 'Warte auf Partner...'}</div>
+                  </div>
+                </>
+              ) : (
+                <>Wähle deinen Pfad weise. <b>Sichere Nodes</b> bieten Standard-Belohnungen. <b>Elite Nodes</b> sind gefährlicher, aber sichern wertvollen Loot. <b>Event Nodes</b> wie Safehouses oder Black Markets erfordern keinen Kampf, sondern fordern taktische Entscheidungen.</>
+              )}
             </div>
 
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))',gap:'15px'}}>
@@ -379,7 +460,7 @@ export default function RoguelikeMap({ avatarCard, roguelikeRun, onStartRun, onS
       </div>
 
       {selectedNodeObj !== null && (
-                <NodeModal nodeObj={selectedNodeObj} sector={sector} currentNode={node} onClose={()=>setSelectedNodeObj(null)} onStartBattle={onStartBattle} onStartEvent={onStartEvent}/>
+                <NodeModal nodeObj={selectedNodeObj} sector={sector} currentNode={node} onClose={()=>setSelectedNodeObj(null)} onStartBattle={onStartBattle} onStartEvent={onStartEvent} isCoop={isCoop} />
               )}
     </div>
   );
