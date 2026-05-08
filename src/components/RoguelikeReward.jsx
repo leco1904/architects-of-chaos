@@ -187,12 +187,14 @@ function CardDraftStage({ rewardData, roguelikeRun, onApplyDraft, onSkip }) {
               const W = 360, H = 504, S = 0.78;
               const vw = Math.round(W * S), vh = Math.round(H * S);
               const selected = chosenCard?.name === card.name;
+
               return (
                 <div key={i} onClick={() => { playSound('click'); setChosenCard(card); }}
-                  style={{ cursor: 'pointer', position: 'relative', transition: 'transform 0.2s, box-shadow 0.2s',
+                  style={{ cursor: 'pointer', position: 'relative', transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
                     transform: selected ? 'translateY(-10px)' : 'none',
                     boxShadow: selected ? '0 0 30px rgba(0,229,255,0.5)' : 'none',
                   }}>
+
                   {/* Sized to visual dimensions so grid packs tight */}
                   <div style={{ width: vw, height: vh, overflow: 'hidden', borderRadius: '8px',
                     outline: selected ? '3px solid var(--win)' : '3px solid transparent', outlineOffset: '3px' }}>

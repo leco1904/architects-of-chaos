@@ -63,7 +63,7 @@ function Corners({ color='var(--win)', size=8 }) {
 }
 
 // ── Node Preview Modal ────────────────────────────────────────────────────
-function NodeModal({ nodeObj, sector, currentNode, onClose, onStartBattle, onStartEvent, isCoop }) {
+function NodeModal({ nodeObj, sector, currentNode, onClose, onStartBattle, onStartEvent, isCoop, myNodeReady, partnerNodeReady, onReadyClick }) {
   if (!nodeObj) return null;
   const n = nodeObj.step;
   const info = NODE_TYPES[nodeObj.type];
@@ -91,11 +91,15 @@ function NodeModal({ nodeObj, sector, currentNode, onClose, onStartBattle, onSta
   const packReward = isBoss ? '1x SEKTOR-KERN CACHE' : (isElite ? '1x GHOST DATA PACK' : null);
 
   const handleAction = () => {
-    onClose();
-    if (isEvent) {
-      onStartEvent(nodeObj);
+    if (isCoop) {
+      onReadyClick();
     } else {
-      onStartBattle(nodeObj);
+      onClose();
+      if (isEvent) {
+        onStartEvent(nodeObj);
+      } else {
+        onStartBattle(nodeObj);
+      }
     }
   };
 
@@ -175,12 +179,12 @@ function NodeModal({ nodeObj, sector, currentNode, onClose, onStartBattle, onSta
             
             {/* Actions */}
             <div style={{display:'flex',gap:'10px', marginTop:'20px'}}>
-              <button onClick={onClose} style={{flex:1,padding:'10px',background:'transparent',border:'1px solid #2a3a4a',color:'#667',fontFamily:"'Roboto Mono',monospace",fontSize:'0.68rem',letterSpacing:'2px',cursor:'pointer'}}>
+              <button onClick={onClose} disabled={myNodeReady} style={{flex:1,padding:'10px',background:'transparent',border:'1px solid #2a3a4a',color:'#667',fontFamily:"'Roboto Mono',monospace",fontSize:'0.68rem',letterSpacing:'2px',cursor: myNodeReady ? 'not-allowed' : 'pointer', opacity: myNodeReady ? 0.5 : 1}}>
                 ABBRECHEN
               </button>
               {isActive && (
-                <button onClick={handleAction} style={{flex:2,padding:'12px',background:`${info.color}15`,border:`2px solid ${info.color}`,color:info.color,fontFamily:"'Roboto Mono',monospace",fontSize:'0.75rem',fontWeight:700,letterSpacing:'3px',cursor:'pointer',boxShadow:`0 0 20px ${info.glow}`}}>
-                  {isEvent ? `${info.icon} EINTRETEN` : `${info.icon} KAMPF STARTEN`}
+                <button onClick={!myNodeReady ? handleAction : undefined} style={{flex:2,padding:'12px',background: myNodeReady ? 'transparent' : `${info.color}15`,border:`2px solid ${myNodeReady ? '#555' : info.color}`,color: myNodeReady ? '#888' : info.color,fontFamily:"'Roboto Mono',monospace",fontSize:'0.75rem',fontWeight:700,letterSpacing:'3px',cursor: myNodeReady ? 'default' : 'pointer',boxShadow: myNodeReady ? 'none' : `0 0 20px ${info.glow}`, transition: 'all 0.3s'}}>
+                  {myNodeReady ? 'SQUAD SYNC (1/2 BEREIT)...' : (isEvent ? `${info.icon} EINTRETEN` : `${info.icon} KAMPF STARTEN`)}
                 </button>
               )}
             </div>
@@ -260,6 +264,10 @@ export default function RoguelikeMap({ avatarCard, roguelikeRun, onStartRun, onS
   // CO-OP VOTING STATES
   const [myVote, setMyVote] = useState(null);
   const [partnerVote, setPartnerVote] = useState(null);
+  
+  // NEU: CO-OP NODE READY STATES
+  const [myNodeReady, setMyNodeReady] = useState(false);
+  const [partnerNodeReady, setPartnerNodeReady] = useState(false);
 
   // START SCREEN WENN KEIN RUN AKTIV IST
   if (!roguelikeRun) return (
@@ -299,7 +307,7 @@ export default function RoguelikeMap({ avatarCard, roguelikeRun, onStartRun, onS
   // Generiert das Layout basierend auf dem aktuellen Sektor UND dem einmaligen Run-Seed!
   const layout = React.useMemo(() => getMapLayout(sector, roguelikeRun.seed || 0), [sector, roguelikeRun.seed]);
 
-  // ── CO-OP VOTING LOGIC ──
+  // ── CO-OP VOTING & READY LOGIC ──
   React.useEffect(() => {
     if (!conn || !isCoop) return;
     const handleData = (data) => {
@@ -309,11 +317,33 @@ export default function RoguelikeMap({ avatarCard, roguelikeRun, onStartRun, onS
          const chosenNode = layout.flat().find(n => n.id === data.nodeId);
          setSelectedNodeObj(chosenNode);
          setMyVote(null); setPartnerVote(null);
+         setMyNodeReady(false); setPartnerNodeReady(false); // Reset für den neuen Node
+      } else if (data.type === 'NODE_READY') {
+         setPartnerNodeReady(true);
       }
     };
     conn.on('data', handleData);
     return () => conn.off('data', handleData);
   }, [conn, isCoop, layout]);
+
+  // NEU: Sync Timer für den Node-Eintritt
+  React.useEffect(() => {
+    if (isCoop && myNodeReady && partnerNodeReady && selectedNodeObj) {
+      const timer = setTimeout(() => {
+          const node = selectedNodeObj;
+          setSelectedNodeObj(null);
+          setMyNodeReady(false);
+          setPartnerNodeReady(false);
+          
+          if (NODE_TYPES[node.type].type === 'event') {
+              onStartEvent(node);
+          } else {
+              onStartBattle(node);
+          }
+      }, 600); // Kurze Pause für das befriedigende "Beide Bereit!" Gefühl
+      return () => clearTimeout(timer);
+    }
+  }, [isCoop, myNodeReady, partnerNodeReady, selectedNodeObj, onStartBattle, onStartEvent]);
 
   React.useEffect(() => {
     // Der Host sammelt beide Votes und löst auf
@@ -334,8 +364,8 @@ export default function RoguelikeMap({ avatarCard, roguelikeRun, onStartRun, onS
   }, [myVote, partnerVote, isHost, isCoop, conn, layout]);
 
   const handleNodeSelect = (nodeObj) => {
-    // Man darf nur Nodes der genau EINEN nächsten Stufe anklicken
-    if (nodeObj.step > node + 1 || nodeObj.step <= node) return; 
+    // FIX: Im Co-Op darf man nur auf Nodes der AKTUELLEN Stufe voten!
+    if (isCoop && nodeObj.step !== node) return; 
     
     if (!isCoop) {
       setSelectedNodeObj(nodeObj);
@@ -460,8 +490,25 @@ export default function RoguelikeMap({ avatarCard, roguelikeRun, onStartRun, onS
       </div>
 
       {selectedNodeObj !== null && (
-                <NodeModal nodeObj={selectedNodeObj} sector={sector} currentNode={node} onClose={()=>setSelectedNodeObj(null)} onStartBattle={onStartBattle} onStartEvent={onStartEvent} isCoop={isCoop} />
-              )}
+        <NodeModal 
+          nodeObj={selectedNodeObj} 
+          sector={sector} 
+          currentNode={node} 
+          onClose={()=>{
+             setSelectedNodeObj(null);
+             setMyNodeReady(false); // Falls man abbricht, Ready-State resetten
+          }} 
+          onStartBattle={onStartBattle} 
+          onStartEvent={onStartEvent} 
+          isCoop={isCoop} 
+          myNodeReady={myNodeReady}
+          partnerNodeReady={partnerNodeReady}
+          onReadyClick={() => {
+             setMyNodeReady(true);
+             if (conn) conn.send({ type: 'NODE_READY' });
+          }}
+        />
+      )}
     </div>
   );
 }

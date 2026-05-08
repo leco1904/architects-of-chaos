@@ -12,6 +12,7 @@ import RoguelikeSquad from './components/Roguelikesquad';
 import Leaderboard from './components/Leaderboard';
 import GhostNodeMenu from './components/GhostNodeMenu';
 import SystemOverrides, { ACHIEVEMENTS } from './components/SystemOverrides';
+import GhostNetwork from './components/GhostNetwork'; // NEU
 import cardsData from './data/cards.json';
 import { playSound } from './logic/audio';
 import { supabase } from './logic/supabase';
@@ -332,19 +333,42 @@ export default function App() {
   const [remotePeerId, setRemotePeerId] = useState('');
   const [conn, setConn] = useState(null);
   const [lobbyMode, setLobbyMode] = useState('select'); 
-  const [isCoopMode, setIsCoopMode] = useState(false); // NEU: Unterscheidet 1v1 vs Co-Op
-  
+  const [isCoopMode, setIsCoopMode] = useState(false); 
+const [incomingInvite, setIncomingInvite] = useState(null); // NEU: Speichert Live-Einladungen
+  const [pendingOutgoingInvite, setPendingOutgoingInvite] = useState(null); // Passive Hosting: { mode, targetId }  
   const [myOnlineDeck, setMyOnlineDeck] = useState(null);
   const [remoteDeck, setRemoteDeck] = useState(null);
   const [coopAIDecks, setCoopAIDecks] = useState(null); // NEU: Speichert die KI-Decks für das Koop-Match
+  const [clientSquadReady, setClientSquadReady] = useState(null); // NEU: Deck des Partners für den Draft
+  const [mySquadReady, setMySquadReady] = useState(false); // NEU: Hab ich als Client schon bestätigt?
   const activeDeck = decks.find(d => d.isActive) || decks[0];
 
-  // NEU: Synchronisiert das Roguelike-Deck und den Run-State im Co-Op permanent
+ // NEU: Supabase Realtime Listener für eingehende P2P-Spieleinladungen
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    
+    const inviteSub = supabase.channel('realtime_invites')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'game_invites', filter: `receiver_id=eq.${session.user.id}` }, (payload) => {
+         if (payload.new.status === 'pending') {
+             playSound('crisis'); 
+             setIncomingInvite(payload.new);
+         }
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(inviteSub); };
+  }, [session]);
+ 
+  // NEU: Synchronisiert das Roguelike-Deck und die Run-Parameter im Co-Op permanent
   useEffect(() => {
     if (conn && isCoopMode && roguelikeRun) {
+       // Eigene Karten an den Neural Link des Partners senden
        conn.send({ type: 'DECK_SYNC', chars: roguelikeRun.runDeck.chars, effs: roguelikeRun.runDeck.effs });
+       
+       // FIX: Niemals das komplette "run" Objekt (inklusive Deck) permanent überschreiben!
+       // Nur der Host darf die aktuellen Map-Werte (HP, Sector) diktieren.
        if (lobbyMode === 'host') {
-           conn.send({ type: 'SYNC_RUN_STATE', run: roguelikeRun });
+           conn.send({ type: 'SYNC_RUN_PARAMS', hp: roguelikeRun.currentHP, sector: roguelikeRun.sector, node: roguelikeRun.node, seed: roguelikeRun.seed });
        }
     }
   }, [conn, isCoopMode, roguelikeRun, lobbyMode]);
@@ -632,19 +656,68 @@ export default function App() {
     return { aiChars, aiEffs, difficulty: diff, initialAHP: aHP, archetype, node: nodeObj };
   };
 
-  const startRoguelikeRunWithDeck = (selectedChars, selectedEffs) => {
+  const startRoguelikeRunWithDeck = (selectedChars, selectedEffs, teamChar) => {
     if (!avatarCard) return;
+
+    if (isCoopMode && lobbyMode === 'join') {
+        // Client sendet sein Deck an den Host und wartet
+        conn.send({ type: 'CLIENT_SQUAD_READY', payload: { chars: selectedChars, effs: selectedEffs, teamChar, avatarCard } });
+        setMySquadReady(true);
+        return;
+    }
+
+    if (isCoopMode && lobbyMode === 'host') {
+        if (!clientSquadReady) {
+            alert("Warte auf den Partner, bis er sein Squad bestätigt hat!");
+            return;
+        }
+        
+        // Mische die Team Assets!
+        const hostTeamAsset = teamChar ? { ...teamChar, isTeamAsset: true } : null;
+        const clientTeamAsset = clientSquadReady.teamChar ? { ...clientSquadReady.teamChar, isTeamAsset: true } : null;
+        
+        let assignedToHost = hostTeamAsset;
+        let assignedToClient = clientTeamAsset;
+
+        // 50/50 Chance zu tauschen, falls BEIDE eine Karte in den Slot gelegt haben
+        if (hostTeamAsset && clientTeamAsset && Math.random() > 0.5) {
+            assignedToHost = clientTeamAsset;
+            assignedToClient = hostTeamAsset;
+        }
+
+        let hostChars = [{ ...avatarCard }, ...selectedChars];
+        if (assignedToHost) hostChars.push(assignedToHost);
+
+        let clientChars = [{ ...clientSquadReady.avatarCard }, ...clientSquadReady.chars];
+        if (assignedToClient) clientChars.push(assignedToClient);
+
+        const baseRunInfo = { currentHP: 500, maxHP: 500, sector: 1, node: 1, seed: Math.random(), isCoop: true };
+        
+        const hostRun = { ...baseRunInfo, runDeck: { chars: hostChars, effs: selectedEffs } };
+        const clientRun = { ...baseRunInfo, runDeck: { chars: clientChars, effs: clientSquadReady.effs } };
+
+        setRoguelikeRun(hostRun);
+        setClientSquadReady(null); // Reset für nächsten Run
+        setMySquadReady(false);
+        
+        // Sende dem Client exakt SEIN eigenes, zusammengemischtes Deck
+        conn.send({ type: 'SYNC_RUN_STATE', run: clientRun });
+        conn.send({ type: 'NAV_TO', view: 'roguelikemap' });
+        setCurrentView('roguelikemap');
+        return;
+    }
+
+    // Singleplayer Fall
+    let compiledChars = [{ ...avatarCard }, ...selectedChars];
+    if (teamChar) compiledChars.push({ ...teamChar, isTeamAsset: true });
+    
     const newRun = {
       currentHP: 500, maxHP: 500, sector: 1, node: 1, seed: Math.random(),
-      isCoop: isCoopMode, // Markiert den Run als Co-Op Mission
-      runDeck: {
-        chars: [{ ...avatarCard }, ...selectedChars],
-        effs:  selectedEffs,
-      },
+      isCoop: false,
+      runDeck: { chars: compiledChars, effs: selectedEffs },
     };
+    
     setRoguelikeRun(newRun);
-    // Den neuen Run-State sofort an den Partner funken
-    if (conn && isCoopMode) conn.send({ type: 'SYNC_RUN_STATE', run: newRun });
     setCurrentView('roguelikemap');
   };
 
@@ -657,14 +730,26 @@ export default function App() {
   // FIX: Nimmt jetzt das nodeObj von der RoguelikeMap entgegen!
   const startRoguelikeMatch = (nodeObj) => {
     if (!roguelikeRun || !nodeObj) return;
-    const data = generateAIDeck(nodeObj, roguelikeRun.sector);
-    setRoguelikeMatchData(data);
-    setCurrentView('match');
     
-    // NEU: Im Co-Op Modus triggert der Starter den Client, damit beide das Match betreten!
-    if (conn && isCoopMode) {
-        conn.send({ type: 'START_RL_MATCH', aiData: data });
+    // FIX: Im Co-Op generiert NUR der Host die Gegner und schickt sie an den Client!
+    if (isCoopMode) {
+        if (lobbyMode === 'host') {
+            const hostAIData = generateAIDeck(nodeObj, roguelikeRun.sector);
+            const clientAIData = generateAIDeck(nodeObj, roguelikeRun.sector);
+
+            setRoguelikeMatchData(hostAIData);
+            setCurrentView('match');
+
+            if (conn) conn.send({ type: 'START_RL_MATCH', aiData: clientAIData });
+        }
+        // Client macht hier gar nichts, sondern wartet einfach auf das Paket vom Host!
+        return;
     }
+
+    // Singleplayer Fall
+    const myData = generateAIDeck(nodeObj, roguelikeRun.sector);
+    setRoguelikeMatchData(myData);
+    setCurrentView('match');
   };
 
   // --- DIE REPARIERTE LOOT & DRAFT LOGIK ---
@@ -802,9 +887,9 @@ export default function App() {
     });
   };
 
-  // --- DIE FEHLENDE FUNKTION IST WIEDER DA ---
   const applyRoguelikeDraft = (newCard, replaceIndex, replaceIn, isUpgrade = false) => {
     if (!roguelikeRun) return;
+    
     const deck = { chars: [...roguelikeRun.runDeck.chars], effs: [...roguelikeRun.runDeck.effs] };
 
     if (isUpgrade) {
@@ -849,6 +934,7 @@ export default function App() {
     setMyOnlineDeck(null);
     setRemoteDeck(null);
     setCoopAIDecks(null);
+    setPendingOutgoingInvite(null); // Passive Hosting: immer mitresettten
   };
 
   const navTo = (view) => {
@@ -868,7 +954,7 @@ export default function App() {
     return readyDeck;
   };
 
-  const startHosting = (mode = 'pvp') => {
+  const startHosting = (mode = 'pvp', inviteTargetId = null) => {
     if (activeDeck.chars.length !== 12 || activeDeck.effs.length !== 3) {
       alert("Dein aktives Deck ist unvollständig! (12 Chars, 3 Effekte benötigt)");
       return;
@@ -886,15 +972,44 @@ export default function App() {
     }
 
     const newPeer = new Peer();
-    newPeer.on('open', (id) => setMyPeerId(id));
+    newPeer.on('open', async (id) => {
+        setMyPeerId(id);
+
+        // PASSIVE HOSTING MODE: Invite via GhostNetwork → Peer ist offen, aber Host bleibt im Menü
+        if (inviteTargetId && session?.user) {
+            setPendingOutgoingInvite({ mode, targetId: inviteTargetId });
+            try {
+                await supabase.from('game_invites').insert({
+                    sender_id: session.user.id,
+                    receiver_id: inviteTargetId,
+                    sender_name: session.user.user_metadata?.username || 'AGENT',
+                    mode: mode,
+                    peer_id: id
+                });
+            } catch(e) { console.error("Invite send error:", e); }
+            // KEIN setCurrentView hier — Host bleibt frei navigierbar
+            return;
+        }
+
+        // Normales Hosting ohne Invite → direkt zur Lobby
+        setCurrentView('multiplayer');
+    });
 
     newPeer.on('connection', (connection) => {
+      // PARTNER IST BEIGETRETEN — Pending State auflösen und automatisch navigieren
+      setPendingOutgoingInvite(null);
+      playSound('upgrade');
+
       setConn(connection);
       connection.on('open', () => {
         if (mode === 'coop') {
+           const targetView = roguelikeRun ? 'roguelikemap' : 'roguelikesquad';
            connection.send({ type: 'COOP_INIT', hostDeck: myDeck, clientAI: clientAI, difficulty: difficulty });
+           connection.send({ type: 'NAV_TO', view: targetView }); // Client mitziehen!
+           setCurrentView(targetView);
         } else {
            connection.send({ type: 'PVP_INIT', chars: myDeck.chars, effs: myDeck.effs });
+           setCurrentView('multiplayer');
         }
       });
       connection.on('data', (data) => {
@@ -908,8 +1023,14 @@ export default function App() {
             setCurrentView('roguelikeevent');
         } else if (data.type === 'SYNC_RUN_STATE') {
             setRoguelikeRun(data.run);
+        } else if (data.type === 'SYNC_RUN_PARAMS') {
+            setRoguelikeRun(prev => prev ? { ...prev, currentHP: data.hp, sector: data.sector, node: data.node, seed: data.seed } : null);
         } else if (data.type === 'NAV_TO') {
             setCurrentView(data.view);
+        } else if (data.type === 'TEAM_DRAFT_RECEIVE') {
+            applyRoguelikeDraft(data.card, null, null, false, true); 
+        } else if (data.type === 'CLIENT_SQUAD_READY') {
+            setClientSquadReady(data.payload);
         }
       });
       connection.on('close', () => { 
@@ -957,8 +1078,13 @@ export default function App() {
           setCurrentView('roguelikeevent');
       } else if (data.type === 'SYNC_RUN_STATE') {
           setRoguelikeRun(data.run);
+      } else if (data.type === 'SYNC_RUN_PARAMS') {
+          // FIX: Nur Map-Werte updaten, das Deck in Ruhe lassen!
+          setRoguelikeRun(prev => prev ? { ...prev, currentHP: data.hp, sector: data.sector, node: data.node, seed: data.seed } : null);
       } else if (data.type === 'NAV_TO') {
           setCurrentView(data.view);
+      } else if (data.type === 'TEAM_DRAFT_RECEIVE') {
+          applyRoguelikeDraft(data.card, null, null, false, true);
       }
     });
     connection.on('close', () => { 
@@ -1069,7 +1195,7 @@ export default function App() {
   const renderRoguelikeView = () => {
     if (currentView === 'ghostnodemenu') return <GhostNodeMenu avatarCard={avatarCard} updateAvatar={updateAvatar} roguelikeRun={roguelikeRun} onGoToLab={() => setCurrentView('avatarlab')} onGoToSquad={() => setCurrentView('roguelikesquad')} onGoToMap={() => setCurrentView('roguelikemap')} onBack={() => setCurrentView('menu')} />;
     if (currentView === 'avatarlab') return <AvatarLab avatarCard={avatarCard} updateAvatar={updateAvatar} onBack={() => setCurrentView('ghostnodemenu')} onGoToMission={() => { if (roguelikeRun) setCurrentView('roguelikemap'); else setCurrentView('roguelikesquad'); }} allFactions={allFactions} />;
-    if (currentView === 'roguelikesquad') return <RoguelikeSquad avatarCard={avatarCard} inventory={inventory} onConfirm={startRoguelikeRunWithDeck} onBack={() => setCurrentView('ghostnodemenu')} />;
+    if (currentView === 'roguelikesquad') return <RoguelikeSquad avatarCard={avatarCard} inventory={inventory} onConfirm={startRoguelikeRunWithDeck} onBack={() => setCurrentView('ghostnodemenu')} isCoop={isCoopMode} isHost={lobbyMode === 'host'} partnerReady={!!clientSquadReady} mySquadReady={mySquadReady} />;
     if (currentView === 'roguelikemap') {
       if (!roguelikeRun) return <div className="screen active" style={{ justifyContent: 'center', alignItems: 'center' }}><div className="mono" style={{ color: 'var(--ep)', fontSize: '1.2rem', animation: 'pulse 1s infinite' }}>INITIALISIERE THE GRID...</div></div>;
       return <RoguelikeMap avatarCard={avatarCard} roguelikeRun={roguelikeRun} onStartRun={startRoguelikeRun} onStartBattle={startRoguelikeMatch} onStartEvent={startRoguelikeEvent} onBack={() => setCurrentView('ghostnodemenu')} onGoToLab={() => setCurrentView('avatarlab')} isCoop={isCoopMode} conn={conn} isHost={lobbyMode === 'host'} />;
@@ -1567,7 +1693,7 @@ export default function App() {
             </div>
 
             {/* RECHTE SEITE: System Module (Grid) */}
-            <div className="dash-right">
+            <div className="dash-right" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                <button className="dash-btn-module" onClick={() => { setPlayMenuOpen(false); setCurrentView('inventory'); }}>
                   <div className="mod-icon">🗄️</div>
                   <div className="mod-text">INVENTAR & DECK</div>
@@ -1593,7 +1719,6 @@ export default function App() {
                <button className="dash-btn-module" onClick={() => { playSound('click'); setPlayMenuOpen(false); setCurrentView('overrides'); }}>
                   <div className="mod-icon">⭐</div>
                   <div className="mod-text">OVERRIDES</div>
-                  {/* Benachrichtigungs-Punkt bei abholbereiten Achievements */}
                   {hasClaimableOverrides && <div className="notif-dot" style={{ background: 'var(--ep)' }}></div>}
                </button>
 
@@ -1601,14 +1726,158 @@ export default function App() {
                   <div className="mod-icon">🏆</div>
                   <div className="mod-text">LEADERBOARD</div>
                </button>
+               
+               {/* GHOST NETWORK WIDE BANNER (Span 2) */}
+               <button 
+                  className="dash-btn-module" 
+                  style={{ 
+                     gridColumn: '1 / -1', /* Zieht den Button über beide Spalten! */
+                     borderColor: 'var(--ep)', 
+                     background: 'linear-gradient(90deg, rgba(0,229,255,0.05) 0%, rgba(188,19,254,0.08) 100%)',
+                     display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: '20px', padding: '15px'
+                  }} 
+                  onClick={() => { playSound('click'); setPlayMenuOpen(false); setCurrentView('ghostnetwork'); }}
+               >
+                  <div className="mod-icon" style={{ fontSize: '2.2rem', margin: 0, animation: 'pulse 2s infinite', filter: 'drop-shadow(0 0 10px var(--ep))' }}>📡</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                     <div className="mod-text" style={{ color: 'var(--ep)', fontSize: '1.2rem', textShadow: '0 0 10px var(--ep)', margin: 0 }}>GHOST NETWORK</div>
+                     <div className="mono" style={{ fontSize: '0.65rem', color: '#aaa', letterSpacing: '2px', marginTop: '4px' }}>SOCIAL HUB & CO-OP INVITES</div>
+                  </div>
+               </button>
             </div>
-
+            
           </div>
         </div>
       )}
 
+      {/* SYSTEM OVERRIDES SCREEN */}
       {currentView === 'overrides' && (
          <SystemOverrides metaStats={metaStats} onBack={() => setCurrentView('menu')} onClaim={claimOverride} />
+      )}
+
+      {/* GHOST NETWORK SCREEN (Mit verkabeltem Invite-Prop) */}
+      {currentView === 'ghostnetwork' && (
+         <GhostNetwork 
+           session={session} 
+           onBack={() => setCurrentView('menu')} 
+           onInvite={(targetId, mode) => startHosting(mode, targetId)} 
+         />
+      )}
+
+      {/* PASSIVE HOSTING STATUS INDICATOR — dezenter Floating Button, kein blockierendes Fenster */}
+      {pendingOutgoingInvite && (
+        <div style={{
+          position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)',
+          zIndex: 99998, display: 'flex', alignItems: 'center', gap: '12px',
+          padding: '12px 20px',
+          background: 'rgba(4, 2, 14, 0.92)',
+          border: `1px solid ${pendingOutgoingInvite.mode === 'coop' ? 'var(--apex-pink)' : 'var(--win)'}`,
+          borderLeft: `3px solid ${pendingOutgoingInvite.mode === 'coop' ? 'var(--apex-pink)' : 'var(--win)'}`,
+          backdropFilter: 'blur(12px)',
+          boxShadow: `0 0 24px ${pendingOutgoingInvite.mode === 'coop' ? 'rgba(255,0,127,0.2)' : 'rgba(0,229,255,0.2)'}`,
+          pointerEvents: 'all',
+        }}>
+          <span style={{ fontSize: '1.1rem', animation: 'pulse 1.2s infinite' }}>📡</span>
+          <span className="mono" style={{
+            fontSize: '0.72rem', letterSpacing: '2px',
+            color: pendingOutgoingInvite.mode === 'coop' ? 'var(--apex-pink)' : 'var(--win)',
+          }}>
+            WARTE AUF PARTNER...
+          </span>
+          <span className="mono" style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.3)', letterSpacing: '1px' }}>
+            {pendingOutgoingInvite.mode === 'coop' ? 'CO-OP' : '1V1'}
+          </span>
+          <button
+            onClick={() => { disconnectPeer(); setPendingOutgoingInvite(null); playSound('click'); }}
+            style={{
+              marginLeft: '8px', padding: '4px 10px',
+              background: 'rgba(255,0,50,0.1)', border: '1px solid var(--lose)',
+              color: 'var(--lose)', fontFamily: "'Roboto Mono', monospace",
+              fontSize: '0.68rem', letterSpacing: '2px', cursor: 'pointer',
+            }}
+          >
+            ✕ ABBRECHEN
+          </button>
+        </div>
+      )}
+
+      {/* INCOMING INVITE POPUP (Live WebSocket Receiver) */}
+      {incomingInvite && (
+          <div className="glass-overlay active" style={{ zIndex: 99999 }}>
+              <div className="glass-panel" style={{ width: '400px', textAlign: 'center', borderColor: incomingInvite.mode === 'coop' ? 'var(--apex-pink)' : 'var(--win)' }}>
+                  <div style={{ fontSize: '2.5rem', marginBottom: '10px', animation: 'pulse 1.5s infinite' }}>📡</div>
+                  <h3 className="mono" style={{ color: incomingInvite.mode === 'coop' ? 'var(--apex-pink)' : 'var(--win)', letterSpacing: '2px' }}>
+                      INCOMING NEURAL LINK
+                  </h3>
+                  <p style={{ color: '#ccc', margin: '20px 0', fontSize: '1.1rem' }}>
+                      <b style={{ color: '#fff' }}>{incomingInvite.sender_name}</b> fordert dich zu<br/>einer <b style={{ color: incomingInvite.mode === 'coop' ? 'var(--apex-pink)' : 'var(--win)' }}>{incomingInvite.mode === 'coop' ? 'CO-OP MISSION' : '1v1 SCHLACHT'}</b> heraus!
+                  </p>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                      <button className="menu-btn btn-primary" style={{ flex: 1 }} onClick={async () => {
+                          playSound('click');
+                          const inv = incomingInvite;
+                          setIncomingInvite(null);
+                          await supabase.from('game_invites').update({ status: 'declined' }).eq('id', inv.id);
+                      }}>ABLEHNEN</button>
+                      
+                      <button className="menu-btn btn-danger" style={{ flex: 1, background: 'rgba(0,255,100,0.1)', borderColor: '#00ff44', color: '#00ff44' }} onClick={async () => {
+                          playSound('upgrade');
+                          const inv = incomingInvite;
+                          setIncomingInvite(null);
+                          await supabase.from('game_invites').update({ status: 'accepted' }).eq('id', inv.id);
+                          
+                          // Automatischer Join-Prozess
+                          setIsCoopMode(inv.mode === 'coop');
+                          setLobbyMode('join');
+                          setRemotePeerId(inv.peer_id);
+                          const readyDeck = prepareMyDeck();
+                          setCurrentView('multiplayer');
+                          
+                          const newPeer = new Peer();
+                          setPeer(newPeer);
+                          newPeer.on('open', () => {
+                              const connection = newPeer.connect(inv.peer_id);
+                              connection.on('open', () => {
+                                  setConn(connection);
+                                  connection.send({ type: 'DECK_SYNC', chars: readyDeck.chars, effs: readyDeck.effs });
+                              });
+                              connection.on('data', (data) => {
+                                  if (data.type === 'COOP_INIT') {
+                                      setIsCoopMode(true);
+                                      setRemoteDeck(data.hostDeck);
+                                      setCoopAIDecks({ myAI: data.clientAI });
+                                      setDifficulty(data.difficulty);
+                                  } else if (data.type === 'PVP_INIT') {
+                                      setIsCoopMode(false);
+                                      setRemoteDeck({ chars: data.chars, effs: data.effs });
+                                  } else if (data.type === 'DECK_SYNC') {
+                                      setRemoteDeck({ chars: data.chars, effs: data.effs });
+                                  } else if (data.type === 'START_RL_MATCH') {
+                                      setRoguelikeMatchData(data.aiData);
+                                      setCurrentView('match');
+                                  } else if (data.type === 'START_RL_EVENT') {
+                                      setRoguelikeEventData(data.nodeObj);
+                                      setCurrentView('roguelikeevent');
+                                  } else if (data.type === 'SYNC_RUN_STATE') {
+                                      setRoguelikeRun(data.run);
+                                  } else if (data.type === 'SYNC_RUN_PARAMS') {
+                                      setRoguelikeRun(prev => prev ? { ...prev, currentHP: data.hp, sector: data.sector, node: data.node, seed: data.seed } : null);
+                                  } else if (data.type === 'NAV_TO') {
+                                      setCurrentView(data.view);
+                                  } else if (data.type === 'TEAM_DRAFT_RECEIVE') {
+                                      applyRoguelikeDraft(data.card, null, null, false, true);
+                                  } else if (data.type === 'CLIENT_SQUAD_READY') {
+                                      setClientSquadReady(data.payload);
+                                  }
+                              });
+                              connection.on('close', () => { 
+                                  if (currentView !== 'postmatch') { alert("Verbindung getrennt."); disconnectPeer(); setCurrentView('menu'); }
+                              });
+                          });
+                      }}>AKZEPTIEREN</button>
+                  </div>
+              </div>
+          </div>
       )}
 
     </div>

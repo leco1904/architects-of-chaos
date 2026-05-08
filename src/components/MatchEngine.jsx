@@ -87,7 +87,16 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
   const [lastAttackStat, setLastAttackStat] = useState(null);
   const [lastAIAttackStat, setLastAIAttackStat] = useState(null);
   const [pHP, setPHP] = useState(initialPHP);
-  const [aHP, setAHP] = useState(initialAHP);
+  // FIX: Im Co-Op teilen sich die KI-Gegner eine gigantische HP-Leiste (doppelte HP)
+  const [aHP, setAHP] = useState(isCoop ? initialAHP * 2 : initialAHP);
+  
+  // FIX: Verhindert Stale-Closures während der 500ms Pause
+  const hpRefs = React.useRef({ p: initialPHP, a: isCoop ? initialAHP * 2 : initialAHP });
+  useEffect(() => { hpRefs.current = { p: pHP, a: aHP }; }, [pHP, aHP]);
+  
+  // FIX: Fängt Schaden auf, der über das Netzwerk ankommt, bevor der Screen offen ist
+  const [coopDmgBuffer, setCoopDmgBuffer] = useState({ p: 0, a: 0 });
+  
   // NEU: Lokale Kampf-Stats
   const [matchStats, setMatchStats] = useState({
     dmgDealt: 0,
@@ -139,8 +148,8 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
   const [partnerHand, setPartnerHand] = useState((partnerChars || []).slice(0, 3));
   const [partnerEffHand, setPartnerEffHand] = useState((partnerEffs || []).slice(0, 1));
   
-  // NEU: Data Cannon - Einmal pro Match nutzbar!
-  const [cannonReady, setCannonReady] = useState(true);
+  // NEU: Data Cannon - 3-Runden Cooldown System
+  const [transferCharge, setTransferCharge] = useState(3);
   
   const [activeIdx, setActiveIdx] = useState(0);
   const [activeEffObj, setActiveEffObj] = useState(null);
@@ -165,6 +174,7 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
   const [remoteClashAck, setRemoteClashAck] = useState(null);
   const [showMatchIntro, setShowMatchIntro] = useState(true);
   const [introPhase, setIntroPhase] = useState(0); 
+  const [cannonAnimData, setCannonAnimData] = useState(null); // NEU: State für die fliegende Karte
 
    useEffect(() => {
     playSound('matchIntro');
@@ -180,8 +190,16 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
           if (data.type === 'ACTION') {
               if (!pTurn) setCurK(data.category); 
               setRemoteActionData(data);
+          } else if (data.type === 'ACTION_CANCEL') {
+              // NEU: Partner hat seine Aktion zurückgezogen
+              setRemoteActionData(null);
+              if (!pTurn) setCurK(''); // Gibt unsere Kategorie-Wahl wieder frei
           } else if (data.type === 'CLASH_ACK') {
+              // Client empfängt die echten Krisen-Daten vom Host
               setRemoteClashAck(data);
+          } else if (data.type === 'CLASH_CONFIRM') {
+              // Host merkt sich: Partner ist bereit, den Screen zu schließen
+              if (isHost) setRemoteClashAck({ partnerReady: true });
           } else if (data.type === 'HAND_SYNC') {
               setPartnerHand(data.hand);
               setPartnerEffHand(data.effHand);
@@ -190,7 +208,6 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
           } else if (data.type === 'EP_GAIN') {
               setPEP(prev => Math.min(25, prev + data.amount));
           } else if (data.type === 'HP_LOST') {
-              // THE LIFE LINK: Partner hat Schaden gefressen!
               setPHP(prev => {
                   const nextHP = Math.max(0, prev - data.amount);
                   if (nextHP <= 0 && isCoop) {
@@ -198,6 +215,20 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
                   }
                   return nextHP;
               });
+          } else if (data.type === 'COOP_CLASH_DAMAGE') {
+              setPHP(prev => {
+                  const nextHP = Math.max(0, prev - data.amount);
+                  if (nextHP <= 0 && isCoop) {
+                      setTimeout(() => onEndGame({ isWin: false, sarcasmNews: { text: "NEURAL LINK SEVERED: Dein Partner hat das System kollabieren lassen." }, matchData: { dmgDealt: 0, turns: 0 } }), 100);
+                  }
+                  return nextHP;
+              });
+              setCoopDmgBuffer(prev => ({ ...prev, p: prev.p + data.amount }));
+              setClashData(prev => prev ? { ...prev, newPHP: Math.max(0, prev.newPHP - data.amount), partnerDmgP: (prev.partnerDmgP || 0) + data.amount } : prev);
+          } else if (data.type === 'COOP_AI_DAMAGE') {
+              setAHP(prev => Math.max(0, prev - data.amount));
+              setCoopDmgBuffer(prev => ({ ...prev, a: prev.a + data.amount }));
+              setClashData(prev => prev ? { ...prev, newAHP: Math.max(0, prev.newAHP - data.amount), partnerDmgA: (prev.partnerDmgA || 0) + data.amount } : prev);
           } else if (data.type === 'TEAM_WIN') {
               // THE LIFE LINK: Partner hat seinen KI-Boss eliminiert!
               setTimeout(() => onEndGame({ isWin: true, sarcasmNews: { text: "CO-OP STRIKE: Dein Partner hat den gegnerischen Node gecrackt!" }, matchData: { dmgDealt: 0, turns: 0 } }), 100);
@@ -219,22 +250,36 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
   }, [pHand, pEffHand, isOnline, conn]);
 
   useEffect(() => {
-      // Trigger: Wir brauchen meine Aktion UND die Aktion des Gegners (KI im Co-Op, Partner im PvP)
-      const enemyReady = isCoop ? !!localAIActionData : !!remoteActionData;
+      // FIX: Im Co-Op warten wir jetzt auf BEIDES: Den lokalen Boss UND die Bestätigung, dass der Partner auch gelockt ist!
+      const enemyReady = isCoop ? (!!localAIActionData && !!remoteActionData) : !!remoteActionData;
       if (myLockedAction && enemyReady) {
-          resolveClash();
+          setTimeout(resolveClash, 500); // Kurze Pause für mehr "Wumms" beim synchronen Start
       }
   }, [myLockedAction, remoteActionData, localAIActionData, isCoop]);
 
   useEffect(() => {
-      if (isOnline && myClashConfirmed && remoteClashAck && clashData) {
-          applyClashAck(remoteClashAck, clashData.ac.name);
-          setClashData(null);
-          setMyClashConfirmed(false);
-          setRemoteClashAck(null);
-          setWaiting(false);
+      if (isOnline && myClashConfirmed && clashData) {
+          if (isHost && remoteClashAck?.partnerReady) {
+              // Host ist bereit UND Client ist bereit: Host würfelt Krisen aus und beendet für BEIDE!
+              const riskHit = Math.random() * 100;
+              const crisisEv = Math.floor(Math.random() * CRISIS_EVENTS.length);
+              const ackData = { type: 'CLASH_ACK', riskHit, crisisEv };
+              
+              conn.send(ackData); // Schickt dem Client das GO zum Schließen
+              
+              applyClashAck(ackData, clashData.ac.name);
+              setClashData(null);
+              setMyClashConfirmed(false);
+              setRemoteClashAck(null);
+          } else if (!isHost && remoteClashAck?.type === 'CLASH_ACK') {
+              // Client hat das GO (inkl. Krisen-Rolls) vom Host erhalten
+              applyClashAck(remoteClashAck, clashData.ac.name);
+              setClashData(null);
+              setMyClashConfirmed(false);
+              setRemoteClashAck(null);
+          }
       }
-  }, [myClashConfirmed, remoteClashAck, isOnline, clashData]);
+  }, [myClashConfirmed, remoteClashAck, isOnline, clashData, isHost, conn]);
 
   useEffect(() => {
     // FIX: Im Co-Op Modus muss die KI ihren Zug lokal berechnen, da man gegen die KI spielt!
@@ -282,17 +327,42 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
     setCurK(statKey);
   };
 
-  // NEU: Data Cannon Abschuss-Sequenz
+  const handleCancelAction = () => {
+      if (!myLockedAction) return;
+      playSound('click');
+      
+      // EP-Kosten berechnen und lokal erstatten
+      const dynCost = (myLockedAction.effObj && myLockedAction.effObj.stat === myLockedAction.category) ? myLockedAction.effObj.cost : 0;
+      const baseCost = myLockedAction.action === 'std' ? 2 : myLockedAction.action === 'allin' ? 8 : myLockedAction.action === 'konter' ? 6 : 0;
+      const totalCost = baseCost + dynCost;
+      
+      setPEP(prev => Math.min(isOnline ? 25 : 15, prev + totalCost));
+      
+      // Rückerstattung & Storno ans Netzwerk funken
+      if (isOnline && conn) {
+          conn.send({ type: 'EP_GAIN', amount: totalCost });
+          conn.send({ type: 'ACTION_CANCEL' });
+      }
+      
+      // UI wieder freigeben
+      setMyLockedAction(null);
+      setLocalAIActionData(null);
+      setWaiting(false);
+  };
+
   const handleSendCard = () => {
-    if (!isCoop || !conn || !cannonReady || !activeCard) return;
+    if (!isCoop || !conn || transferCharge < 3 || !activeCard) return;
     playSound('click');
     
-    // 1. Karte aus der eigenen Hand entfernen
-    const sentCard = { ...activeCard };
+    const sentCard = { ...activeCard, isTeamAsset: true };
     const nextHand = [...pHand];
     nextHand.splice(activeIdx, 1);
     
-    // 2. Sofort eine neue Karte aus dem Deck nachziehen (falls vorhanden)
+    // NEU: Data Stream Animation auslösen
+    setCannonAnimData({ card: sentCard, active: false });
+    setTimeout(() => setCannonAnimData(prev => prev ? { ...prev, active: true } : null), 50);
+    setTimeout(() => setCannonAnimData(null), 800); // Aufräumen nach 0.8s
+    
     let currentDeck = [...pDeck];
     if (currentDeck.length > 0) {
        nextHand.push(currentDeck[0]);
@@ -302,9 +372,8 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
     setPHand(nextHand);
     setPDeck(currentDeck);
     setActiveIdx(0);
-    setCannonReady(false); // Kanone ist jetzt leer!
+    setTransferCharge(0); 
     
-    // 3. Über die Neural Bridge an Partner senden
     conn.send({ type: 'CARD_TRANSFER', card: sentCard });
   };
 
@@ -343,7 +412,11 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
       setWaiting(false);
       const isAttacker = pTurn;
       
-      // FIX: Wähle den Boss im Co-Op, den Partner im PvP
+      // NEU: NEURAL RESONANCE CHECK
+      // Wenn beide Spieler dieselbe Kategorie wählen, vibriert die Neural Bridge!
+      const isResonance = isOnline && isCoop && remoteActionData && myLockedAction && (myLockedAction.category === remoteActionData.category);
+      if (isResonance) playSound('upgrade');
+
       const enemyAction = isCoop ? localAIActionData : remoteActionData;
       if (!enemyAction || !myLockedAction) return;
 
@@ -369,6 +442,9 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
                v += effObj.buff;
                if (effObj.syn?.includes(card.name)) v += (effObj.synBuff || 0);
            }
+
+           // NEU: NEURAL RESONANCE BONUS (+20 auf den Wert für beide Partner)
+           if (isResonance) v += 20;
 
            let mult = 1;
            if (activeCrisis) {
@@ -420,15 +496,35 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
            }
       }
 
-      setClashData({
-          pc: pCard, ac: aCard, categoryKey: k,
-          pV, pEffObj: myLockedAction.effObj, 
-          aV, aEffObj: enemyAction.effObj,
-          pAct: formatActionName(myLockedAction.action), 
-          aAct: formatActionName(enemyAction.action),
-          oldPHP: pHP, oldAHP: aHP, newPHP: Math.max(0, pHP - dmgP - recoilP), newAHP: Math.max(0, aHP - dmgA - recoilA), 
-          newPEP: Math.min(25, pEP + 2), newAEP: Math.min(15, aEP + 2),
-          dmgP: dmgP + recoilP, dmgA: dmgA + recoilA
+      const totalMyDmg = dmgP + recoilP;
+      const totalAiDmg = dmgA + recoilA;
+
+      if (isOnline && isCoop && conn) {
+          if (totalMyDmg > 0) conn.send({ type: 'COOP_CLASH_DAMAGE', amount: totalMyDmg });
+          if (totalAiDmg > 0) conn.send({ type: 'COOP_AI_DAMAGE', amount: totalAiDmg });
+      }
+
+      // Buffer auslesen, HP exakt rekonstruieren und alles ans UI weitergeben
+      setCoopDmgBuffer(prevBuffer => {
+          const oldP = hpRefs.current.p + prevBuffer.p;
+          const oldA = hpRefs.current.a + prevBuffer.a;
+
+          setClashData({
+              pc: pCard, ac: aCard, categoryKey: k,
+              pV, pEffObj: myLockedAction.effObj, 
+              aV, aEffObj: enemyAction.effObj,
+              pAct: formatActionName(myLockedAction.action), 
+              aAct: formatActionName(enemyAction.action),
+              oldPHP: oldP, 
+              oldAHP: oldA, 
+              newPHP: Math.max(0, oldP - totalMyDmg - prevBuffer.p), 
+              newAHP: Math.max(0, oldA - totalAiDmg - prevBuffer.a), 
+              newPEP: Math.min(25, pEP + 2), newAEP: Math.min(15, aEP + 2),
+              dmgP: totalMyDmg, dmgA: totalAiDmg,
+              partnerDmgP: prevBuffer.p,
+              partnerDmgA: prevBuffer.a
+          });
+          return { p: 0, a: 0 }; // Buffer für die nächste Runde leeren
       });
 
       setMyLockedAction(null);
@@ -514,8 +610,20 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
           currentDeck = playerChars.filter(c => !nextHand.some(h => h && h.name === c.name));
           if (!isOnline) currentDeck = shuffle(currentDeck);
       }
-      if (currentDeck.length > 0) nextHand.push(currentDeck[0]);
-      const drawnAt = currentDeck.length > 0 ? nextHand.length - 1 : null;
+      
+      // NEU: OVERDRAW LOGIK
+      // Wir ziehen nur nach, wenn wir UNTER dem Limit von 3 sind. 
+      // Wer 4 oder 5 Karten hat (durch Data Cannon), zieht nicht nach, bis er wieder bei 2 landet.
+      let drawnAt = null;
+      if (currentDeck.length > 0 && nextHand.length < 3) {
+          nextHand.push(currentDeck[0]);
+          drawnAt = nextHand.length - 1;
+      }
+
+      setPHand(nextHand); setPDeck(currentDeck.slice(drawnAt !== null ? 1 : 0));
+      
+      // NEU: Data Cannon Cooldown in jeder Runde um 1 erhöhen!
+      setTransferCharge(prev => Math.min(3, prev + 1));
 
       let currentAiDeck = [...aDeck];
       const idx = currentAiDeck.findIndex(c => c.name === remoteCardName);
@@ -567,14 +675,9 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
     // FIX: Dynamische Berechnung des Schadens (NaN Bug behoben, da recoilP bereits in dmgP steckt!)
     const myDmg = clashData.dmgP || 0; 
     
-    // Wir nehmen die tagesaktuelle pHP, falls der Partner uns gerade Schaden reingedrückt hat
-    let finalPHP = isCoop ? Math.max(0, pHP - myDmg) : clashData.newPHP;
+    // ClashData hat durch unseren neuen Buffer immer den 100% akkuraten HP Stand!
+    let finalPHP = clashData.newPHP;
     let finalAHP = clashData.newAHP;
-
-    // THE LIFE LINK: Schaden an Partner senden
-    if (isOnline && isCoop && myDmg > 0 && conn) {
-        conn.send({ type: 'HP_LOST', amount: myDmg });
-    }
 
     setPHP(finalPHP); setAHP(finalAHP); setAEP(clashData.newAEP);
     
@@ -610,13 +713,9 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
 
     if (isOnline) {
         setMyClashConfirmed(true);
-        setWaiting(true);
-        if (isHost) {
-            const riskHit = Math.random() * 100;
-            const crisisEv = Math.floor(Math.random() * CRISIS_EVENTS.length);
-            const ackData = { type: 'CLASH_ACK', riskHit, crisisEv };
-            conn.send(ackData);
-            setRemoteClashAck(ackData); 
+        if (!isHost && conn) {
+            // Client meldet dem Host sofort: Ich habe den Screen gelesen!
+            conn.send({ type: 'CLASH_CONFIRM' });
         }
     } else {
         applyClashAck({}, clashData.ac.name);
@@ -712,11 +811,7 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
         </div>
       )}
 
-      {waiting && (
-        <div className="glass-overlay active" style={{zIndex: 5000}}>
-           <h2 className="mono" style={{color: 'var(--win)', animation: 'pulse 1.5s infinite'}}>WARTE AUF GEGNER...</h2>
-        </div>
-      )}
+      {/* Das alte, störende Vollbild-Overlay wurde entfernt! */}
 
       <div className="top-bar">
         <div className="game-title-small">ARCHITECTS OF CHAOS {isOnline ? (isCoop ? '[CO-OP]' : '[1v1 PVP]') : ''}</div>
@@ -797,7 +892,7 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
                 <span>GEGNER</span>
               </div>
               <div className="hp-bar-bg">
-                <div className="hp-bar-fill lose-bg" style={{ width: `${(aHP / initialAHP) * 100}%` }} />
+                <div className="hp-bar-fill lose-bg" style={{ width: `${(aHP / (isCoop ? initialAHP * 2 : initialAHP)) * 100}%` }} />
               </div>
             </div>
           </div>
@@ -880,16 +975,25 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
           {/* HANDKARTEN UNTER DER ARENA */}
           <div className="hand-hub" style={{ position: 'relative' }}>
             
-            {/* NEU: DATA CANNON BUTTON */}
-            {isOnline && isCoop && cannonReady && pTurn && activeCard && (
-               <button 
-                 onClick={handleSendCard}
-                 className="menu-btn" 
-                 style={{ position: 'absolute', top: '-45px', left: '0', background: 'rgba(188,19,254,0.15)', borderColor: '#bc13fe', color: '#bc13fe', padding: '5px 15px', fontSize: '0.65rem', letterSpacing: '2px', zIndex: 50, boxShadow: '0 0 10px rgba(188,19,254,0.3)', margin: 0 }}
-               >
-                 ⇡ DATA CANNON: [{activeCard.name.toUpperCase()}] AN PARTNER SENDEN
-               </button>
-            )}
+            {/* NEU: DATA TRANSFER UI MIT 3-RUNDEN COOLDOWN */}
+            {isOnline && isCoop && pTurn && activeCard && (
+               <div style={{ position: 'absolute', top: '-45px', left: '0', zIndex: 50, display: 'flex', alignItems: 'center', gap: '12px' }}>
+                 <button 
+                   onClick={handleSendCard}
+                   disabled={transferCharge < 3}
+                   className="menu-btn" 
+                   style={{ background: transferCharge === 3 ? 'rgba(0,229,255,0.15)' : 'rgba(0,0,0,0.4)', borderColor: transferCharge === 3 ? 'var(--win)' : '#333', color: transferCharge === 3 ? 'var(--win)' : '#666', padding: '6px 16px', fontSize: '0.65rem', letterSpacing: '2px', boxShadow: transferCharge === 3 ? '0 0 15px rgba(0,229,255,0.3)' : 'none', margin: 0, cursor: transferCharge === 3 ? 'pointer' : 'not-allowed', transition: 'all 0.3s' }}
+                 >
+                   {transferCharge === 3 ? `⇡ DATA TRANSFER: [${activeCard.name.toUpperCase()}]` : `DATA TRANSFER LÄDT...`}
+                 </button>
+                 {/* Cooldown Dots */}
+                 <div style={{ display: 'flex', gap: '5px' }}>
+                   {[1,2,3].map(step => (
+                     <div key={step} style={{ width: '8px', height: '8px', borderRadius: '50%', background: transferCharge >= step ? 'var(--win)' : '#222', boxShadow: transferCharge >= step ? '0 0 8px var(--win)' : 'none', transition: 'background 0.3s' }} />
+                   ))}
+                 </div>
+               </div>
+            )}#
 
             <div className="hand-grid">
               {pHand.map((c, i) => {
@@ -904,6 +1008,13 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
                       <Card card={c} context="hand" />
                     </div>
                     {isActive && <div className="hand-card-glow-char" />}
+                    
+                    {/* TEAM ASSET BADGE */}
+                    {c && c.isTeamAsset && (
+                      <div className="mono" style={{ position: 'absolute', top: '-10px', left: '50%', transform: 'translateX(-50%)', background: '#bc13fe', color: '#000', padding: '2px 8px', fontSize: '0.45rem', fontWeight: 900, borderRadius: '4px', letterSpacing: '1px', zIndex: 10, boxShadow: '0 0 10px #bc13fe', whiteSpace: 'nowrap', textShadow: 'none' }}>
+                        TEAM ASSET
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -949,7 +1060,33 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
 
         <div className="cockpit-action-column">
           <div className="action-container">
-            {pTurn ? (
+            {myLockedAction ? (
+               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '15px', padding: '20px', textAlign: 'center', background: 'rgba(0, 229, 255, 0.05)', border: '1px solid rgba(0, 229, 255, 0.2)', borderRadius: '8px', position: 'relative', overflow: 'hidden' }}>
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'var(--win)', animation: 'pulse 1.5s infinite' }} />
+                  
+                  <div className="mono" style={{ color: 'var(--win)', fontSize: '1rem', fontWeight: 'bold', letterSpacing: '2px' }}>
+                     [ ACTION LOCKED ]
+                  </div>
+                  
+                  <div className="mono" style={{ color: '#aaa', fontSize: '0.85rem', letterSpacing: '1px', background: 'rgba(0,0,0,0.5)', padding: '6px 12px', borderRadius: '4px', borderLeft: '2px solid var(--win)' }}>
+                     {formatActionName(myLockedAction.action)} // {myLockedAction.category.toUpperCase()}
+                  </div>
+
+                  {!remoteActionData ? (
+                     <button 
+                        onClick={handleCancelAction} 
+                        className="menu-btn" 
+                        style={{ marginTop: '10px', padding: '8px 24px', background: 'rgba(255,0,80,0.1)', borderColor: 'var(--lose)', color: 'var(--lose)', fontSize: '0.75rem', fontWeight: 'bold', letterSpacing: '2px', transition: 'all 0.2s', boxShadow: '0 0 10px rgba(255,0,80,0.2)' }}
+                     >
+                        ✕ ABBRECHEN
+                     </button>
+                  ) : (
+                     <div className="mono" style={{ color: 'var(--ep)', fontSize: '0.8rem', marginTop: '10px', animation: 'pulse 1s infinite', textShadow: '0 0 10px var(--ep)' }}>
+                        SYNCING CLASH...
+                     </div>
+                  )}
+               </div>
+            ) : pTurn ? (
               <>
                 <div style={{ position: 'relative' }} onMouseEnter={() => setHoveredEl('erholen')} onMouseLeave={() => setHoveredEl(null)}>
                   {hoveredEl === 'erholen' && <TT position="top" lines={['Regeneriere +2⚡', 'Kein Angriff — du erleidest 1.5x Schaden']} />}
@@ -995,6 +1132,28 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
         </div>
       </div>
 
+      {cannonAnimData && (
+          <div style={{
+              position: 'fixed', left: '15%',
+              bottom: cannonAnimData.active ? '70vh' : '20vh',
+              transform: cannonAnimData.active ? 'scale(0.3)' : 'scale(1)',
+              opacity: cannonAnimData.active ? 0 : 1,
+              transition: 'all 0.6s cubic-bezier(0.5, 0, 0.2, 1)',
+              zIndex: 9999, pointerEvents: 'none'
+          }}>
+              <div style={{ position: 'relative', width: '150px', height: '210px', borderRadius: '8px', border: '2px solid #bc13fe', boxShadow: '0 0 40px #bc13fe', overflow: 'hidden' }}>
+                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(188,19,254,0.4), #00e5ff)', opacity: 0.9, mixBlendMode: 'screen', zIndex: 10 }} />
+                  <div style={{ transform: 'scale(0.41)', transformOrigin: 'top left' }}>
+                       <Card card={cannonAnimData.card} context="hand" />
+                  </div>
+              </div>
+              <div className="mono" style={{ position: 'absolute', top: '-30px', left: '50%', transform: 'translateX(-50%)', color: '#00e5ff', fontSize: '1.2rem', fontWeight: 'bold', textShadow: '0 0 15px #00e5ff', whiteSpace: 'nowrap' }}>
+                  UPLOADING TO NEURAL LINK...
+              </div>
+              <div style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', width: '6px', height: '300px', background: 'linear-gradient(to bottom, #bc13fe, transparent)', filter: 'blur(3px)' }} />
+          </div>
+      )}
+
       {showCrisisIntro && (
         <div className="glass-overlay active" style={{zIndex: 4000, background: 'rgba(8, 0, 2, 0.98)', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', flexDirection: 'column', gap: 0}}>
           <div className="crisis-glitch-bg"></div>
@@ -1014,14 +1173,27 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
           
           <div className="clash-hp-container">
              <div className="bar-box glass-panel">
-                <div className="label"><span>DU</span><b className="mono">{Math.floor(clashAnim ? clashData.newPHP : clashData.oldPHP)}</b></div>
-                <div className="bar-bg"><div className="bar-fill" style={{ width: `${((clashAnim ? clashData.newPHP : clashData.oldPHP) / 1000) * 100}%`, background: 'var(--win)' }}></div></div>
+                <div className="label" style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                  <span>{isCoop ? 'TEAM' : 'DU'}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {clashData.partnerDmgP > 0 && <span className="mono" style={{ color: 'var(--lose)', fontSize: '0.8rem', animation: 'pulse 1s infinite' }}>-{clashData.partnerDmgP} (PARTNER)</span>}
+                    <b className="mono">{Math.floor(clashAnim ? clashData.newPHP : clashData.oldPHP)}</b>
+                  </div>
+                </div>
+                <div className="bar-bg"><div className="bar-fill" style={{ width: `${((clashAnim ? clashData.newPHP : clashData.oldPHP) / initialPHP) * 100}%`, background: 'var(--win)', transition: 'width 0.4s ease-out' }}></div></div>
              </div>
              <div className="bar-box glass-panel">
-                <div className="label"><span>GEGNER</span><b className="mono">{Math.floor(clashAnim ? clashData.newAHP : clashData.oldAHP)}</b></div>
-                <div className="bar-bg"><div className="bar-fill" style={{ width: `${((clashAnim ? clashData.newAHP : clashData.oldAHP) / 1000) * 100}%`, background: 'var(--lose)' }}></div></div>
+                <div className="label" style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                  <span>GEGNER</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {clashData.partnerDmgA > 0 && <span className="mono" style={{ color: 'var(--ep)', fontSize: '0.8rem', animation: 'pulse 1s infinite' }}>-{clashData.partnerDmgA} (PARTNER)</span>}
+                    <b className="mono">{Math.floor(clashAnim ? clashData.newAHP : clashData.oldAHP)}</b>
+                  </div>
+                </div>
+                <div className="bar-bg"><div className="bar-fill" style={{ width: `${((clashAnim ? clashData.newAHP : clashData.oldAHP) / (isCoop ? initialAHP * 2 : initialAHP)) * 100}%`, background: 'var(--lose)', transition: 'width 0.4s ease-out' }}></div></div>
              </div>
           </div>
+
 
           <div className="clash-news glass-panel">
             {clashData.pAct === 'ERHOLEN' 
@@ -1103,7 +1275,19 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
             </div>
           </div>
 
-          <button className="menu-btn btn-play modern-btn" style={{marginTop: '40px'}} onClick={confirmClash}>WEITER &gt;</button>
+          <button 
+             className="menu-btn btn-play modern-btn" 
+             style={{
+               marginTop: '40px', 
+               opacity: myClashConfirmed ? 0.6 : 1, 
+               cursor: myClashConfirmed ? 'default' : 'pointer',
+               borderColor: myClashConfirmed ? 'var(--ep)' : '',
+               boxShadow: myClashConfirmed ? '0 0 15px rgba(0,229,255,0.2)' : ''
+             }} 
+             onClick={!myClashConfirmed ? confirmClash : undefined}
+          >
+             {myClashConfirmed ? (isCoop ? 'SQUAD SYNC (1/2 BEREIT)...' : 'WARTE AUF GEGNER...') : 'WEITER >'}
+          </button>
           </div>{/* end scale wrapper */}
         </div>
       )}

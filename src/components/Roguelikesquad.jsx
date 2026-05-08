@@ -97,8 +97,9 @@ function DraftCard({ card, selected, disabled, onToggle, isFactionSynergyActive 
 }
 
 // ── Main Component ────────────────────────────────────────────────────────
-export default function RoguelikeSquad({ avatarCard, inventory = [], onConfirm, onBack }) {
-  const [selChars, setSelChars] = useState([]);  // max 5
+export default function RoguelikeSquad({ avatarCard, inventory = [], onConfirm, onBack, isCoop, isHost, partnerReady, mySquadReady }) {
+  const [selChars, setSelChars] = useState([]);  // max 4 im Co-Op, 5 im Singleplayer
+  const [teamChar, setTeamChar] = useState(null); // NEU: Der Team-Slot!
   const [selEffs,  setSelEffs]  = useState([]);  // max 2
   const [search,   setSearch]   = useState('');
   const [tab,      setTab]      = useState('chars'); // 'chars' | 'effs'
@@ -131,10 +132,21 @@ export default function RoguelikeSquad({ avatarCard, inventory = [], onConfirm, 
 
   // Toggle selection helpers
   const toggleChar = (card) => {
+    // Wenn die Karte schon im Team-Slot ist, dort entfernen
+    if (teamChar && teamChar.name === card.name) {
+        setTeamChar(null);
+        return;
+    }
     setSelChars(prev => {
       const already = prev.some(c => c.name === card.name);
       if (already) return prev.filter(c => c.name !== card.name);
-      if (prev.length >= 5) return prev;
+      
+      const maxChars = isCoop ? 4 : 5;
+      // Wenn das normale Deck voll ist, aber der Team-Slot leer, wandert sie dorthin!
+      if (prev.length >= maxChars) {
+          if (!teamChar && isCoop) setTeamChar(card);
+          return prev;
+      }
       return [...prev, card];
     });
   };
@@ -158,16 +170,18 @@ export default function RoguelikeSquad({ avatarCard, inventory = [], onConfirm, 
   }, [selChars, avatarCard]);
 
   const GTI_CAP  = 450; // max total GTI for 5 chars
-  const charsDone = selChars.length === 5;
+  const charsDone = selChars.length === (isCoop ? 4 : 5);
+  const teamDone  = isCoop ? !!teamChar : true;
   const effsDone  = selEffs.length  === 2;
-  const totalGTI  = selChars.reduce((s,c) => s+(c.gti||0), 0);
-  const overCap   = charsDone && totalGTI > GTI_CAP;
-  const ready     = charsDone && effsDone && !overCap;
-  const progress  = Math.round(((selChars.length / 5) * 50) + ((selEffs.length / 2) * 50));
+  
+  const totalGTI  = selChars.reduce((s,c) => s+(c.gti||0), 0) + (teamChar ? (teamChar.gti||0) : 0);
+  const overCap   = charsDone && teamDone && totalGTI > GTI_CAP;
+  const ready     = charsDone && teamDone && effsDone && !overCap;
+  const progress  = Math.round((((selChars.length + (teamChar?1:0)) / 5) * 50) + ((selEffs.length / 2) * 50));
 
   const handleConfirm = () => {
     if (!ready) return;
-    onConfirm(selChars, selEffs);
+    onConfirm(selChars, selEffs, teamChar); // NEU: teamChar wird an App.jsx übergeben
   };
 
   return (
@@ -202,13 +216,26 @@ export default function RoguelikeSquad({ avatarCard, inventory = [], onConfirm, 
 
           {/* Char slots */}
           <div className="mono" style={{ fontSize: '0.6rem', color: charsDone ? 'var(--win)' : 'rgba(255,255,255,0.3)', letterSpacing: '2px', padding: '10px 0 2px' }}>
-            ▸ CHARS {selChars.length}/5 {charsDone ? '✓' : ''}
+            ▸ CHARS {selChars.length}/{isCoop ? 4 : 5} {charsDone ? '✓' : ''}
           </div>
-          {Array.from({ length: 5 }).map((_, i) => (
+          {Array.from({ length: isCoop ? 4 : 5 }).map((_, i) => (
             selChars[i]
               ? <FilledSlot key={i} card={selChars[i]} locked={false} onRemove={() => setSelChars(p => p.filter((_, j) => j !== i))} />
               : <EmptySlot key={i} label={`CHAR SLOT ${i + 1}`} />
           ))}
+          
+          {/* NEU: TEAM SLOT (nur im Co-Op) */}
+          {isCoop && (
+            <>
+              <div className="mono" style={{ fontSize: '0.6rem', color: teamDone ? '#bc13fe' : 'rgba(255,255,255,0.3)', letterSpacing: '2px', padding: '10px 0 2px', textShadow: teamDone ? '0 0 8px #bc13fe' : 'none' }}>
+                ▸ TEAM ASSET SLOT {teamDone ? '✓' : ''}
+              </div>
+              {teamChar 
+                ? <div style={{ border: '2px solid #bc13fe', borderRadius: '4px', boxShadow: '0 0 15px rgba(188,19,254,0.2)' }}><FilledSlot card={teamChar} locked={false} onRemove={() => setTeamChar(null)} /></div>
+                : <EmptySlot label="TEAM KARTE WÄHLEN" />
+              }
+            </>
+          )}
 
           {/* Effect slots */}
           <div className="mono" style={{ fontSize: '0.6rem', color: effsDone ? 'var(--win)' : 'rgba(255,255,255,0.3)', letterSpacing: '2px', padding: '10px 0 2px' }}>
@@ -230,18 +257,25 @@ export default function RoguelikeSquad({ avatarCard, inventory = [], onConfirm, 
           )}
 
           {/* Confirm */}
-          <button onClick={handleConfirm} disabled={!ready}
+         <button onClick={handleConfirm} disabled={!ready || mySquadReady || (isCoop && isHost && !partnerReady)}
             style={{
               marginTop: '16px', padding: '18px 10px',
-              background: ready ? 'rgba(255,0,127,0.15)' : 'transparent',
-              border: `2px solid ${ready ? 'var(--apex-pink)' : '#2a3a4a'}`,
-              color: ready ? 'var(--apex-pink)' : '#3a4a5a',
+              opacity: (!ready || mySquadReady || (isCoop && isHost && !partnerReady)) ? 0.5 : 1,
+              background: (ready && (!isCoop || !isHost || partnerReady)) ? 'rgba(255,0,127,0.15)' : 'transparent',
+              border: `2px solid ${(ready && (!isCoop || !isHost || partnerReady)) ? 'var(--apex-pink)' : '#2a3a4a'}`,
+              color: (ready && (!isCoop || !isHost || partnerReady)) ? 'var(--apex-pink)' : '#3a4a5a',
               fontFamily: "'Roboto Mono',monospace", fontSize: '0.9rem', fontWeight: 700, letterSpacing: '4px',
-              cursor: ready ? 'pointer' : 'not-allowed',
-              boxShadow: ready ? '0 0 20px rgba(255,0,127,0.2)' : 'none',
+              cursor: (!ready || mySquadReady || (isCoop && isHost && !partnerReady)) ? 'not-allowed' : 'pointer',
+              boxShadow: (ready && (!isCoop || !isHost || partnerReady)) ? '0 0 20px rgba(255,0,127,0.2)' : 'none',
               transition: 'all 0.2s',
-            }}>
-            {ready ? '▸ RUN INITIALISIEREN' : overCap ? `⚠ GTI ${totalGTI}/${GTI_CAP}` : `${(5 - selChars.length) + (2 - selEffs.length)} KARTEN FEHLEN`}
+          }}>
+            {mySquadReady 
+              ? '✓ SQUAD BEREIT. WARTE AUF HOST...' 
+              : (isCoop && !isHost 
+                  ? (ready ? '▸ SQUAD BEREIT MELDEN' : 'KARTEN FEHLEN') 
+                  : (isCoop && isHost 
+                      ? (!ready ? 'KARTEN FEHLEN' : (!partnerReady ? 'WARTE AUF PARTNER SQUAD...' : '▸ RUN INITIALISIEREN')) 
+                      : (ready ? '▸ RUN INITIALISIEREN' : overCap ? `⚠ GTI ${totalGTI}/${GTI_CAP}` : `${((isCoop ? 4 : 5) - selChars.length) + (2 - selEffs.length)} KARTEN FEHLEN`)))}
           </button>
         </div>
 
