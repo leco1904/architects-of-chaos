@@ -151,20 +151,22 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
   const [showCrisisIntro, setShowCrisisIntro] = useState(null);
   const [justDrawnIdx, setJustDrawnIdx] = useState(null);
 
-  // --- ONLINE / OFFLINE ACTION STATE ---
+  const activeCard = pHand[activeIdx];
+  // FIX: Im Co-Op ist der Gegner IMMER die KI deines Nodes, im PvP der Partner
+  const aiCard = (isOnline && !isCoop && !pTurn && remoteActionData) ? remoteActionData.card : aDeck[0];
+  
+  // --- MISSING STATES RESTORED ---
   const [waiting, setWaiting] = useState(false);
   const [myLockedAction, setMyLockedAction] = useState(null);
   const [remoteActionData, setRemoteActionData] = useState(null);
+  const [localAIActionData, setLocalAIActionData] = useState(null); // Speicher für Boss-Aktion im Co-Op
+  
   const [myClashConfirmed, setMyClashConfirmed] = useState(false);
   const [remoteClashAck, setRemoteClashAck] = useState(null);
-
   const [showMatchIntro, setShowMatchIntro] = useState(true);
   const [introPhase, setIntroPhase] = useState(0); 
 
-  const activeCard = pHand[activeIdx];
-  const aiCard = (isOnline && !pTurn && remoteActionData) ? remoteActionData.card : aDeck[0];
-
-  useEffect(() => {
+   useEffect(() => {
     playSound('matchIntro');
     const t1 = setTimeout(() => setIntroPhase(1), 400);
     const t2 = setTimeout(() => setIntroPhase(2), 1900);
@@ -217,10 +219,12 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
   }, [pHand, pEffHand, isOnline, conn]);
 
   useEffect(() => {
-      if (myLockedAction && remoteActionData) {
+      // Trigger: Wir brauchen meine Aktion UND die Aktion des Gegners (KI im Co-Op, Partner im PvP)
+      const enemyReady = isCoop ? !!localAIActionData : !!remoteActionData;
+      if (myLockedAction && enemyReady) {
           resolveClash();
       }
-  }, [myLockedAction, remoteActionData]);
+  }, [myLockedAction, remoteActionData, localAIActionData, isCoop]);
 
   useEffect(() => {
       if (isOnline && myClashConfirmed && remoteClashAck && clashData) {
@@ -338,74 +342,23 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
   const resolveClash = () => {
       setWaiting(false);
       const isAttacker = pTurn;
-      const atkAct = isAttacker ? myLockedAction : remoteActionData;
-      const defAct = isAttacker ? remoteActionData : myLockedAction;
-      const k = atkAct.category;
-
-      // NEU: Angriffs-Stat speichern für den Cooldown in der nächsten Angriffsrunde
-      if (isAttacker) {
-          setLastAttackStat(k);
-      } else {
-          setLastAIAttackStat(k);
-      }
-
-      // NEU: Angriffs-Stat speichern für den Cooldown in der nächsten Angriffsrunde
-      if (isAttacker) {
-          setLastAttackStat(k);
-      } else {
-          setLastAIAttackStat(k);
-      }
-
-      // NEU: Angriffs-Stat speichern für den Cooldown in der nächsten Angriffsrunde
-      if (isAttacker) {
-          setLastAttackStat(k);
-      } else {
-          setLastAIAttackStat(k);
-      }
-
-      // NEU: Angriffs-Stat speichern für den Cooldown in der nächsten Angriffsrunde
-      if (isAttacker) {
-          setLastAttackStat(k);
-      } else {
-          setLastAIAttackStat(k);
-      }
-
-      // NEU: Angriffs-Stat speichern für den Cooldown in der nächsten Angriffsrunde
-      if (isAttacker) {
-          setLastAttackStat(k);
-      } else {
-          setLastAIAttackStat(k);
-      }
-
-      // NEU: Angriffs-Stat speichern für den Cooldown in der nächsten Angriffsrunde
-      if (isAttacker) {
-          setLastAttackStat(k);
-      } else {
-          setLastAIAttackStat(k);
-      }
-
-      // NEU: Angriffs-Stat speichern für den Cooldown in der nächsten Angriffsrunde
-      if (isAttacker) {
-          setLastAttackStat(k);
-      } else {
-          setLastAIAttackStat(k);
-      }
-
-      // NEU: Angriffs-Stat speichern für den Cooldown in der nächsten Angriffsrunde
-      if (isAttacker) {
-          setLastAttackStat(k);
-      } else {
-          setLastAIAttackStat(k);
-      }
+      
+      // FIX: Wähle den Boss im Co-Op, den Partner im PvP
+      const enemyAction = isCoop ? localAIActionData : remoteActionData;
+      if (!enemyAction || !myLockedAction) return;
 
       const pCard = myLockedAction.card;
-      const aCard = remoteActionData.card;
+      const aCard = enemyAction.card;
+      const k = isAttacker ? myLockedAction.category : enemyAction.category;
+
+      // Stats für Cooldown speichern
+      if (isAttacker) setLastAttackStat(k);
+      else setLastAIAttackStat(k);
 
       const calcVal = (card, effObj, isRemote) => {
            let v = Math.floor(card[k] ?? card.stats?.[k] ?? 0) + ((card.level || 1) - 1) * 2;
            if (!isRemote) v += (currentApexBuffs[k] || 0); 
            
-           // NEU: Fraktions-Buff im Hintergrund auf den aktiven Clash-Stat addieren
            const activeFacs = isRemote ? aActiveFactions : pActiveFactions;
            if (activeFacs.includes(card.faction)) {
                const fBuffs = getFactionBuffs(card.faction);
@@ -414,13 +367,13 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
 
            if (effObj && effObj.stat === k) {
                v += effObj.buff;
-               if (effObj.syn?.includes(card.name)) v += effObj.synBuff;
+               if (effObj.syn?.includes(card.name)) v += (effObj.synBuff || 0);
            }
 
            let mult = 1;
            if (activeCrisis) {
                if ((activeCrisis.id === 'HYPERINFLATION' && k === 'finance') || (activeCrisis.id === 'BLACKOUT' && k === 'tech')) v = 0;
-               else if (['NUCLEAR_WAR','ANARCHY','NWO'].includes(activeCrisis.id)) {
+               else {
                    if (activeCrisis.id === 'NUCLEAR_WAR' && k === 'arsenal') mult = 1.5;
                    if (activeCrisis.id === 'ANARCHY' && k === 'erosion') mult = 1.5;
                    if (activeCrisis.id === 'NWO' && k === 'kingmaking') mult = 1.5;
@@ -430,95 +383,57 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
       };
 
       const pV = calcVal(pCard, myLockedAction.effObj, false);
-      const aV = calcVal(aCard, remoteActionData.effObj, true);
+      const aV = calcVal(aCard, enemyAction.effObj, true);
 
       const atkVal = isAttacker ? pV : aV;
       const defVal = isAttacker ? aV : pV;
 
       let dmgP = 0, dmgA = 0, recoilP = 0, recoilA = 0;
       const diff = Math.max(0, atkVal - defVal);
-      let dmg = Math.floor(diff * 1.5);
-      let recoil = 0;
-
-      if (atkAct.action === 'erholen') {
-           dmg = Math.floor(defVal * 1.5);
-           if (isAttacker) dmgP = dmg; else dmgA = dmg;
-      } else if (defAct.action === 'erholen') {
-           dmg = Math.floor(atkVal * 1.5);
-           if (isAttacker) dmgA = dmg; else dmgP = dmg;
-      } else {
-           if (atkAct.action === 'allin') {
-               if (atkVal > defVal) {
-                   dmg = Math.floor((diff + 40) * 3);
-               } else if (atkVal < defVal) {
-                   // All-In verloren: Rückstoß
-                   recoil = 150;
-               }
-               // Gleichstand bei All-In: kein Schaden, kein Rückstoß
-           }
-           if (defAct.action === 'konter') {
-               if (defVal > atkVal) {
-                   dmg = 0;
-                   let counterDmg = Math.floor((defVal - atkVal + 30) * 2);
-                   if (isAttacker) dmgP = counterDmg; else dmgA = counterDmg;
-               } else if (atkVal > defVal) {
-                   // Konter gescheitert: Selbstschaden
-                   let selfDmg = Math.floor((atkVal - defVal + 40) * 3);
-                   if (isAttacker) dmgA = selfDmg; else dmgP = selfDmg;
-                   dmg = 0;
-               }
-               // Gleichstand bei Konter: kein Schaden (Patt)
-           }
-           if (dmg > 0) { if (isAttacker) dmgA = dmg; else dmgP = dmg; }
-           if (recoil > 0) { if (isAttacker) recoilP = recoil; else recoilA = recoil; }
-      }
-
-      // Kategorien-Effekte (wie Lifesteal durch finance) wurden restlos entfernt!
       
-      const newPHP = Math.max(0, pHP - dmgP - recoilP);
-      const newAHP = Math.max(0, aHP - dmgA - recoilA);
+      const effectiveAtkAct = isAttacker ? myLockedAction : enemyAction;
+      const effectiveDefAct = isAttacker ? enemyAction : myLockedAction;
 
-      // --- NEU: MATCH STATS TRACKING FÜR LEADERBOARD ---
-      const totalDmgToAi = dmgA + recoilA;
-      setMatchStats(prev => ({
-        ...prev,
-        dmgDealt: prev.dmgDealt + totalDmgToAi,
-        highestHit: Math.max(prev.highestHit || 0, totalDmgToAi),
-        turns: prev.turns + 1
-      }));
-      // -------------------------------------------------
-
-      const getCost = (act, effObj) => {
-          let c = act === 'std' ? 2 : act === 'allin' ? 8 : act === 'konter' ? 6 : 0;
-          if (effObj) c += effObj.cost;
-          return c;
-      };
-
-      // FIX: pEP wurde bereits beim Klick abgezogen! Im Offline-Modus geben wir hier nur die +2 Regen mit.
-      const newPEP = Math.min(15, pEP + 2);
-      const newAEP = Math.min(15, aEP - getCost(remoteActionData.action, remoteActionData.effObj) + 2); 
+      if (effectiveAtkAct.action === 'erholen') {
+           const d = Math.floor(defVal * 1.5);
+           if (isAttacker) dmgP = d; else dmgA = d;
+      } else if (effectiveDefAct.action === 'erholen') {
+           const d = Math.floor(atkVal * 1.5);
+           if (isAttacker) dmgA = d; else dmgP = d;
+      } else {
+           if (effectiveAtkAct.action === 'allin') {
+               if (atkVal > defVal) dmgA = Math.floor((diff + 40) * 3);
+               else if (atkVal < defVal) recoilP = 150;
+           }
+           if (effectiveDefAct.action === 'konter') {
+               if (defVal > atkVal) {
+                   let cDmg = Math.floor((defVal - atkVal + 30) * 2);
+                   if (isAttacker) dmgP = cDmg; else dmgA = cDmg;
+               } else if (atkVal > defVal) {
+                   let sDmg = Math.floor((atkVal - defVal + 40) * 3);
+                   if (isAttacker) dmgA = sDmg; else dmgP = sDmg;
+               }
+           }
+           const stdDmg = Math.floor(diff * 1.5);
+           if (stdDmg > 0 && !dmgA && !dmgP) {
+               if (isAttacker) dmgA = stdDmg; else dmgP = stdDmg;
+           }
+      }
 
       setClashData({
           pc: pCard, ac: aCard, categoryKey: k,
           pV, pEffObj: myLockedAction.effObj, 
-          aV, aEffObj: remoteActionData.effObj,
+          aV, aEffObj: enemyAction.effObj,
           pAct: formatActionName(myLockedAction.action), 
-          aAct: formatActionName(remoteActionData.action),
-          oldPHP: pHP, oldAHP: aHP, newPHP, newAHP, newPEP, newAEP, 
+          aAct: formatActionName(enemyAction.action),
+          oldPHP: pHP, oldAHP: aHP, newPHP: Math.max(0, pHP - dmgP - recoilP), newAHP: Math.max(0, aHP - dmgA - recoilA), 
+          newPEP: Math.min(25, pEP + 2), newAEP: Math.min(15, aEP + 2),
           dmgP: dmgP + recoilP, dmgA: dmgA + recoilA
       });
 
       setMyLockedAction(null);
       setRemoteActionData(null);
-
-      if (myLockedAction.effObj) {
-          setPEffDeck(pEffDeck.slice(1));
-          setPEffHand(pEffDeck[0] ? [pEffDeck[0]] : []);
-      }
-      if (remoteActionData.effObj) {
-          setAEffDeck(aEffDeck.slice(1));
-          setAEffHand(aEffDeck[0] ? [aEffDeck[0]] : []);
-      }
+      setLocalAIActionData(null); 
       setActiveEffObj(null);
   };
 
@@ -533,18 +448,29 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
 
     if (isOnline) {
         playSound('click');
-        
-        // GLOBAL ENERGY OVERLOAD: Kosten sofort abziehen und live an Partner senden!
         setPEP(prev => prev - totalCost);
         conn.send({ type: 'EP_SPENT', amount: totalCost });
 
         const actData = { action: actionType, category: k, effObj: activeEffObj, card: activeCard };
         setMyLockedAction(actData);
         setWaiting(true);
+
+        // FIX: Im Co-Op wird die KI-Antwort des Bosses sofort lokal hier berechnet
+        if (isCoop) {
+          let aiActiveEffObj = null;
+          if (aEffHand[0] && aEffHand[0].stat === k && aEP >= (aEffHand[0].cost + 2) && Math.random() > 0.3) {
+              aiActiveEffObj = aEffHand[0];
+          }
+          let aiAction = pTurn 
+              ? getAIDefenseAction({ aVal: (aiCard[k] ?? aiCard.stats?.[k] ?? 0), pVal: (activeCard[k] ?? activeCard.stats?.[k] ?? 0), aEP, difficulty })
+              : getAIAttackAction({ aEP, difficulty, pEP });
+          
+          setLocalAIActionData({ action: aiAction, category: k, effObj: aiActiveEffObj, card: aiCard });
+        }
+
         conn.send({ type: 'ACTION', ...actData });
         return;
     }
-
     // Auch offline sofort abziehen für ein noch direkteres UI-Feedback
     setPEP(prev => prev - totalCost);
 
