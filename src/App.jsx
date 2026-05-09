@@ -57,10 +57,38 @@ const generateNewMissions = (oldIds = []) => {
 };
 
 const DIFFICULTY_CONFIG = {
-  1: { name: 'TRAINEE', color: 'var(--win)', reward: 100, loseReward: 25, lvl: 1, desc: "Standard-Gegner. Karten auf Level 1. Ideal zum Testen von neuen Decks." },
-  2: { name: 'OPERATIVE', color: 'var(--ep)', reward: 250, loseReward: 50, lvl: 2, desc: "Klügere KI. Erkennt schwache Konter. Gegnerische Karten auf Level 2." },
-  3: { name: 'EXECUTIVE', color: 'var(--r-epi)', reward: 500, loseReward: 100, lvl: 3, desc: "Gnadenlos. Spart Energie für tödliche All-In Combos. Karten auf MAX Level." },
-  4: { name: 'ARCHITECT', color: 'var(--lose)', reward: 1000, loseReward: 250, lvl: 3, desc: "Unfair. Boss-Buff (+15 Stats). Die KI liest deine Karten und wählt Hard-Counter aus dem ultimativen Meta-Deck." }
+  1: { 
+    name: 'TRAINEE', 
+    color: 'var(--win)', 
+    reward: 100, 
+    loseReward: 25, 
+    lvl: 1, 
+    desc: "Einstiegs-Level. Die KI nutzt Karten auf Level 1 und wählt Kategorien rein nach den eigenen Werten, ohne deine Hand-Karten zu berücksichtigen." 
+  },
+  2: { 
+    name: 'OPERATIVE', 
+    color: 'var(--ep)', 
+    reward: 250, 
+    loseReward: 50, 
+    lvl: 2, 
+    desc: "Fortgeschritten. Karten auf Level 2. Die KI erkennt jetzt aussichtslose Situationen (Differenz > 20) und wechselt defensiv in den sicheren Block." 
+  },
+  3: { 
+    name: 'EXECUTIVE', 
+    color: 'var(--r-epi)', 
+    reward: 500, 
+    loseReward: 100, 
+    lvl: 3, 
+    desc: "Gnadenlos. Karten auf Level 3. Die KI priorisiert Kategorien, die durch aktive Krisen verstärkt werden (z. B. Arsenal im Atomkrieg), und spart Energie für gezielte Angriffe." 
+  },
+  4: { 
+    name: 'ARCHITECT', 
+    color: 'var(--lose)', 
+    reward: 1000, 
+    loseReward: 250, 
+    lvl: 3, 
+    desc: "System-Gott. Scannt deine gesamte Hand und berechnet Hard-Counter inkl. Synergien. Nutzt totale Systemausfälle (Tech/Finanz) aktiv als Köder zur Regeneration." 
+  }
 };
 
 function RoguelikeEventScreen({ nodeObj, roguelikeRun, avatarCard, cardsData, onComplete }) {
@@ -630,23 +658,41 @@ export default function App() {
   };   
 
   const generateAIDeck = (nodeObj, sector) => {
-    // 1. HP DYNAMISCH BERECHNEN (+40% pro Sektor)
-    const hpMultiplier = 1 + ((sector - 1) * 0.4);
-    let aHP = Math.floor(500 * hpMultiplier);
-    if (nodeObj.type === 'elite') aHP = Math.floor(750 * hpMultiplier);
-    else if (nodeObj.type === 'boss') aHP = Math.floor(1200 * hpMultiplier);
+    const isBoss = nodeObj.type === 'boss';
+    const isElite = nodeObj.type === 'elite';
+    let aHP = 500;
+    let diff = 3; // Startet auf Executive
 
-    // 2. THREAT-LEVEL (Farbe und KI-Cleverness, maximal 4)
-    let diff = 1;
-    if (nodeObj.type === 'standard') diff = Math.min(4, Math.ceil(sector / 2));
-    else if (nodeObj.type === 'elite') diff = Math.min(4, Math.ceil((sector + 1) / 2));
-    else if (nodeObj.type === 'boss') diff = 4;
+    // 1. HP & Schwierigkeit nach Sektor-Regeln (inkl. Endless Scaling)
+    if (isBoss) {
+      if (sector > 5) {
+        aHP = 2000 + (sector - 5) * 500; // +500 HP pro Sektor ab S6
+      } else {
+        const bossHP = [0, 800, 1000, 1300, 1600, 2000];
+        aHP = bossHP[sector] || 2000;
+      }
+      diff = 4;
+    } else {
+      if (sector > 5) {
+        aHP = (isElite ? 1000 : 700) + (sector - 5) * 250; // +250 HP pro Sektor ab S6
+        diff = 4;
+      } else if (sector <= 2) {
+        aHP = isElite ? 750 : 500;
+        diff = 3;
+      } else if (sector === 3) {
+        aHP = isElite ? 1000 : 700;
+        diff = 3;
+      } else if (sector === 4) {
+        aHP = isElite ? 750 : 500;
+        diff = 4;
+      } else if (sector === 5) {
+        aHP = isElite ? 1000 : 700;
+        diff = 4;
+      }
+    }
 
     // 3. KARTEN-LEVEL BERECHNEN (Maximal 3 für visuelles Cap)
     const finalLevel = nodeObj.type === 'boss' ? 3 : Math.min(3, Math.ceil(sector / 2));
-
-    // 4. ENDLESS STAT-BUFF (Sanftes Scaling: Ab Sektor 6 gibt es +3 Stats pro Sektor)
-    const extraGtiBuff = sector > 5 ? (sector - 5) * 3 : 0;
 
     // 5. DECK ZUSAMMENSTELLEN (Mit stufenabhängigen Fraktions-Synergien!)
     let charPool = [...cardsData.characters];
@@ -698,65 +744,74 @@ export default function App() {
   const startRoguelikeRunWithDeck = (selectedChars, selectedEffs, teamChar) => {
     if (!avatarCard) return;
 
-    if (isCoopMode && lobbyMode === 'join') {
-        // Client sendet sein Deck an den Host und wartet
-        conn.send({ type: 'CLIENT_SQUAD_READY', payload: { chars: selectedChars, effs: selectedEffs, teamChar, avatarCard } });
-        setMySquadReady(true);
-        return;
-    }
-
-    if (isCoopMode && lobbyMode === 'host') {
-        if (!clientSquadReady) {
-            alert("Warte auf den Partner, bis er sein Squad bestätigt hat!");
+    if (isCoopMode) {
+        if (lobbyMode === 'join') {
+            // Client sendet sein Deck an den Host und wartet
+            conn.send({ type: 'CLIENT_SQUAD_READY', payload: { chars: selectedChars, effs: selectedEffs, teamChar, avatarCard } });
+            setMySquadReady(true);
             return;
         }
-        
-        // Mische die Team Assets!
-        const hostTeamAsset = teamChar ? { ...teamChar, isTeamAsset: true } : null;
-        const clientTeamAsset = clientSquadReady.teamChar ? { ...clientSquadReady.teamChar, isTeamAsset: true } : null;
-        
-        let assignedToHost = hostTeamAsset;
-        let assignedToClient = clientTeamAsset;
 
-        // 50/50 Chance zu tauschen, falls BEIDE eine Karte in den Slot gelegt haben
-        if (hostTeamAsset && clientTeamAsset && Math.random() > 0.5) {
-            assignedToHost = clientTeamAsset;
-            assignedToClient = hostTeamAsset;
+        if (lobbyMode === 'host') {
+            if (!clientSquadReady) {
+                alert("Warte auf den Partner, bis er sein Squad bestätigt hat!");
+                return;
+            }
+            
+            // Mische die Team Assets!
+            const hostTeamAsset = teamChar ? { ...teamChar, isTeamAsset: true } : null;
+            const clientTeamAsset = clientSquadReady.teamChar ? { ...clientSquadReady.teamChar, isTeamAsset: true } : null;
+            
+            let assignedToHost = hostTeamAsset;
+            let assignedToClient = clientTeamAsset;
+
+            // 50/50 Chance zu tauschen, falls BEIDE eine Karte in den Slot gelegt haben
+            if (hostTeamAsset && clientTeamAsset && Math.random() > 0.5) {
+                assignedToHost = clientTeamAsset;
+                assignedToClient = hostTeamAsset;
+            }
+
+            let hostChars = [{ ...avatarCard }, ...selectedChars];
+            if (assignedToHost) hostChars.push(assignedToHost);
+
+            let clientChars = [{ ...clientSquadReady.avatarCard }, ...clientSquadReady.chars];
+            if (assignedToClient) clientChars.push(assignedToClient);
+
+            // FIX: Co-Op Base (1000 HP)
+            const baseRunInfo = { currentHP: 1000, maxHP: 1000, sector: 1, node: 1, seed: Math.random(), isCoop: true };
+            
+            const hostRun = { ...baseRunInfo, runDeck: { chars: hostChars, effs: selectedEffs } };
+            const clientRun = { ...baseRunInfo, runDeck: { chars: clientChars, effs: clientSquadReady.effs } };
+
+            setRoguelikeRun(hostRun);
+            setClientSquadReady(null); // Reset für nächsten Run
+            setMySquadReady(false);
+            
+            // Sende dem Client exakt SEIN eigenes, zusammengemischtes Deck
+            conn.send({ type: 'SYNC_RUN_STATE', run: clientRun });
+            conn.send({ type: 'NAV_TO', view: 'roguelikemap' });
+            setCurrentView('roguelikemap');
+            return;
         }
-
-        let hostChars = [{ ...avatarCard }, ...selectedChars];
-        if (assignedToHost) hostChars.push(assignedToHost);
-
-        let clientChars = [{ ...clientSquadReady.avatarCard }, ...clientSquadReady.chars];
-        if (assignedToClient) clientChars.push(assignedToClient);
-
-        // FIX: Im Co-Op können BEIDE Partner pro Runde Schaden einstecken → doppelte HP-Leiste
-        const baseRunInfo = { currentHP: 1000, maxHP: 1000, sector: 1, node: 1, seed: Math.random(), isCoop: true };
-        
-        const hostRun = { ...baseRunInfo, runDeck: { chars: hostChars, effs: selectedEffs } };
-        const clientRun = { ...baseRunInfo, runDeck: { chars: clientChars, effs: clientSquadReady.effs } };
-
-        setRoguelikeRun(hostRun);
-        setClientSquadReady(null); // Reset für nächsten Run
-        setMySquadReady(false);
-        
-        // Sende dem Client exakt SEIN eigenes, zusammengemischtes Deck
-        conn.send({ type: 'SYNC_RUN_STATE', run: clientRun });
-        conn.send({ type: 'NAV_TO', view: 'roguelikemap' });
-        setCurrentView('roguelikemap');
-        return;
     }
 
-    // Singleplayer Fall
+    // ── STRIKTER SINGLEPLAYER FALL ──
     let compiledChars = [{ ...avatarCard }, ...selectedChars];
+    // Im Solo-Modus wird das eigene TeamAsset (sofern gewählt) einfach mit ins Deck gestopft
     if (teamChar) compiledChars.push({ ...teamChar, isTeamAsset: true });
     
     const newRun = {
-      currentHP: 500, maxHP: 500, sector: 1, node: 1, seed: Math.random(),
+      currentHP: 500, 
+      maxHP: 500, 
+      sector: 1, 
+      node: 1, 
+      seed: Math.random(),
       isCoop: false,
       runDeck: { chars: compiledChars, effs: selectedEffs },
     };
     
+    // FIX: Explizit auf den Solo-Context umschalten, falls wir aus einer Co-Op Session kommen
+    setRunContext('solo');
     setRoguelikeRun(newRun);
     setCurrentView('roguelikemap');
   };
@@ -869,8 +924,12 @@ export default function App() {
         const roll = Math.random();
         let cType = 'std';
         
-        // Boss Pack (Premium Odds) vs. Elite Pack (Basic Odds)
-        if (isBoss) {
+        // NEU: Omniverse Cache Spezial-Quoten für Sektor 5 Boss
+        if (isSector5Boss) {
+          if (roll < 0.15) cType = 'anomaly';      // 15% Anomaly
+          else if (roll < 0.50) cType = 'apex';     // 35% Apex
+          else cType = 'legacy';                   // 50% Legacy
+        } else if (isBoss) {
           if (roll < 0.004) cType = 'anomaly';
           else if (roll < 0.044) cType = 'apex';
           else if (roll < 0.144) cType = 'legacy';
@@ -899,9 +958,9 @@ export default function App() {
     if (lootedCards.length > 0) {
       setRewardPacks(prev => [...prev, {
         id: 'reward-' + Date.now(),
-        name: isBoss ? 'SEKTOR-KERN CACHE' : 'GHOST DATA',
+        name: isSector5Boss ? 'OMNIVERSE CACHE' : (isBoss ? 'SEKTOR-KERN CACHE' : 'GHOST DATA'),
         cards: lootedCards,
-        color: isBoss ? 'var(--lose)' : '#bc13fe'
+        color: isSector5Boss ? 'var(--ep)' : (isBoss ? 'var(--lose)' : '#bc13fe')
       }]);
     }
 
@@ -911,11 +970,12 @@ export default function App() {
     setRoguelikeRun(updatedRun);
     setRoguelikeMatchData(null);
 
-    // 4. ZUM DRAFT-SCREEN LEITEN
+    // 4. ZUM DRAFT-SCREEN LEITEN (Inkl. Transcendence Flag)
     setRewardData({ 
       draft: draftPool,
       hpUpdate: { next: Math.max(0, remainingHP), max: roguelikeRun.maxHP },
-      loot: { sp: spGain, credits: earnedCredits }
+      loot: { sp: spGain, credits: earnedCredits },
+      isTranscendenceTrigger: isSector5Boss
     });
     setCurrentView('roguelikereward');
     
@@ -1311,8 +1371,10 @@ export default function App() {
   // ════════════════════════════════════════════════════════════════════════════
 
   const renderRoguelikeView = () => {
+    const scaleStyle = { zoom: 1.5, width: '66.6vw', height: '66.6vh', overflow: 'hidden' };
+    
     if (currentView === 'ghostnodemenu') return (
-      <div style={{ zoom: 1.5, width: '100%', height: '100%' }}>
+      <div style={scaleStyle}>
         <GhostNodeMenu 
           avatarCard={avatarCard} 
           updateAvatar={updateAvatar} 
@@ -1337,14 +1399,23 @@ export default function App() {
         />
       </div>
     );
-    if (currentView === 'avatarlab') return <div style={{ zoom: 1.5, width: '100%', height: '100%' }}><AvatarLab avatarCard={avatarCard} updateAvatar={updateAvatar} onBack={() => setCurrentView('ghostnodemenu')} onGoToMission={() => { if (roguelikeRun) setCurrentView('roguelikemap'); else setCurrentView('roguelikesquad'); }} allFactions={allFactions} /></div>;
-    if (currentView === 'roguelikesquad') return <div style={{ zoom: 1.5, width: '100%', height: '100%' }}><RoguelikeSquad avatarCard={avatarCard} inventory={inventory} onConfirm={startRoguelikeRunWithDeck} onBack={() => setCurrentView('ghostnodemenu')} isCoop={isCoopMode} isHost={lobbyMode === 'host'} partnerReady={!!clientSquadReady} mySquadReady={mySquadReady} /></div>;
+    if (currentView === 'avatarlab') return <div style={scaleStyle}><AvatarLab avatarCard={avatarCard} updateAvatar={updateAvatar} onBack={() => setCurrentView('ghostnodemenu')} onGoToMission={() => { if (roguelikeRun) setCurrentView('roguelikemap'); else setCurrentView('roguelikesquad'); }} allFactions={allFactions} /></div>;
+    if (currentView === 'roguelikesquad') return <div style={scaleStyle}><RoguelikeSquad avatarCard={avatarCard} inventory={inventory} onConfirm={startRoguelikeRunWithDeck} onBack={() => setCurrentView('ghostnodemenu')} isCoop={isCoopMode} isHost={lobbyMode === 'host'} partnerReady={!!clientSquadReady} mySquadReady={mySquadReady} /></div>;
     if (currentView === 'roguelikemap') {
       if (!roguelikeRun) return <div className="screen active" style={{ justifyContent: 'center', alignItems: 'center' }}><div className="mono" style={{ color: 'var(--ep)', fontSize: '1.2rem', animation: 'pulse 1s infinite' }}>INITIALISIERE THE GRID...</div></div>;
       return <RoguelikeMap avatarCard={avatarCard} roguelikeRun={roguelikeRun} onStartRun={startRoguelikeRun} onStartBattle={startRoguelikeMatch} onStartEvent={startRoguelikeEvent} onBack={() => setCurrentView('ghostnodemenu')} onGoToLab={() => setCurrentView('avatarlab')} isCoop={isCoopMode} conn={conn} isHost={lobbyMode === 'host'} />;
     }
     if (currentView === 'roguelikeevent' && roguelikeEventData) return <RoguelikeEventScreen nodeObj={roguelikeEventData} roguelikeRun={roguelikeRun} avatarCard={avatarCard} cardsData={cardsData} onComplete={(nextRun, nextAvatar) => { playSound('click'); setRoguelikeRun(nextRun); setAvatarCard(nextAvatar); setRoguelikeEventData(null); setCurrentView('roguelikemap'); }} />;
-    if (currentView === 'roguelikereward') return <RoguelikeReward rewardData={rewardData} roguelikeRun={roguelikeRun} onApplyDraft={applyRoguelikeDraft} onSkip={() => { setRewardData(null); setCurrentView('roguelikemap'); }} isCoop={isCoopMode} />;
+    if (currentView === 'roguelikereward') return (
+      <RoguelikeReward 
+        rewardData={rewardData} 
+        roguelikeRun={roguelikeRun} 
+        onApplyDraft={applyRoguelikeDraft} 
+        onSkip={() => { setRewardData(null); setCurrentView('roguelikemap'); }} 
+        onFinishRun={() => { setRoguelikeRun(null); setCurrentView('ghostnodemenu'); }}
+        isCoop={isCoopMode} 
+      />
+    );
     if (currentView === 'roguelikefailed') return <div className="screen active" style={{ justifyContent: 'center', alignItems: 'center' }}><div className="glass-panel" style={{ width: '100%', maxWidth: '520px', padding: '50px 40px', textAlign: 'center', borderColor: 'var(--lose)' }}><div style={{ fontSize: '3rem', marginBottom: '16px' }}>💀</div><div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: '2.5rem', fontWeight: 900, letterSpacing: '6px', color: 'var(--lose)', textShadow: '0 0 30px rgba(255,0,50,0.5)', marginBottom: '8px' }}>RUN FAILED</div><div className="mono" style={{ color: '#ff6680', fontSize: '0.72rem', letterSpacing: '3px', marginBottom: '26px' }}>AGENT KOMPROMITTIERT — SYSTEM COLLAPSED</div><div style={{ padding: '14px', background: 'rgba(255,0,50,0.05)', border: '1px solid rgba(255,0,50,0.15)', borderLeft: '3px solid var(--lose)', marginBottom: '26px' }}><div className="mono" style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.35)', letterSpacing: '2px' }}>AVATAR-KARTE BLEIBT ERHALTEN — UPGRADES PERSISTENT</div>{avatarCard && <div className="mono" style={{ color: 'var(--ep)', marginTop: '6px', fontWeight: 700 }}>{avatarCard.name} // SP: {avatarCard.sp ?? 0}</div>}</div><button className="menu-btn btn-play modern-btn" onClick={() => setCurrentView('ghostnodemenu')}>ZURÜCK ZUM HUB</button></div></div>;
     return null;
   };
@@ -1411,7 +1482,7 @@ export default function App() {
   const isGhostNodeMode = ['ghostnodemenu', 'avatarlab', 'roguelikesquad', 'roguelikemap', 'roguelikeevent', 'roguelikereward', 'roguelikefailed'].includes(currentView);
 
   return (
-    <div style={{ '--matrix-col': getThemeColor(currentView), minHeight: '100vh', position: 'relative' }}>
+    <div style={{ '--matrix-col': getThemeColor(currentView), height: '100vh', width: '100vw', position: 'relative', overflow: 'hidden' }}>
       
       {/* GLOBALE CYBER-BACKGROUND (Hex Grid) */}
       <CyberBackground color={getThemeColor(currentView)} />
@@ -1723,7 +1794,7 @@ export default function App() {
         </div>
       )}
       {currentView === 'lexicon' && (
-        <div className="screen active lex-screen" style={{ display: 'block', padding: '0 30px 30px 30px' }}>
+        <div className="screen active lex-screen" style={{ display: 'block', padding: '0 30px 30px 30px', overflowY: 'auto' }}>
           {/* Sticky Top-Bar */}
           <div className="top-bar" style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(5, 5, 8, 0.95)', padding: '30px 0 20px 0', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
             
@@ -1821,7 +1892,7 @@ export default function App() {
           </div>
 
           {/* NEUES DASHBOARD LAYOUT */}
-          <div className="dash-container" style={{ zoom: 1.5 }}>
+          <div className="dash-container" style={{ zoom: 1.5, width: '66.6vw', height: '66.6vh', overflow: 'hidden' }}>
             
             {/* LINKE SEITE: Core Actions & Titel */}
             <div className="dash-left">

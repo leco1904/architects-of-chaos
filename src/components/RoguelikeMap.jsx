@@ -75,7 +75,7 @@ function NodeModal({ nodeObj, sector, currentNode, onClose, onStartBattle, onSta
   const eventData = isEvent ? EVENT_DETAILS[nodeObj.type] : null;
 
   // Battle Specific Data
-  const actualDiff = n === 5 ? 4 : (nodeObj.type === 'elite' ? Math.min(4, sector + 1) : Math.min(3, sector));
+  const actualDiff = (isBoss || sector >= 4) ? 4 : 3;
   const diffNames = ['','TRAINEE','OPERATIVE','EXECUTIVE','ARCHITECT'];
   const diffColors = ['','var(--win)','var(--ep)','var(--r-epi)','var(--lose)'];
 
@@ -83,8 +83,17 @@ function NodeModal({ nodeObj, sector, currentNode, onClose, onStartBattle, onSta
   const isBoss = nodeObj.type === 'boss';
   const isElite = nodeObj.type === 'elite';
   
-  const hpMultiplier = 1 + ((sector - 1) * 0.4); // +40% HP pro Sektor
-  const displayHp = isBoss ? Math.floor(1200 * hpMultiplier) : isElite ? Math.floor(750 * hpMultiplier) : Math.floor(500 * hpMultiplier);
+  let displayHp = 500;
+  if (isBoss) {
+    if (sector > 5) displayHp = 2000 + (sector - 5) * 500;
+    else displayHp = [0, 800, 1000, 1300, 1600, 2000][sector] || 2000;
+  } else {
+    if (sector > 5) displayHp = (isElite ? 1000 : 700) + (sector - 5) * 250;
+    else if (sector <= 2) displayHp = isElite ? 750 : 500;
+    else if (sector === 3) displayHp = isElite ? 1000 : 700;
+    else if (sector === 4) displayHp = isElite ? 750 : 500;
+    else displayHp = isElite ? 1000 : 700;
+  }
 
   const spGain = isBoss ? (3 + Math.floor(sector/3)) : (isElite ? (sector > 3 ? 2 : 1) : 1);
   const creditGain = Math.floor((isBoss ? 500 : (isElite ? 200 : 75)) * (1 + sector * 0.15));

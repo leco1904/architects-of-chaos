@@ -1765,7 +1765,151 @@
     "legitimacy": 24
   },
   "backText": "He became powerful not through office or wealth, but through terror without a face. The killings fed panic, myth, and endless projection, turning absence into legend. His true identity vanished, but the fear stayed in circulation."
+},
+
+{
+  "id": "c143",
+  "name": "Benito Mussolini",
+  "title": "1935",
+  "faction": "Hegemony",
+  "gti": 93,
+  "type": "legacy",
+  "bio": "Theatrics of the state",
+  "stats": {
+    "tech": 58,
+    "finance": 76,
+    "manipulation": 94,
+    "erosion": 95,
+    "kingmaking": 88,
+    "system": 90,
+    "arsenal": 87,
+    "legitimacy": 69
+  },
+  "backText": "He staged power as spectacle and turned politics into ritual, posture, and command. His regime fed on myth, coercion, and the performance of national revival. Behind the grand image stood a brittle system that depended on fear and momentum."
+},
+{
+  "id": "c144",
+  "name": "Martin Luther",
+  "title": "Theologist",
+  "faction": "Fanatics",
+  "gti": 89,
+  "type": "legacy",
+  "bio": "Hammer of reform",
+  "stats": {
+    "tech": 44,
+    "finance": 61,
+    "manipulation": 88,
+    "erosion": 88,
+    "kingmaking": 86,
+    "system": 89,
+    "arsenal": 41,
+    "legitimacy": 93
+  },
+  "backText": "He cracked the unity of Western Christendom with words, doctrine, and defiance. His challenge to Rome became a force that reordered faith, authority, and political power across Europe. What began as reform became rupture, and rupture became a new system."
+},
+{
+  "id": "c145",
+  "name": "Gandhi",
+  "title": "Moral Revolutionary",
+  "faction": "Fanatics",
+  "gti": 90,
+  "type": "legacy",
+  "bio": "Nonviolence as force",
+  "stats": {
+    "tech": 38,
+    "finance": 63,
+    "manipulation": 84,
+    "erosion": 91,
+    "kingmaking": 95,
+    "system": 88,
+    "arsenal": 18,
+    "legitimacy": 98
+  },
+  "backText": "He turned refusal into pressure and discipline into mass political force. His authority came not from weapons or office, but from moral legitimacy, sacrifice, and symbolic power. By making resistance visible and collective, he changed the grammar of empire."
+},
+{
+  "id": "c148",
+  "name": "Che Guevara",
+  "title": "Revolutionary Icon",
+  "faction": "Fanatics",
+  "gti": 89,
+  "type": "legacy",
+  "bio": "Guerrilla turned symbol",
+  "stats": {
+    "tech": 49,
+    "finance": 46,
+    "manipulation": 86,
+    "erosion": 89,
+    "kingmaking": 84,
+    "system": 68,
+    "arsenal": 88,
+    "legitimacy": 87
+  },
+  "backText": "He transformed insurgency into image and martyrdom into global symbolism. His direct power was limited, but his myth traveled farther than many states ever could. He remains a face of rebellion long after the battlefield was lost."
+},
+{
+  "id": "c147",
+  "name": "Pedro Sanchez",
+  "title": "Spanish Prime Minister",
+  "faction": "Hegemony",
+  "gti": 84,
+  "type": "std",
+  "bio": "Survivor of the coalition age",
+  "stats": {
+    "tech": 71,
+    "finance": 82,
+    "manipulation": 85,
+    "erosion": 76,
+    "kingmaking": 88,
+    "system": 86,
+    "arsenal": 58,
+    "legitimacy": 80
+  },
+  "backText": "He governs through timing, coalition arithmetic, and controlled political resilience. His strength is not overwhelming dominance, but survival inside a fragmented democratic field. He stays in power by bending pressure into negotiation and negotiation into advantage."
+},
+{
+  "id": "c146",
+  "name": "Fidel Castro",
+  "title": "Cuban Revolutionary",
+  "faction": "Fanatics",
+  "gti": 93,
+  "type": "legacy",
+  "bio": "Revolution in uniform",
+  "stats": {
+    "tech": 52,
+    "finance": 74,
+    "manipulation": 92,
+    "erosion": 90,
+    "kingmaking": 88,
+    "system": 91,
+    "arsenal": 86,
+    "legitimacy": 84
+  },
+  "backText": "He fused revolution, state power, and personal myth into one enduring machine. His rule survived through discipline, symbolism, and relentless ideological control. Even in isolation, he made defiance look like permanence."
+},
+{
+  "id": "c149",
+  "name": "George Washington",
+  "title": "1799",
+  "faction": "Hegemony",
+  "gti": 94,
+  "type": "legacy",
+  "bio": "The first pillar",
+  "stats": {
+    "tech": 41,
+    "finance": 78,
+    "manipulation": 79,
+    "erosion": 74,
+    "kingmaking": 95,
+    "system": 96,
+    "arsenal": 90,
+    "legitimacy": 97
+  },
+  "backText": "He turned military victory into constitutional order and personal authority into institutional precedent. His greatest strength was restraint, which gave the new republic durability and form. By stepping back from absolute power, he made the system stronger than the man."
 }
+
+
+
 
   ],
   "effects": [
@@ -1822,6 +1966,9 @@
     },
     {
       "id": "e17", "name": "Apfel", "type": "effect", "gti": 70, "cost": 1, "stat": "tech", "buff": 1, "syn": ["Isaac Newton"], "synBuff": 30, "desc": "just an Apple.", "backText": "Der Apfel fällt nicht weit vom Stamm."
+    },
+    {
+      "id": "e18", "name": "Ledger", "type": "effect", "gti": 80, "cost": 2, "stat": "finance", "buff": 30, "syn": ["Satoshi Nakamoto", "Elon Musk"], "synBuff": 60, "desc": "...", "backText": "Schnapp, macht das Krokodil."
     }
   ]
 }

@@ -364,11 +364,46 @@ function CardDraftStage({ rewardData, roguelikeRun, onApplyDraft, onSkip, isCoop
   );
 }
 
+function TranscendenceStage({ onEndless, onExit }) {
+  return (
+    <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', gap: '30px', padding: '20px', textAlign: 'center' }}>
+      <CyberConfetti />
+      <div className="glass-panel animate-panel-in" style={{ borderColor: 'var(--ep)', padding: '40px', maxWidth: '600px', background: 'rgba(5, 2, 14, 0.95)' }}>
+        <Corners color="var(--ep)" size={12}/>
+        <div className="mono" style={{ fontSize: '0.8rem', color: 'var(--ep)', letterSpacing: '6px', marginBottom: '15px' }}>▸ SYSTEM LIMIT REACHED</div>
+        <h1 style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: '3rem', fontWeight: 900, color: '#fff', letterSpacing: '4px', margin: '0 0 20px 0', textShadow: '0 0 30px rgba(255,215,0,0.3)' }}>
+          TRANSCENDENCE
+        </h1>
+        <p className="mono" style={{ color: '#ccc', fontSize: '0.9rem', lineHeight: '1.6', marginBottom: '40px' }}>
+          Du hast den Kern des Systems erreicht. Die Simulation wurde erfolgreich validiert.<br/><br/>
+          Beende den Run jetzt für einen sicheren Exit oder übertakte deinen Avatar, um in den endlosen <b>OVERCLOCK MODE</b> vorzustoßen.
+        </p>
+        <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <button className="menu-btn" style={{ borderColor: 'var(--lose)', color: 'var(--lose)', padding: '15px 30px', flex: 1, minWidth: '240px' }} onClick={onExit}>
+            SYSTEM SHUTDOWN (ENDE)
+          </button>
+          <button className="menu-btn btn-primary" style={{ padding: '15px 30px', flex: 1, minWidth: '240px' }} onClick={onEndless}>
+            OVERCLOCK NODE (ENDLESS)
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── MAIN COMPONENT ──────────────────────────────────────────
-export default function RoguelikeReward({ rewardData, roguelikeRun, onApplyDraft, onSkip, isCoop = false }) {
+export default function RoguelikeReward({ rewardData, roguelikeRun, onApplyDraft, onSkip, onFinishRun, isCoop = false }) {
   const [stage, setStage] = useState('summary'); 
 
   if (!rewardData || !roguelikeRun) return null;
+
+  const handleDraftComplete = () => {
+    if (rewardData.isTranscendenceTrigger) {
+      setStage('transcendence');
+    } else {
+      onSkip(); // Zurück zur Map
+    }
+  };
 
   return (
     <div style={{position:'fixed', inset:0, background:'#05020e', zIndex:10000, overflowY:'auto'}}>
@@ -380,13 +415,20 @@ export default function RoguelikeReward({ rewardData, roguelikeRun, onApplyDraft
           />
        )}
        
-       {(stage === 'draft' || !rewardData.hpUpdate) && (
+       {stage === 'draft' && (
           <CardDraftStage 
              rewardData={rewardData} 
              roguelikeRun={roguelikeRun}
-             onApplyDraft={onApplyDraft} 
-             onSkip={onSkip}
+             onApplyDraft={(...args) => { onApplyDraft(...args); handleDraftComplete(); }} 
+             onSkip={handleDraftComplete}
              isCoop={isCoop}
+          />
+       )}
+
+       {stage === 'transcendence' && (
+          <TranscendenceStage 
+             onEndless={() => onSkip()} 
+             onExit={() => { playSound('click'); onFinishRun(); }} 
           />
        )}
     </div>

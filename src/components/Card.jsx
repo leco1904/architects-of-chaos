@@ -549,10 +549,14 @@ const Card = memo(function Card({
                             )}
 
                             <div className="stat-header" style={{ opacity: isLocked ? 0.3 : 1 }}>
-                              <span style={{ display:'flex', alignItems:'center', gap:'4px' }}>
-                                {STAT_ICONS[k]}
-                                {CAT_CONFIG[k].name} {isLocked && '🔒'}
-                              </span>
+                              <span style={{ 
+  display:'flex', alignItems:'center', gap:'4px', 
+  overflow:'hidden', whiteSpace:'nowrap', textOverflow:'ellipsis' /* FIX: Text bricht sauber ab */
+}}>
+  {STAT_ICONS[k]}
+  <span style={{ overflow:'hidden', textOverflow:'ellipsis' }}>{CAT_CONFIG[k].name}</span> 
+  {isLocked && '🔒'}
+</span>
                               <div style={{ display:'flex', alignItems:'baseline', justifyContent:'flex-end', gap:'3px', flexShrink:0, minWidth:'44px' }}>
                                 {totalBoost > 0 && (
                                   <span

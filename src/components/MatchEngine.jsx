@@ -79,7 +79,7 @@ function DrawPile({ charCount, effCount }) {
   );
 }
 
-export default function MatchEngine({ playerChars, playerEffs, partnerChars, partnerEffs, aiChars, aiEffs, difficulty = 1, isOnline = false, isCoop = false, isHost = false, conn = null, onEndGame, onShowRules, initialPHP = 1000, initialAHP = 1000, isRoguelike = false, contextLabel = '', onTrade }) {
+export default function MatchEngine({ playerChars, playerEffs, partnerChars, partnerEffs, aiChars, aiEffs, difficulty = 1, isOnline = false, isCoop = false, isHost = false, conn = null, onEndGame, onShowRules, initialPHP = 500, initialAHP = 500, isRoguelike = false, contextLabel = '', onTrade }) {
   // Shuffle ONCE, then split — avoids duplicates across hand/deck (Bug #011)
   const _sc = React.useRef(shuffle([...playerChars])).current;
   const _se = React.useRef(shuffle([...playerEffs])).current;
@@ -698,6 +698,31 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
   };
 
   const applyClashAck = (data, remoteCardName) => {
+      // FIX: Taktik-Karte nach Nutzung verbrauchen
+      // FIX: Taktik-Karten Zyklus (Hand -> Stapel-Ende -> Nachziehen)
+      if (clashData?.pEffObj) {
+          let nextEffHand = [...pEffHand];
+          let nextEffDeck = [...pEffDeck];
+          const usedIdx = nextEffHand.findIndex(e => e && e.name === clashData.pEffObj.name);
+
+          if (usedIdx !== -1) {
+              const usedCard = { ...nextEffHand[usedIdx] };
+              nextEffHand.splice(usedIdx, 1); // Aus der Hand entfernen
+              
+              // Verbrauchte Karte ans Ende des Stapels schieben (wandert zurück)
+              nextEffDeck.push(usedCard); 
+              
+              // Sofort die nächste Karte vom Anfang des Stapels ziehen
+              if (nextEffHand.length === 0 && nextEffDeck.length > 0) {
+                  nextEffHand.push(nextEffDeck[0]);
+                  nextEffDeck = nextEffDeck.slice(1);
+              }
+
+              setPEffHand(nextEffHand);
+              setPEffDeck(nextEffDeck);
+          }
+      }
+
       const nextHand = [...pHand]; nextHand.splice(activeIdx, 1);
       let currentDeck = [...pDeck];
       if (currentDeck.length === 0) {
@@ -855,11 +880,11 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
       : (activeCard?.name || '').includes(activeEffOnCard.syn)
   );
 
-  return (
-    <div id="game-ui" className="screen active" style={{ zoom: 1.25 }}>
+ return (
+    <div id="game-ui" className="screen active" style={{ position: 'relative', width: '100%', height: '100%' }}>
       {showMatchIntro && (
         <div style={{
-          position: 'fixed', inset: 0, zIndex: 9999,
+          position: 'absolute', inset: 0, zIndex: 9999,
           background: '#000',
           display: 'flex', flexDirection: 'column',
           justifyContent: 'center', alignItems: 'center',
@@ -1203,29 +1228,28 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
             </div>
           </div>
 
-          {/* ── Aktive Krise Banner (FIX: Absolut positioniert, schiebt UI nicht mehr) ───────────────────────────────────── */}
+          {/* ── Aktive Krise Banner (Zentriert & Höher) ───────────────────────────────────── */}
           {activeCrisis && (
-            <div style={{ position: 'relative', width: '100%', height: 0, zIndex: 50 }}>
+            <div style={{ position: 'absolute', top: '-15px', left: 0, right: 0, display: 'flex', justifyContent: 'center', zIndex: 100 }}>
               <div 
                 className="active-crisis-banner"
-                style={{ position: 'absolute', top: '0', left: '50%', transform: 'translateX(-50%)', cursor: 'help', whiteSpace: 'nowrap' }}
+                style={{ cursor: 'help', whiteSpace: 'nowrap' }}
                 onMouseEnter={() => setHoveredEl('crisis-banner')}
                 onMouseLeave={() => setHoveredEl(null)}
               >
                 {hoveredEl === 'crisis-banner' && (
                   <TT position="top" lines={[
-                    '⚠ SYSTEMKRISE AKTIV',
+                    '⚠️ SYSTEMKRISE AKTIV',
                     activeCrisis.desc,
-                    `Dauer: Noch ${activeCrisis.turnsLeft} Runden`
+                    `Verbleibend: ${activeCrisis.turnsLeft} Runden`
                   ]} />
                 )}
-                <span className="cr-icon">⚠</span>
-                <span className="cr-name">{activeCrisis.name}</span>
-                <span className="cr-turns mono">{activeCrisis.turnsLeft} RND</span>
+                <span className="cr-name" style={{ fontSize: '0.6rem', textAlign: 'center' }}>
+                  ⚠️ {activeCrisis.name} ⚠️
+                </span>
               </div>
             </div>
           )}
-
           {/* ── Arena: ⚡ links | Karte | KRISE rechts ───────────────── */}
           <div className="arena-row">
             <div className="arena-side-bars left-bars">
@@ -1375,21 +1399,34 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
             ) : pTurn ? (
               <>
                 <div style={{ position: 'relative' }} onMouseEnter={() => setHoveredEl('erholen')} onMouseLeave={() => setHoveredEl(null)}>
-                  {hoveredEl === 'erholen' && <TT position="top" lines={['Regeneriere +2⚡', 'Kein Angriff — du erleidest 1.5x Schaden']} />}
+                  {hoveredEl === 'erholen' && <TT position="top" lines={[
+                    'REGENERIEREN (+2⚡)',
+                    'vs STANDARD: Gegner-Stat x 1.5 Schaden',
+                    'vs KONTER: 0 Schaden & EP-Refund'
+                  ]} />}
                   <button className="btn-act" onClick={() => executeAction('erholen')}>
                     <span className="act-title">ERHOLEN</span>
                     <span className="act-cost">+2⚡</span>
                   </button>
                 </div>
                 <div style={{ position: 'relative' }} onMouseEnter={() => setHoveredEl('std')} onMouseLeave={() => setHoveredEl(null)}>
-                  {hoveredEl === 'std' && <TT position="top" lines={['Standardangriff auf gewählten Stat', `Kosten: ${2 + dynEffCost}⚡`]} />}
+                  {hoveredEl === 'std' && <TT position="top" lines={[
+                    `STANDARDANGRIFF (Kosten: ${2 + dynEffCost}⚡)`,
+                    'vs BLOCKEN / KONTER (Sieg): Diff x 1.5',
+                    'vs KONTER (Loss): Recoil x 2.0'
+                  ]} />}
                   <button className="btn-act btn-primary" style={{ opacity: canStd ? 1 : 0.4 }} onClick={() => canStd && executeAction('std')}>
                     <span className="act-title">STANDARD</span>
                     <span className="act-cost">-{2 + dynEffCost}⚡</span>
                   </button>
                 </div>
                 <div style={{ position: 'relative' }} onMouseEnter={() => setHoveredEl('allin')} onMouseLeave={() => setHoveredEl(null)}>
-                  {hoveredEl === 'allin' && <TT position="top" lines={['Angriff mit 1.5x Schaden', `Kosten: ${8 + dynEffCost}⚡`]} />}
+                  {hoveredEl === 'allin' && <TT position="top" lines={[
+                    `ALL-IN ANGRIFF (Kosten: ${8 + dynEffCost}⚡)`,
+                    'vs BLOCKEN: Diff x 3.0',
+                    'vs KONTER (Sieg): Diff x 4.0',
+                    'vs KONTER (Loss): Recoil x 5.0'
+                  ]} />}
                   <button className="btn-act btn-danger" style={{ opacity: canAllIn ? 1 : 0.4 }} onClick={() => canAllIn && executeAction('allin')}>
                     <span className="act-title">ALL-IN</span>
                     <span className="act-cost">-{8 + dynEffCost}⚡</span>
@@ -1399,14 +1436,22 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
             ) : (
               <>
                 <div style={{ position: 'relative' }} onMouseEnter={() => setHoveredEl('block')} onMouseLeave={() => setHoveredEl(null)}>
-                  {hoveredEl === 'block' && <TT position="top" lines={['Reduziert erlittenen Schaden um 50%', `Kosten: ${dynEffCost}⚡`]} />}
+                  {hoveredEl === 'block' && <TT position="top" lines={[
+                    `STANDARD-BLOCK (Kosten: ${dynEffCost}⚡)`,
+                    'vs STANDARD: Schaden = Diff x 1.5',
+                    'vs ALL-IN: Schaden = Diff x 3.0'
+                  ]} />}
                   <button className="btn-act btn-primary" style={{ opacity: canBlock && canDefend ? 1 : 0.4 }} onClick={() => canBlock && canDefend && executeAction('block')}>
                     <span className="act-title">BLOCKEN</span>
                     <span className="act-cost">-{dynEffCost}⚡</span>
                   </button>
                 </div>
                 <div style={{ position: 'relative' }} onMouseEnter={() => setHoveredEl('konter')} onMouseLeave={() => setHoveredEl(null)}>
-                  {hoveredEl === 'konter' && <TT position="top" lines={['Bei Erfolg: Schaden zurückwerfen', `Kosten: ${6 + dynEffCost}⚡`]} />}
+                  {hoveredEl === 'konter' && <TT position="top" lines={[
+                    `KONTER-PARADE (Kosten: ${6 + dynEffCost}⚡)`,
+                    'SIEG: Diff x 1.5 (Std) / 4.0 (All-In)',
+                    'LOSS: Recoil x 2.0 (Std) / 5.0 (All-In)'
+                  ]} />}
                   <button className="btn-act btn-danger" style={{ opacity: canKonter && canDefend ? 1 : 0.4 }} onClick={() => canKonter && canDefend && executeAction('konter')}>
                     <span className="act-title">KONTER</span>
                     <span className="act-cost">-{6 + dynEffCost}⚡</span>
@@ -1517,12 +1562,11 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
 
       {clashData && !showCrisisIntro && (
         <div style={{
-          position: 'fixed', inset: 0, zIndex: 25000,
+          position: 'absolute', inset: 0, zIndex: 25000,
           background: 'rgba(3,1,10,0.97)',
           display: 'flex', flexDirection: 'column',
           fontFamily: "'Roboto Mono', monospace",
-          height: '100dvh', // FIX: Verhindert Scrollen
-          overflow: 'hidden' // FIX: Verhindert Scrollen
+          overflow: 'hidden'
         }}>
 
           {/* ── RULES — oben rechts, immer sichtbar ── */}
@@ -1564,13 +1608,20 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
                   <span className="mono" style={{ fontSize: '0.58rem', color: isCoop ? 'var(--ep)' : 'var(--win)', letterSpacing: '2px', fontWeight: 700 }}>
                     {isCoop ? 'TEAM HP' : 'DU'}
                   </span>
-                  <b className="mono" style={{
-                    fontSize: '1.15rem', color: isCoop ? 'var(--ep)' : 'var(--win)',
-                    textShadow: `0 0 12px ${isCoop ? 'var(--ep)' : 'var(--win)'}`,
-                    letterSpacing: '2px',
-                  }}>
-                    {Math.floor(clashAnim ? clashData.newPHP : clashData.oldPHP)}
-                  </b>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {clashAnim && clashData.dmgP > 0 && (
+                      <span className="mono" style={{ fontSize: '0.85rem', color: 'var(--lose)', fontWeight: 700, animation: 'pulse 0.5s infinite' }}>
+                        -{clashData.dmgP}
+                      </span>
+                    )}
+                    <b className="mono" style={{
+                      fontSize: '1.15rem', color: isCoop ? 'var(--ep)' : 'var(--win)',
+                      textShadow: `0 0 12px ${isCoop ? 'var(--ep)' : 'var(--win)'}`,
+                      letterSpacing: '2px',
+                    }}>
+                      {Math.floor(clashAnim ? clashData.newPHP : clashData.oldPHP)}
+                    </b>
+                  </div>
                 </div>
                 <div style={{ height: '9px', background: 'rgba(255,255,255,0.07)', borderRadius: '4px', overflow: 'hidden' }}>
                   <div style={{
@@ -1611,9 +1662,16 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
                   <span className="mono" style={{ fontSize: '0.58rem', color: 'var(--lose)', letterSpacing: '2px', fontWeight: 700 }}>
                     {isCoop ? 'BOSS HP' : 'GEGNER'}
                   </span>
-                  <b className="mono" style={{ fontSize: '1.15rem', color: 'var(--lose)', textShadow: '0 0 12px var(--lose)', letterSpacing: '2px' }}>
-                    {Math.floor(clashAnim ? clashData.newAHP : clashData.oldAHP)}
-                  </b>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {clashAnim && clashData.dmgA > 0 && (
+                      <span className="mono" style={{ fontSize: '0.85rem', color: 'var(--win)', fontWeight: 700, animation: 'pulse 0.5s infinite' }}>
+                        -{clashData.dmgA}
+                      </span>
+                    )}
+                    <b className="mono" style={{ fontSize: '1.15rem', color: 'var(--lose)', textShadow: '0 0 12px var(--lose)', letterSpacing: '2px' }}>
+                      {Math.floor(clashAnim ? clashData.newAHP : clashData.oldAHP)}
+                    </b>
+                  </div>
                 </div>
                 <div style={{ height: '9px', background: 'rgba(255,255,255,0.07)', borderRadius: '4px', overflow: 'hidden' }}>
                   <div style={{
@@ -1656,126 +1714,92 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
             </div>
           </div>
 
-          {/* ── KARTEN — flexibel skaliert ohne Layout Shifts ── */}
+          {/* ── KARTEN — Skalierungsschutz für 1440p ── */}
           <div style={{
             flex: 1, display: 'flex', alignItems: 'center',
-            justifyContent: 'center', gap: '3vw',
-            padding: '10px 0',
-            position: 'relative', overflow: 'hidden', minHeight: 0,
+            maxHeight: '60vh', // FIX: Begrenzt die Kartenhöhe, um Platz für den Button zu lassen
+            justifyContent: 'center', gap: '5vw',
+            padding: '20px 0', position: 'relative', minHeight: 0,
           }}>
 
-            {/* Spieler-Karte */}
-            <div className="c-card-container" style={{ 
-                position: 'relative', flexShrink: 0, 
-                width: '360px', height: '504px',
-                transition: 'all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                transform: localIsLoser ? 'scale(0.65)' : (localWins ? 'scale(0.85)' : 'scale(0.75)'),
-                filter: localIsLoser ? 'grayscale(75%) opacity(0.5)' : 'none',
+            {/* Spieler-Karte (Fix: Hard Width verhindert Clipping) */}
+            <div style={{ 
+                position: 'relative', flexShrink: 0, width: '360px', height: '504px',
                 zIndex: localWins ? 10 : 1,
+                transform: localIsLoser ? 'scale(0.7)' : (localWins ? 'scale(0.95)' : 'scale(0.85)'),
+                transition: 'all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                filter: localIsLoser ? 'grayscale(75%) opacity(0.5)' : 'none',
+                pointerEvents: 'auto', overflow: 'visible'
             }}>
+              {/* Aktions-Badge */}
               <div style={{
-                position: 'absolute', inset: 0,
-                pointerEvents: 'auto', // FIX: Tooltips reaktiviert!
+                position: 'absolute', top: '-28px', left: '50%',
+                transform: 'translateX(-50%)', zIndex: 30,
+                background: '#000', color: 'var(--ep)',
+                padding: '5px 20px',
+                border: `2px solid ${localWins ? 'var(--win)' : '#555'}`,
+                fontWeight: 900, fontSize: '1rem', letterSpacing: '2px',
+                boxShadow: localWins ? '0 0 14px rgba(0,229,255,0.4)' : 'none',
+                whiteSpace: 'nowrap', pointerEvents: 'none',
               }}>
-                {/* Aktions-Badge */}
-                <div style={{
-                  position: 'absolute', top: '-28px', left: '50%',
-                  transform: 'translateX(-50%)', zIndex: 30,
-                  background: '#000', color: 'var(--ep)',
-                  padding: '5px 20px',
-                  border: `2px solid ${localWins ? 'var(--win)' : '#555'}`,
-                  fontWeight: 900, fontSize: '1rem', letterSpacing: '2px',
-                  boxShadow: localWins ? '0 0 14px rgba(0,229,255,0.4)' : 'none',
-                  whiteSpace: 'nowrap', pointerEvents: 'none',
-                }}>
-                  {clashData.pAct}
-                </div>
-                {/* Taktik-Boost */}
-                {clashData.pEffObj && clashData.pEffObj.stat === clashData.categoryKey && (
-                  <div style={{
-                    position: 'absolute', top: '-62px', left: '50%',
-                    transform: 'translateX(-50%)', zIndex: 30,
-                    background: 'rgba(0,255,204,0.12)', color: 'var(--eff-col)',
-                    border: '1px solid var(--eff-col)', padding: '4px 12px',
-                    fontWeight: 900, fontSize: '0.85rem', whiteSpace: 'nowrap',
-                    backdropFilter: 'blur(5px)', letterSpacing: '1px', pointerEvents: 'none',
-                  }}>
-                    +{(clashData.pEffObj.buff || 0) + (clashData.pEffObj.syn?.includes(clashData.pc.name) ? (clashData.pEffObj.synBuff || 0) : 0)} // {clashData.pEffObj.name.toUpperCase()}
-                  </div>
-                )}
-                <Card
-                  card={clashData.pc}
-                  context="game"
-                  activeEffect={clashData.pEffObj}
-                  apexBuffs={currentApexBuffs}
-                  activeCrisis={activeCrisis}
-                  curCategory={clashData.categoryKey}
-                  isPlayerTurn={true}
-                  isFactionSynergyActive={pActiveFactions.includes(clashData.pc?.faction)}
-                />
+                {clashData.pAct}
               </div>
-              {clashAnim && clashData.dmgP > 0 && <div className="dmg-popup dmg-neg show" style={{ fontSize: '3.5rem', textShadow: '0 0 20px #000' }}>-{clashData.dmgP}</div>}
+              {/* Taktik-Boost entfernt (jetzt via Tooltip) */}
+              <Card
+                card={clashData.pc}
+                context="game"
+                activeEffect={clashData.pEffObj}
+                apexBuffs={currentApexBuffs}
+                activeCrisis={activeCrisis}
+                curCategory={clashData.categoryKey}
+                isPlayerTurn={true}
+                isFactionSynergyActive={pActiveFactions.includes(clashData.pc?.faction)}
+              />
+              {clashAnim && clashData.dmgP > 0 && <div className="dmg-popup dmg-neg show" style={{ fontSize: '3.5rem', textShadow: '0 0 20px #000', position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 40 }}>-{clashData.dmgP}</div>}
             </div>
 
             {/* VS */}
             <div style={{
-              fontSize: '2.5rem', fontStyle: 'italic', fontWeight: 900,
+              fontSize: '3rem', fontStyle: 'italic', fontWeight: 900,
               color: 'rgba(120,120,160,0.4)', flexShrink: 0,
               textShadow: '0 0 20px rgba(120,120,160,0.2)',
-              userSelect: 'none',
+              userSelect: 'none', zIndex: 5
             }}>VS</div>
 
-            {/* Gegner-Karte */}
-            <div className="c-card-container" style={{ 
-                position: 'relative', flexShrink: 0,
-                width: '360px', height: '504px',
-                transition: 'all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                transform: remoteIsLoser ? 'scale(0.65)' : (remoteWins ? 'scale(0.85)' : 'scale(0.75)'),
-                filter: remoteIsLoser ? 'grayscale(75%) opacity(0.5)' : 'none',
+            {/* Gegner-Karte (Fix: Hard Width verhindert Clipping) */}
+            <div style={{ 
+                position: 'relative', flexShrink: 0, width: '360px', height: '504px',
                 zIndex: remoteWins ? 10 : 1,
+                transform: remoteIsLoser ? 'scale(0.7)' : (remoteWins ? 'scale(0.95)' : 'scale(0.85)'),
+                transition: 'all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                filter: remoteIsLoser ? 'grayscale(75%) opacity(0.5)' : 'none',
+                pointerEvents: 'auto', overflow: 'visible'
             }}>
+              {/* Aktions-Badge */}
               <div style={{
-                position: 'absolute', inset: 0,
-                pointerEvents: 'auto', // FIX: Tooltips reaktiviert!
+                position: 'absolute', top: '-28px', left: '50%',
+                transform: 'translateX(-50%)', zIndex: 30,
+                background: '#000', color: 'var(--ep)',
+                padding: '5px 20px',
+                border: `2px solid ${remoteWins ? 'var(--lose)' : '#555'}`,
+                fontWeight: 900, fontSize: '1rem', letterSpacing: '2px',
+                boxShadow: remoteWins ? '0 0 14px rgba(255,0,50,0.4)' : 'none',
+                whiteSpace: 'nowrap', pointerEvents: 'none',
               }}>
-                {/* Aktions-Badge */}
-                <div style={{
-                  position: 'absolute', top: '-28px', left: '50%',
-                  transform: 'translateX(-50%)', zIndex: 30,
-                  background: '#000', color: 'var(--ep)',
-                  padding: '5px 20px',
-                  border: `2px solid ${remoteWins ? 'var(--lose)' : '#555'}`,
-                  fontWeight: 900, fontSize: '1rem', letterSpacing: '2px',
-                  boxShadow: remoteWins ? '0 0 14px rgba(255,0,50,0.4)' : 'none',
-                  whiteSpace: 'nowrap', pointerEvents: 'none',
-                }}>
-                  {clashData.aAct}
-                </div>
-                {/* Taktik-Boost */}
-                {clashData.aEffObj && clashData.aEffObj.stat === clashData.categoryKey && (
-                  <div style={{
-                    position: 'absolute', top: '-62px', left: '50%',
-                    transform: 'translateX(-50%)', zIndex: 30,
-                    background: 'rgba(0,255,204,0.12)', color: 'var(--eff-col)',
-                    border: '1px solid var(--eff-col)', padding: '4px 12px',
-                    fontWeight: 900, fontSize: '0.85rem', whiteSpace: 'nowrap',
-                    backdropFilter: 'blur(5px)', letterSpacing: '1px', pointerEvents: 'none',
-                  }}>
-                    +{(clashData.aEffObj.buff || 0) + (clashData.aEffObj.syn?.includes(clashData.ac.name) ? (clashData.aEffObj.synBuff || 0) : 0)} // {clashData.aEffObj.name.toUpperCase()}
-                  </div>
-                )}
-                <Card
-                  card={clashData.ac}
-                  context="game"
-                  activeEffect={clashData.aEffObj}
-                  apexBuffs={{}}
-                  activeCrisis={activeCrisis}
-                  curCategory={clashData.categoryKey}
-                  isPlayerTurn={false}
-                  isFactionSynergyActive={aActiveFactions.includes(clashData.ac?.faction)}
-                />
+                {clashData.aAct}
               </div>
-              {clashAnim && clashData.dmgA > 0 && <div className="dmg-popup dmg-neg show" style={{ fontSize: '3.5rem', textShadow: '0 0 20px #000' }}>-{clashData.dmgA}</div>}
+              {/* Taktik-Boost entfernt (jetzt via Tooltip) */}
+              <Card
+                card={clashData.ac}
+                context="game"
+                activeEffect={clashData.aEffObj}
+                apexBuffs={{}}
+                activeCrisis={activeCrisis}
+                curCategory={clashData.categoryKey}
+                isPlayerTurn={false}
+                isFactionSynergyActive={aActiveFactions.includes(clashData.ac?.faction)}
+              />
+              {clashAnim && clashData.dmgA > 0 && <div className="dmg-popup dmg-neg show" style={{ fontSize: '3.5rem', textShadow: '0 0 20px #000', position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 40 }}>-{clashData.dmgA}</div>}
             </div>
           </div>
 
