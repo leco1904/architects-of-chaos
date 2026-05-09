@@ -31,16 +31,16 @@ function GlitchTitle({ text }) {
 function HubButton({ icon, title, sub, color='var(--win)', locked, onClick, active }) {
   return (
     <button onClick={locked?undefined:onClick} disabled={locked}
-      style={{width:'100%',padding:'14px 18px',background:active?`${color}12`:locked?'rgba(0,0,0,0.2)':`${color}08`,border:`1px solid ${locked?'#2a3a4a':active?color:`${color}55`}`,borderLeft:`3px solid ${locked?'#2a3a4a':color}`,color:locked?'#3a4a5a':color,textAlign:'left',cursor:locked?'not-allowed':'pointer',transition:'all 0.2s',boxShadow:active?`0 0 20px ${color}22`:'none'}}
+      style={{width:'100%',padding:'18px 24px',background:active?`${color}12`:locked?'rgba(0,0,0,0.2)':`${color}08`,border:`1px solid ${locked?'#2a3a4a':active?color:`${color}55`}`,borderLeft:`4px solid ${locked?'#2a3a4a':color}`,color:locked?'#3a4a5a':color,textAlign:'left',cursor:locked?'not-allowed':'pointer',transition:'all 0.2s',boxShadow:active?`0 0 20px ${color}22`:'none'}}
       onMouseEnter={e=>{if(!locked)e.currentTarget.style.background=`${color}14`;}}
       onMouseLeave={e=>{if(!locked)e.currentTarget.style.background=active?`${color}12`:`${color}08`;}}>
-      <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
-        <div style={{fontSize:'1.1rem',flexShrink:0}}>{locked?'🔒':icon}</div>
+      <div style={{display:'flex',alignItems:'center',gap:'16px'}}>
+        <div style={{fontSize:'1.6rem',flexShrink:0}}>{locked?'🔒':icon}</div>
         <div>
-          <div style={{fontFamily:"'Rajdhani',sans-serif",fontWeight:700,fontSize:'0.95rem',letterSpacing:'3px'}}>{title}</div>
-          <div className="mono" style={{fontSize:'0.52rem',letterSpacing:'1px',color:locked?'#3a4a5a':`${color}99`,marginTop:'2px'}}>{sub}</div>
+          <div style={{fontFamily:"'Rajdhani',sans-serif",fontWeight:700,fontSize:'1.25rem',letterSpacing:'3px'}}>{title}</div>
+          <div className="mono" style={{fontSize:'0.65rem',letterSpacing:'1px',color:locked?'#3a4a5a':`${color}99`,marginTop:'4px'}}>{sub}</div>
         </div>
-        {!locked&&<div style={{marginLeft:'auto',fontSize:'0.8rem',opacity:0.5}}>▸</div>}
+        {!locked&&<div style={{marginLeft:'auto',fontSize:'1.2rem',opacity:0.5}}>▸</div>}
       </div>
     </button>
   );
@@ -55,11 +55,11 @@ export default function GhostNodeMenu({ session, baseHp, setBaseHp, avatarCard, 
   const username = (session?.user?.user_metadata?.username || '').toUpperCase();
   const isAdmin = username === 'MANU' || username === 'LEON' || username === 'ELSON'; // Added Elson per prompt instruction
 
-  return (
-    <div className="screen active" style={{display:'block',padding:'0',position:'relative',overflow:'hidden'}}>
-      <div style={{position:'relative',zIndex:2,padding:'24px 28px',minHeight:'100vh'}}>
-        {/* Header */}
-        <div className="top-bar" style={{marginBottom:'28px'}}>
+      return (
+        <div className="screen active" style={{display:'block',padding:'0',position:'relative',overflow:'hidden'}}>
+          <div className="gn-inner-wrapper" style={{position:'relative',zIndex:2,padding:'24px 28px',height:'100%',display:'flex',flexDirection:'column'}}>
+            {/* Header */}
+            <div className="top-bar" style={{marginBottom:'28px'}}>
           <div>
             <GlitchTitle text="GHOST NODE"/>
             <div className="mono" style={{fontSize:'0.6rem',color:'rgba(188,19,254,0.5)',letterSpacing:'4px',marginTop:'4px'}}>
@@ -71,54 +71,55 @@ export default function GhostNodeMenu({ session, baseHp, setBaseHp, avatarCard, 
 
         <div className="gn-main-layout">
           {/* Left: Avatar card (Display Only) */}
-          <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:'10px',flexShrink:0}}>
+          <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:'15px',flexShrink:0, width: '100%', maxWidth: '380px'}}>
             {avatarCard ? (
               <>
                 <div className="gn-card-wrapper" style={{
                   filter:'drop-shadow(0 0 24px rgba(188,19,254,0.45))',
                   position: 'relative', 
-                  zIndex: 50
+                  zIndex: 50,
+                  width: '100%', aspectRatio: '5/7', height: 'auto'
                 }}>
                   <Card card={avatarCard} context="deck" />
                 </div>
 
                 {/* Stats / SP summary */}
-                <div style={{padding:'10px 16px',width:'100%',boxSizing:'border-box',background:'rgba(5,0,12,0.8)',backdropFilter:'blur(8px)',border:'1px solid rgba(188,19,254,0.2)',borderLeft:'3px solid #bc13fe'}}>
-                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px'}}>
+                <div style={{padding:'16px 20px',width:'100%',boxSizing:'border-box',background:'rgba(5,0,12,0.8)',backdropFilter:'blur(8px)',border:'1px solid rgba(188,19,254,0.2)',borderLeft:'4px solid #bc13fe'}}>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
                     <div>
-                      <div className="mono" style={{fontSize:'0.48rem',color:'rgba(255,255,255,0.28)'}}>SKILL POINTS</div>
-                      <div className="mono" style={{color:'#bc13fe',fontWeight:900,fontSize:'1.2rem',textShadow:'0 0 12px #bc13fe'}}>{avatarCard.sp ?? 0}</div>
+                      <div className="mono" style={{fontSize:'0.65rem',color:'rgba(255,255,255,0.28)',letterSpacing:'1px'}}>SKILL POINTS</div>
+                      <div className="mono" style={{color:'#bc13fe',fontWeight:900,fontSize:'1.8rem',textShadow:'0 0 12px #bc13fe'}}>{avatarCard.sp ?? 0}</div>
                     </div>
                     <div>
-                      <div className="mono" style={{fontSize:'0.48rem',color:'rgba(255,255,255,0.28)'}}>RATING (GTI)</div>
-                      <div className="mono" style={{color:'var(--ep)',fontWeight:900,fontSize:'1.2rem'}}>{avatarCard.gti ?? 50}</div>
+                      <div className="mono" style={{fontSize:'0.65rem',color:'rgba(255,255,255,0.28)',letterSpacing:'1px'}}>RATING (GTI)</div>
+                      <div className="mono" style={{color:'var(--ep)',fontWeight:900,fontSize:'1.8rem'}}>{avatarCard.gti ?? 50}</div>
                     </div>
                   </div>
                   {hasRun && (
-                    <div style={{marginTop:'8px',paddingTop:'8px',borderTop:'1px solid rgba(255,255,255,0.06)'}}>
-                      <div className="mono" style={{fontSize:'0.48rem',color:'var(--apex-pink)',letterSpacing:'2px',marginBottom:'3px'}}>▸ AKTIVER RUN</div>
-                      <div className="mono" style={{fontSize:'0.62rem',color:'#fff'}}>SEKTOR {roguelikeRun.sector} // NODE {roguelikeRun.node}</div>
-                      <div className="mono" style={{fontSize:'0.55rem',color:'var(--win)',marginTop:'2px'}}>HP: {roguelikeRun.currentHP} / {roguelikeRun.maxHP}</div>
+                    <div style={{marginTop:'14px',paddingTop:'14px',borderTop:'1px solid rgba(255,255,255,0.06)'}}>
+                      <div className="mono" style={{fontSize:'0.65rem',color:'var(--apex-pink)',letterSpacing:'2px',marginBottom:'5px'}}>▸ AKTIVER RUN</div>
+                      <div className="mono" style={{fontSize:'0.85rem',color:'#fff'}}>SEKTOR {roguelikeRun.sector} // NODE {roguelikeRun.node}</div>
+                      <div className="mono" style={{fontSize:'0.75rem',color:'var(--win)',marginTop:'4px'}}>HP: {roguelikeRun.currentHP} / {roguelikeRun.maxHP}</div>
                     </div>
                   )}
                 </div>
               </>
             ) : (
-              <div style={{width:'200px',height:'280px',background:'rgba(188,19,254,0.03)',border:'2px dashed rgba(188,19,254,0.2)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'12px'}}>
-                <div style={{fontSize:'2.5rem',opacity:0.3}}>⬡</div>
-                <div className="mono" style={{fontSize:'0.6rem',color:'rgba(188,19,254,0.4)',letterSpacing:'3px',textAlign:'center'}}>KEIN AGENT<br/>INITIALISIERT</div>
+              <div style={{width:'100%',aspectRatio:'5/7',height:'auto',background:'rgba(188,19,254,0.03)',border:'2px dashed rgba(188,19,254,0.2)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'16px'}}>
+                <div style={{fontSize:'4rem',opacity:0.3}}>⬡</div>
+                <div className="mono" style={{fontSize:'0.8rem',color:'rgba(188,19,254,0.4)',letterSpacing:'4px',textAlign:'center'}}>KEIN AGENT<br/>INITIALISIERT</div>
               </div>
             )}
           </div>
 
           {/* Right: Operations */}
-          <div style={{flex:1,minWidth:'280px',maxWidth:'400px',display:'flex',flexDirection:'column',gap:'10px'}}>
+          <div style={{flex: 1, minWidth: '300px', width: '100%', maxWidth: '560px', display: 'flex', flexDirection: 'column', gap: '16px'}}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom:'4px' }}>
-                <div className="mono" style={{fontSize:'0.56rem',color:'rgba(255,255,255,0.22)',letterSpacing:'3px'}}>
+                <div className="mono" style={{fontSize:'0.75rem',color:'rgba(255,255,255,0.22)',letterSpacing:'3px'}}>
                     {showInviteList ? '▸ NEURAL CONTACTS' : '▸ OPERATIONS'}
                 </div>
                 {showInviteList && (
-                    <button onClick={() => setShowInviteList(false)} className="mono" style={{ background: 'transparent', border: 'none', color: '#bc13fe', fontSize: '0.55rem', cursor: 'pointer', letterSpacing: '1px' }}>[ ZURÜCK ]</button>
+                    <button onClick={() => setShowInviteList(false)} className="mono" style={{ background: 'transparent', border: 'none', color: '#bc13fe', fontSize: '0.75rem', cursor: 'pointer', letterSpacing: '1px' }}>[ ZURÜCK ]</button>
                 )}
             </div>
 
@@ -200,14 +201,14 @@ export default function GhostNodeMenu({ session, baseHp, setBaseHp, avatarCard, 
               </div>
             )}
 
-            <div style={{marginTop:'8px',padding:'12px 14px',background:'rgba(0,0,0,0.4)',backdropFilter:'blur(4px)',border:'1px solid rgba(255,255,255,0.04)',borderLeft:'3px solid rgba(188,19,254,0.2)'}}>
-              <div className="mono" style={{fontSize:'0.52rem',color:'rgba(255,255,255,0.2)',letterSpacing:'2px',lineHeight:'1.9'}}>
+            <div style={{marginTop:'12px',padding:'16px 20px',background:'rgba(0,0,0,0.4)',backdropFilter:'blur(4px)',border:'1px solid rgba(255,255,255,0.04)',borderLeft:'3px solid rgba(188,19,254,0.2)'}}>
+              <div className="mono" style={{fontSize:'0.65rem',color:'rgba(255,255,255,0.2)',letterSpacing:'2px',lineHeight:'1.9'}}>
                 ▸ PERMADEATH: Run endet bei Niederlage<br/>
                 ▸ Avatar bleibt erhalten — SP-Upgrades permanent<br/>
                 ▸ Sieg: +1 SP (Boss: +3 SP)<br/>
                 ▸ Deck: Avatar + 5 Chars + 2 Effekte
               </div>
-            </div>
+            </div>3
 
             {/* NEU: ADMIN TERMINAL (NUR FÜR MANU / LEON / ELSON) */}
             {isAdmin && (

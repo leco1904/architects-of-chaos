@@ -67,7 +67,7 @@ function DraftCard({ card, selected, disabled, onToggle, isFactionSynergyActive 
     <div
       onClick={disabled ? undefined : onToggle}
       style={{
-        width: '216px', height: '302px', position: 'relative',
+        width: '100%', aspectRatio: '5/7', height: 'auto', position: 'relative',
         cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.3 : 1,
         transform: selected ? 'translateY(-8px) scale(1.02)' : 'none',
@@ -76,16 +76,12 @@ function DraftCard({ card, selected, disabled, onToggle, isFactionSynergyActive 
           : isEffectSynergyHint
           ? '0 0 25px #00e5ff, inset 0 0 20px #00e5ff, 0 0 40px rgba(0, 229, 255, 0.3)'
           : (selected ? `0 0 30px ${tc}66` : 'none'),
-        // NEU: Pulsieren stoppt, wenn die Karte 'selected' ist
         animation: ((isSynergyHint || isEffectSynergyHint) && !selected) ? 'pulse 1.5s infinite' : 'none',
         borderRadius: '8px', overflow: 'hidden',
         transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
       }}
     >
-      <div style={{ width: '360px', height: '504px', transform: 'scale(0.6)', transformOrigin: 'top left', pointerEvents: 'none' }}>
-        {/* NEU: Hint-Signale werden an Card.jsx weitergegeben */}
-        <Card card={card} context="inventory" isFactionSynergyActive={isFactionSynergyActive} isSynergyHint={isSynergyHint} isEffectSynergyHint={isEffectSynergyHint} />
-      </div>
+      <Card card={card} context="inventory" isFactionSynergyActive={isFactionSynergyActive} isSynergyHint={isSynergyHint} isEffectSynergyHint={isEffectSynergyHint} />
       
       {selected && (
         <div style={{ position: 'absolute', inset: 0, border: `3px solid ${tc}`, borderRadius: '8px', pointerEvents: 'none', zIndex: 5 }} />
@@ -322,7 +318,7 @@ export default function RoguelikeSquad({ avatarCard, inventory = [], onConfirm, 
           {/* Cyberpunk Grid */}
           <div style={{ 
             flex: 1, overflowY: 'auto', paddingRight: '10px',
-            display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(216px, 1fr))', 
+            display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', 
             gap: '20px', justifyItems: 'center', alignContent: 'start'
           }}>
             {tab === 'chars' ? (

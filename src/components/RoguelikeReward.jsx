@@ -193,11 +193,9 @@ function CardDraftStage({ rewardData, roguelikeRun, onApplyDraft, onSkip, isCoop
             ▸ EINE KARTE IN DAS RUN-DECK AUFNEHMEN
           </div>
 
-          {/* Big card grid — scale 0.78 with correct wrapper sizing */}
-          <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
+          {/* Big card grid — Liquid Layout */}
+          <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap', width: '100%' }}>
             {draftCards.map((card, i) => {
-              const W = 360, H = 504, S = 0.78;
-              const vw = Math.round(W * S), vh = Math.round(H * S);
               const selected = chosenCard?.name === card.name;
 
               return (
@@ -205,14 +203,12 @@ function CardDraftStage({ rewardData, roguelikeRun, onApplyDraft, onSkip, isCoop
                   style={{ cursor: 'pointer', position: 'relative', transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
                     transform: selected ? 'translateY(-10px)' : 'none',
                     boxShadow: selected ? '0 0 30px rgba(0,229,255,0.5)' : 'none',
+                    width: 'clamp(200px, 25vw, 300px)', aspectRatio: '5/7', height: 'auto', flexShrink: 0
                   }}>
 
-                  {/* Sized to visual dimensions so grid packs tight */}
-                  <div style={{ width: vw, height: vh, overflow: 'hidden', borderRadius: '8px',
+                  <div style={{ width: '100%', height: '100%', overflow: 'hidden', borderRadius: '8px',
                     outline: selected ? '3px solid var(--win)' : '3px solid transparent', outlineOffset: '3px' }}>
-                    <div style={{ width: W, height: H, transform: `scale(${S})`, transformOrigin: 'top left', pointerEvents: 'none' }}>
-                      <Card card={card} context="inventory" />
-                    </div>
+                    <Card card={card} context="inventory" />
                   </div>
                   {selected && (
                     <div style={{ position: 'absolute', bottom: 8, left: '50%', transform: 'translateX(-50%)',
@@ -275,25 +271,21 @@ function CardDraftStage({ rewardData, roguelikeRun, onApplyDraft, onSkip, isCoop
         <div style={{ display: 'flex', gap: '50px', alignItems: 'flex-start', justifyContent: 'center', height: 'calc(100vh - 160px)', overflow: 'hidden', maxWidth: '1200px', margin: '0 auto' }}>
 
           {/* Left: chosen new card */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px', flexShrink: 0, width: 'clamp(180px, 20vw, 280px)' }}>
             <div className="mono" style={{ fontSize: '0.62rem', color: 'var(--win)', letterSpacing: '3px' }}>▸ NEUE KARTE</div>
-            {(() => { const S=0.75, W=360, H=504; return (
-              <div style={{ width: Math.round(W*S), height: Math.round(H*S), overflow:'hidden', borderRadius:'8px', border:'2px solid var(--win)', boxShadow:'0 0 30px rgba(0,229,255,0.2)' }}>
-                <div style={{ width:W, height:H, transform:`scale(${S})`, transformOrigin:'top left', pointerEvents:'none' }}>
-                  <Card card={chosenCard} context="inventory"/>
-                </div>
-              </div>
-            ); })()}
+            <div style={{ width: '100%', aspectRatio: '5/7', height: 'auto', overflow:'hidden', borderRadius:'8px', border:'2px solid var(--win)', boxShadow:'0 0 30px rgba(0,229,255,0.2)' }}>
+               <Card card={chosenCard} context="inventory"/>
+            </div>
           </div>
 
           {/* Right: replacement grid */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', minWidth: 0, overflow: 'hidden', height: '100%' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', minWidth: 0, overflow: 'hidden', height: '100%', flex: 1 }}>
             <div className="mono" style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.4)', letterSpacing: '3px', textAlign: 'center' }}>
               ▸ WELCHE KARTE ERSETZEN? {chosenCard?.type === 'effect' || chosenCard?.buff !== undefined ? '(Nur Taktikkarten)' : '(Nur Agenten, Avatar geschützt)'}
             </div>
 
-            {/* Cards in 4-col grid, bigger scale 0.55 */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, max-content)', gap: '16px', overflowY: 'auto', paddingBottom: '20px', justifyContent: 'center' }}>
+            {/* Auto-fit grid für Liquid Layout */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '16px', overflowY: 'auto', paddingBottom: '20px', justifyItems: 'center' }}>
               {[...(deck.chars||[]), ...(deck.effs||[]).map(e=>({...e,_isEff:true}))].map((card, i) => {
                 const isAv = i === 0 && !card._isEff;
                 const isEff = !!card._isEff;
@@ -305,20 +297,18 @@ function CardDraftStage({ rewardData, roguelikeRun, onApplyDraft, onSkip, isCoop
                 const idx    = card._isEff ? (deck.effs||[]).findIndex(e=>e.name===card.name) : i;
                 const isSelected = replaceIn===inList && replaceIdx===idx;
                 const tc = card.type==='apex'?'var(--apex-pink)':card.type==='legacy'?'#b8860b':card._isEff?'var(--eff-col)':'var(--win)';
-                const S=0.55, W=360, H=504; // Etwas größer, nutzt den Platz besser
+                
                 return (
                   <div key={i} onClick={isDisabled?undefined:()=>selectSlot(idx,inList)}
                     style={{ position:'relative', cursor:isDisabled?'not-allowed':'pointer', opacity:isDisabled?0.3:1,
                       transform:isSelected?'translateY(-8px)':'none', transition:'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                      borderRadius:'6px', flexShrink: 0,
+                      borderRadius:'6px', width: '100%', aspectRatio: '5/7', height: 'auto', maxWidth: '200px'
                     }}>
-                    <div style={{ width:Math.round(W*S), height:Math.round(H*S), overflow:'hidden', borderRadius:'6px',
+                    <div style={{ width: '100%', height: '100%', overflow:'hidden', borderRadius:'6px',
                       border:`2px solid ${isSelected?'var(--lose)':isDisabled?'#222':tc+'44'}`,
                       boxShadow:isSelected?'0 0 20px rgba(255,0,50,0.4)':'none',
                     }}>
-                      <div style={{width:W, height:H, transform:`scale(${S})`, transformOrigin:'top left', pointerEvents:'none'}}>
-                        <Card card={card} context="inventory"/>
-                      </div>
+                      <Card card={card} context="inventory"/>
                     </div>
                     {isSelected && !isDisabled && (
                       <div style={{position:'absolute',bottom:8,left:'50%',transform:'translateX(-50%)',background:'var(--lose)',padding:'6px 14px',borderRadius:'4px',zIndex:5, boxShadow:'0 4px 10px rgba(0,0,0,0.5)'}}>

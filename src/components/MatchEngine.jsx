@@ -467,8 +467,11 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
 
   const currentApexBuffs = {};
   pHand.forEach(c => {
-     if (c?.type === 'apex' && c.passiveBuff) {
-         currentApexBuffs[c.passiveBuff.stat] = (currentApexBuffs[c.passiveBuff.stat] || 0) + c.passiveBuff.val;
+     // FIX: Anomaly (Adolf H) bekommt ebenfalls eine passive Kompetenz wie Apex-Karten
+     if ((c?.type === 'apex' || c?.type === 'anomaly') && c.passiveBuff) {
+         // FIX: Apex Scaling – passiver Buff skaliert mit dem Level der Karte
+         const scaledVal = c.passiveBuff.val * (c.level || 1);
+         currentApexBuffs[c.passiveBuff.stat] = (currentApexBuffs[c.passiveBuff.stat] || 0) + scaledVal;
      }
   });
 
@@ -504,6 +507,9 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
       else setLastAIAttackStat(k);
 
       const calcVal = (card, effObj, isRemote) => {
+           // ANOMALY RULE: Adolf H – Legitimität ist absolut 0, kein Buff, kein Level, keine Krise
+           if (card.type === 'anomaly' && k === 'legitimacy') return 0;
+
            let v = Math.floor(card[k] ?? card.stats?.[k] ?? 0) + ((card.level || 1) - 1) * 2;
            if (!isRemote) v += (currentApexBuffs[k] || 0); 
            
@@ -514,8 +520,10 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
            }
 
            if (effObj && effObj.stat === k) {
-               v += effObj.buff;
-               if (effObj.syn?.includes(card.name)) v += (effObj.synBuff || 0);
+               // FIX: Taktikkarten-Leveling – Buff und SynBuff skalieren mit dem Level der Effektkarte
+               const effLvl = effObj.level || 1;
+               v += effObj.buff + (effLvl - 1) * 2;
+               if (effObj.syn?.includes(card.name)) v += (effObj.synBuff || 0) + (effLvl - 1) * 4;
            }
 
            // NEU: NEURAL RESONANCE BONUS (+20 auf den Wert für beide Partner)
@@ -698,21 +706,16 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
   };
 
   const applyClashAck = (data, remoteCardName) => {
-      // FIX: Taktik-Karte nach Nutzung verbrauchen
-      // FIX: Taktik-Karten Zyklus (Hand -> Stapel-Ende -> Nachziehen)
+      // FIX: Taktik-Karte nach Nutzung WIRKLICH verbrauchen
       if (clashData?.pEffObj) {
           let nextEffHand = [...pEffHand];
           let nextEffDeck = [...pEffDeck];
           const usedIdx = nextEffHand.findIndex(e => e && e.name === clashData.pEffObj.name);
 
           if (usedIdx !== -1) {
-              const usedCard = { ...nextEffHand[usedIdx] };
               nextEffHand.splice(usedIdx, 1); // Aus der Hand entfernen
               
-              // Verbrauchte Karte ans Ende des Stapels schieben (wandert zurück)
-              nextEffDeck.push(usedCard); 
-              
-              // Sofort die nächste Karte vom Anfang des Stapels ziehen
+              // Sofort die nächste Karte vom Anfang des Stapels ziehen (falls noch welche da sind)
               if (nextEffHand.length === 0 && nextEffDeck.length > 0) {
                   nextEffHand.push(nextEffDeck[0]);
                   nextEffDeck = nextEffDeck.slice(1);
@@ -1314,7 +1317,7 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
                     className={`hand-card-wrapper ${isActive ? 'active' : ''} ${justDrawnIdx === i ? 'card-just-drawn' : ''}`}
                     onClick={() => { playSound('click'); setActiveIdx(i); }}
                   >
-                    <div className="hand-card-inner">
+                    <div style={{ width: '100%', height: '100%' }}>
                       <Card card={c} context="hand" />
                     </div>
                     {isActive && <div className="hand-card-glow-char" />}
@@ -1350,7 +1353,7 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
                         : ['Keine Synergie'])
                     ]} />
                   )}
-                  <div className="hand-card-inner">
+                  <div style={{ width: '100%', height: '100%' }}>
                     <Card card={pEffHand[0]} context="hand" />
                   </div>
                   {activeEffObj && <div className="hand-card-glow-eff" />}
@@ -1401,8 +1404,9 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
                 <div style={{ position: 'relative' }} onMouseEnter={() => setHoveredEl('erholen')} onMouseLeave={() => setHoveredEl(null)}>
                   {hoveredEl === 'erholen' && <TT position="top" lines={[
                     'REGENERIEREN (+2⚡)',
-                    'vs STANDARD: Gegner-Stat x 1.5 Schaden',
-                    'vs KONTER: 0 Schaden & EP-Refund'
+                    'Schaden, falls Gegner stärker ist:',
+                    'Diff x 2.0',
+                    'Gegner-Konter erstattet seine 6⚡ zurück'
                   ]} />}
                   <button className="btn-act" onClick={() => executeAction('erholen')}>
                     <span className="act-title">ERHOLEN</span>
@@ -1439,7 +1443,8 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
                   {hoveredEl === 'block' && <TT position="top" lines={[
                     `STANDARD-BLOCK (Kosten: ${dynEffCost}⚡)`,
                     'vs STANDARD: Schaden = Diff x 1.5',
-                    'vs ALL-IN: Schaden = Diff x 3.0'
+                    'vs ALL-IN: Schaden = Diff x 3.0',
+                    'vs ERHOLEN: Schaden = Diff x 2.0'
                   ]} />}
                   <button className="btn-act btn-primary" style={{ opacity: canBlock && canDefend ? 1 : 0.4 }} onClick={() => canBlock && canDefend && executeAction('block')}>
                     <span className="act-title">BLOCKEN</span>
@@ -1450,7 +1455,8 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
                   {hoveredEl === 'konter' && <TT position="top" lines={[
                     `KONTER-PARADE (Kosten: ${6 + dynEffCost}⚡)`,
                     'SIEG: Diff x 1.5 (Std) / 4.0 (All-In)',
-                    'LOSS: Recoil x 2.0 (Std) / 5.0 (All-In)'
+                    'LOSS: Recoil x 2.0 (Std) / 5.0 (All-In)',
+                    'vs ERHOLEN: Diff x 2.0 & EP-Refund'
                   ]} />}
                   <button className="btn-act btn-danger" style={{ opacity: canKonter && canDefend ? 1 : 0.4 }} onClick={() => canKonter && canDefend && executeAction('konter')}>
                     <span className="act-title">KONTER</span>

@@ -112,9 +112,9 @@ const StatusDot = ({ color = 'var(--ep)' }) => (
   }} />
 );
 
-export default function GhostNetwork({ session, onBack, onInvite }) {
-  // ── State (UNVERÄNDERT) ────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState('friends');
+export default function GhostNetwork({ session, isOpen, onClose, onInvite, onLogout, metaStats }) {
+  // ── State ────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState('profile');
   const [friends, setFriends]     = useState([]);
   const [requests, setRequests]   = useState([]);
 
@@ -349,68 +349,32 @@ export default function GhostNetwork({ session, onBack, onInvite }) {
     );
   }
 
-  // ── HAUPTANSICHT ─────────────────────────────────────────────────────────
+  // ── HAUPTANSICHT (SIDEBAR) ───────────────────────────────────────────────
   return (
-    <div
-      className="screen active"
-      style={{
-        justifyContent: 'center',
-        alignItems: 'center',
-        fontFamily: "'Roboto Mono', monospace",
-      }}
-    >
+    <>
+      <div className={`gn-sidebar-backdrop ${isOpen ? 'open' : ''}`} onClick={onClose} />
+      <div className={`gn-sidebar ${isOpen ? 'open' : ''}`} style={{ fontFamily: "'Roboto Mono', monospace" }}>
+        
       {/* Header */}
-      <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-        <div
-          className="game-title-small"
-          style={{
-            color: 'var(--ep)',
-            fontSize: '2.2rem',
-            letterSpacing: '10px',
-            textShadow: '0 0 20px rgba(0,229,255,0.5), 0 0 60px rgba(0,229,255,0.15)',
-            fontFamily: "'Rajdhani', sans-serif",
-            fontWeight: 700,
-          }}
-        >
-          GHOST NETWORK
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px', background: 'rgba(0,0,0,0.4)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+        <div>
+           <div className="game-title-small" style={{ color: 'var(--ep)', fontSize: '1.4rem', letterSpacing: '5px', textShadow: '0 0 10px rgba(0,229,255,0.5)' }}>
+             GHOST NETWORK
+           </div>
         </div>
-        <div
-          className="mono"
-          style={{ fontSize: '0.58rem', color: '#333', letterSpacing: '4px', marginTop: '6px' }}
-        >
-          ── CLASSIFIED AGENT DIRECTORY ──
-        </div>
+        <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#888', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
       </div>
 
       {/* Haupt-Panel */}
-      <div
-        className="glass-panel"
-        style={{
-          width: '100%',
-          maxWidth: '820px',
-          padding: 0,
-          overflow: 'hidden',
-          position: 'relative',
-          border: '1px solid rgba(0,229,255,0.12)',
-          boxShadow: '0 0 40px rgba(0,0,0,0.6), 0 0 80px rgba(0,229,255,0.04) inset',
-        }}
-      >
-        {/* Eck-Dekorationen */}
-        <Corners color="rgba(0,229,255,0.35)" size={14} offset={8} />
-
-        {/* Horizontale Zier-Linie oben */}
-        <div style={{
-          height: '1px',
-          background: 'linear-gradient(to right, transparent, rgba(0,229,255,0.2) 30%, rgba(0,229,255,0.2) 70%, transparent)',
-          marginBottom: 0,
-        }} />
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
 
         {/* TABS */}
-        <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+        <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.05)', flexShrink: 0 }}>
           {[
-            { key: 'friends',  label: `SQUAD LISTE`,  count: friends.length,  accent: 'var(--ep)' },
-            { key: 'requests', label: `ANFRAGEN`,      count: requests.length, accent: 'var(--win)' },
-            { key: 'add',      label: `AGENT SUCHEN`,  count: null,            accent: 'var(--apex-pink)' },
+            { key: 'profile',  label: `PROFIL`, count: null, accent: 'var(--ep)' },
+            { key: 'friends',  label: `SQUAD`,  count: friends.length,  accent: 'var(--win)' },
+            { key: 'requests', label: `ANFRAGEN`,      count: requests.length, accent: '#00ff88' },
+            { key: 'add',      label: `SUCHEN`,  count: null,            accent: 'var(--apex-pink)' },
           ].map(tab => {
             const isActive = activeTab === tab.key;
             return (
@@ -453,7 +417,45 @@ export default function GhostNetwork({ session, onBack, onInvite }) {
         </div>
 
         {/* TAB CONTENT */}
-        <div style={{ padding: '28px 32px 36px', minHeight: '400px' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
+
+          {/* ── TAB: PROFIL & MATCH HISTORY ─────────────────────────────── */}
+          {activeTab === 'profile' && (
+             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', height: '100%' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '15px', padding: '15px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}>
+                   <CyberAvatar username={session?.user?.user_metadata?.username || 'AGENT'} size={50} />
+                   <div>
+                      <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: '1.4rem', color: 'var(--ep)', fontWeight: 700, letterSpacing: '2px' }}>{session?.user?.user_metadata?.username || 'AGENT'}</div>
+                      <div className="mono" style={{ fontSize: '0.6rem', color: '#888' }}>ID: {session?.user?.id.split('-')[0]}</div>
+                   </div>
+                </div>
+
+                <div className="mono" style={{ fontSize: '0.75rem', color: 'var(--win)', letterSpacing: '2px', borderBottom: '1px solid rgba(0,229,255,0.2)', paddingBottom: '5px' }}>▸ MATCH HISTORY</div>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, overflowY: 'auto', paddingRight: '5px' }}>
+                   {!metaStats?.match_history || metaStats.match_history.length === 0 ? (
+                      <div className="mono" style={{ color: '#555', fontSize: '0.7rem', textAlign: 'center', padding: '20px' }}>KEINE DATEN VERFÜGBAR</div>
+                   ) : (
+                      metaStats.match_history.map(match => (
+                         <div key={match.id} className={`gn-match-history-item ${match.result.toLowerCase()}`}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                               <div className="mono" style={{ fontSize: '0.6rem', color: '#888' }}>{new Date(match.date).toLocaleString()}</div>
+                               <div className="mono" style={{ fontSize: '0.75rem', color: '#fff', fontWeight: 'bold' }}>{match.mode}</div>
+                               <div className="mono" style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.5)' }}>vs {match.opponent}</div>
+                            </div>
+                            <div className="mono" style={{ fontSize: '1rem', fontWeight: 900, color: match.result === 'WIN' ? 'var(--win)' : (match.result === 'LOSS' ? 'var(--lose)' : '#888') }}>
+                               {match.result}
+                            </div>
+                         </div>
+                      ))
+                   )}
+                </div>
+
+                <button className="menu-btn btn-danger" style={{ marginTop: '10px', padding: '15px', fontSize: '0.9rem' }} onClick={onLogout}>
+                   SYSTEM LOGOUT ⏻
+                </button>
+             </div>
+          )}
 
           {/* ── TAB: FREUNDE ────────────────────────────────────────────── */}
           {activeTab === 'friends' && (
@@ -796,45 +798,8 @@ export default function GhostNetwork({ session, onBack, onInvite }) {
           background: 'linear-gradient(to right, transparent, rgba(0,229,255,0.1) 30%, rgba(0,229,255,0.1) 70%, transparent)',
         }} />
 
-        {/* Panel Footer */}
-        <div style={{
-          padding: '8px 32px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          background: 'rgba(0,0,0,0.3)',
-        }}>
-          <div className="mono" style={{ fontSize: '0.5rem', color: '#222', letterSpacing: '2px' }}>
-            GHOST NETWORK v2.4 // ENCRYPTED
-          </div>
-          <div className="mono" style={{ fontSize: '0.5rem', color: '#222', letterSpacing: '2px' }}>
-            AGENTS: {friends.length} // PENDING: {requests.length}
-          </div>
         </div>
       </div>
-
-      {/* Zurück-Button — kompakt, zentriert */}
-      <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'center' }}>
-        <button
-          onClick={onBack}
-          style={{
-            background: 'transparent',
-            border: '1px solid #282828',
-            color: '#444',
-            fontFamily: "'Roboto Mono', monospace",
-            fontSize: '0.62rem',
-            letterSpacing: '2.5px',
-            padding: '9px 28px',
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-            width: 'auto',
-          }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = '#555'; e.currentTarget.style.color = '#888'; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = '#282828'; e.currentTarget.style.color = '#444'; }}
-        >
-          ← ZURÜCK ZUR ZENTRALE
-        </button>
-      </div>
-    </div>
+    </>
   );
 }

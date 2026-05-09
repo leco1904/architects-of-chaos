@@ -2,19 +2,37 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../logic/supabase';
 import { playSound } from '../logic/audio';
 
-const CATEGORIES = [
-  { id: 'highest_crit', label: 'HÖCHSTER CRIT', suffix: ' DMG' },
-  { id: 'total_damage_dealt', label: 'SCHADEN GESAMT', suffix: ' DMG' },
-  { id: 'furthest_run_score', label: 'WEITESTER RUN', suffix: '', format: (val) => `SEKTOR ${Math.floor(val/10)} // NODE ${val%10}` },
-  { id: 'total_wins', label: 'SIEGE', suffix: ' WINS' },
-  { id: 'packs_opened', label: 'PACKS', suffix: ' GEÖFFNET' },
-  { id: 'cards_collected', label: 'KARTEN', suffix: ' UNIQUE' }
-];
+const BOARD_MODES = {
+  GHOST_NODE: [
+    { id: 'furthest_run_score', label: 'WEITESTER RUN', suffix: '', format: (val) => `SEKTOR ${Math.floor(val/10)} // NODE ${val%10}` },
+    { id: 'gn_highest_crit', label: 'HÖCHSTER CRIT', suffix: ' DMG' },
+    { id: 'gn_damage_dealt', label: 'SCHADEN GESAMT', suffix: ' DMG' },
+    { id: 'gn_wins', label: 'SIEGE', suffix: ' WINS' },
+    { id: 'bosses_defeated', label: 'BOSSE ELIMINIERT', suffix: ' KILLS' },
+  ],
+  CLASSIC: [
+    { id: 'classic_wins', label: 'SIEGE', suffix: ' WINS' },
+    { id: 'classic_highest_crit', label: 'HÖCHSTER CRIT', suffix: ' DMG' },
+    { id: 'classic_damage_dealt', label: 'SCHADEN GESAMT', suffix: ' DMG' },
+  ],
+  GLOBAL: [
+    { id: 'packs_opened', label: 'PACKS', suffix: ' GEÖFFNET' },
+    { id: 'cards_collected', label: 'KARTEN', suffix: ' UNIQUE' },
+    { id: 'total_wins', label: 'SIEGE GESAMT', suffix: ' WINS' }
+  ]
+};
 
 export default function Leaderboard({ onBack }) {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [category, setCategory] = useState('highest_crit');
+  const [boardMode, setBoardMode] = useState('GHOST_NODE');
+  const [category, setCategory] = useState('furthest_run_score');
+
+  const handleModeSwitch = (mode) => {
+      playSound('click');
+      setBoardMode(mode);
+      setCategory(BOARD_MODES[mode][0].id);
+  };
 
   useEffect(() => {
     fetchLeaderboard();
@@ -47,7 +65,7 @@ export default function Leaderboard({ onBack }) {
   };
 
   const sortedData = getSortedData();
-  const activeCatObj = CATEGORIES.find(c => c.id === category);
+  const activeCatObj = BOARD_MODES[boardMode].find(c => c.id === category) || BOARD_MODES[boardMode][0];
 
   return (
     <div className="screen active" style={{ display: 'block', padding: '30px', overflowY: 'auto' }}>
@@ -63,16 +81,39 @@ export default function Leaderboard({ onBack }) {
 
       <div className="glass-panel" style={{ maxWidth: '900px', margin: '0 auto', padding: '30px' }}>
         
-        {/* Kategorie-Tabs */}
+        {/* Haupt-Modus Tabs (Ghost Node vs Classic vs Global) */}
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', borderBottom: '2px solid rgba(255,255,255,0.1)', paddingBottom: '10px' }}>
+            {Object.keys(BOARD_MODES).map(mode => {
+                const isActive = boardMode === mode;
+                return (
+                    <button 
+                        key={mode} 
+                        onClick={() => handleModeSwitch(mode)}
+                        style={{
+                            flex: 1, padding: '12px', cursor: 'pointer', fontFamily: "'Rajdhani', sans-serif", fontWeight: 900, letterSpacing: '3px', transition: '0.2s',
+                            background: 'transparent',
+                            border: 'none',
+                            borderBottom: isActive ? '3px solid var(--ep)' : '3px solid transparent',
+                            color: isActive ? 'var(--ep)' : '#666',
+                            textShadow: isActive ? '0 0 15px var(--ep)' : 'none'
+                        }}
+                    >
+                        {mode.replace('_', ' ')}
+                    </button>
+                )
+            })}
+        </div>
+
+        {/* Sub-Kategorie Tabs */}
         <div className="leaderboard-tabs">
-          {CATEGORIES.map(cat => {
+          {BOARD_MODES[boardMode].map(cat => {
             const isActive = category === cat.id;
             return (
               <button 
                 key={cat.id} 
                 onClick={() => { playSound('click'); setCategory(cat.id); }}
                 style={{
-                  flex: 1, padding: '12px', cursor: 'pointer', fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '2px', transition: '0.2s',
+                  flex: 1, padding: '10px', cursor: 'pointer', fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, letterSpacing: '2px', transition: '0.2s', fontSize: '0.85rem',
                   background: isActive ? 'rgba(0,229,255,0.15)' : 'rgba(0,0,0,0.4)',
                   border: `1px solid ${isActive ? 'var(--win)' : '#333'}`,
                   color: isActive ? 'var(--win)' : '#888',

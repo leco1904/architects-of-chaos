@@ -29,9 +29,11 @@ body, html {
 .mono { font-family: 'Roboto Mono', monospace; }
 
 /* ========================================= */
-/* --- 1. CARD BASE & 3D WRAPPER ---         */
+/* --- 1. CARD BASE & MAGIC SCALER ---       */
 /* ========================================= */
 .card-drop-shadow { filter: drop-shadow(0 15px 25px rgba(0,0,0,0.8)) drop-shadow(0 0 5px rgba(255,255,255,0.05)); cursor: pointer; display: inline-block; }
+.magic-scaler-host { container-type: inline-size; width: 100%; height: 100%; position: relative; display: block; }
+.magic-scaler-inner { transform: scale(calc(100cqi / 360px)); transform-origin: top left; }
 .card-3d-wrapper { width: 360px; height: 504px; position: relative; transition: transform 0.1s ease-out; will-change: transform; z-index: 10; }
 .card-edge { position: absolute; inset: 0; clip-path: polygon(20px 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%, 0 20px); }
 .edge-apex { background: var(--apex-pink); } .edge-legacy { background: var(--legacy-sepia); }
@@ -549,7 +551,8 @@ body, html {
 /* ========================================= */
 /* --- 5. INVENTAR, MARKET, LEXIKON      --- */
 /* ========================================= */
-.card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 40px; padding: 20px 0; width: 100%; max-width: 1600px; margin: 0 auto; justify-items: center; }
+.card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(clamp(200px, 20vw, 300px), 1fr)); gap: 30px; padding: 20px 0; width: 100%; max-width: 1600px; margin: 0 auto; justify-items: center; }
+.card-grid-cell { width: 100%; aspect-ratio: 5 / 7; height: auto; }
 
 /* Lexikon: nicht besessene Karten ausgegraut */
 .card-unowned { opacity: 0.6; transition: opacity 0.25s ease; }
@@ -570,11 +573,11 @@ body, html {
   white-space: nowrap; z-index: 30;
   pointer-events: none;
 }
-.mini-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(216px, 1fr)); gap: 20px; justify-items: center; padding-bottom: 20px; width: 100%; }
+.mini-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 20px; justify-items: center; padding-bottom: 20px; width: 100%; }
 
 /* Market & Packs */
-.market-grid { display: flex; gap: 30px; justify-content: center; margin-top: 50px; flex-wrap: wrap;}
-.pack-item { background: rgba(10,10,15,0.8); border: 2px solid; padding: 40px 20px; text-align: center; border-radius: 8px; cursor: pointer; transition: 0.3s; width: 320px; display: flex; flex-direction: column; justify-content: space-between; }
+.market-grid { display: flex; gap: 30px; justify-content: center; margin-top: 50px; flex-wrap: wrap; width: 100%; }
+.pack-item { background: rgba(10,10,15,0.8); border: 2px solid; padding: 40px 20px; text-align: center; border-radius: 8px; cursor: pointer; transition: 0.3s; width: 100%; max-width: 320px; display: flex; flex-direction: column; justify-content: space-between; }
 .pack-item:hover { transform: translateY(-10px); box-shadow: 0 10px 30px -10px currentColor; }
 .pack-icon { font-size: 4rem; margin-bottom: 20px; text-shadow: 0 0 20px currentColor;}
 .pack-cost { font-size: 2.5rem; font-weight: bold; margin: 20px 0; }
@@ -590,15 +593,7 @@ body, html {
 .reveal-title { margin-bottom: 0; z-index: 100; }
 .pull-reveal-grid { 
   display: flex; gap: 30px; justify-content: center; align-items: center; flex-wrap: wrap; 
-  transform: scale(0.85); margin: -20px 0; 
-}
-
-/* Dynamische Höhen-Anpassung für Laptops (verhindert Scrollen) */
-@media (max-height: 850px) {
-  .pull-reveal-grid { transform: scale(0.65); margin: -70px 0; }
-}
-@media (max-height: 650px) {
-  .pull-reveal-grid { transform: scale(0.5); margin: -110px 0; }
+  margin: 0; width: 100%;
 }
 .pulled-card-wrapper { opacity: 0; animation: cardFlipIn 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
 @keyframes packRumble { 0% { transform: translate(0) scale(1); filter: brightness(1); } 50% { transform: translate(-5px, 5px) scale(1.1); filter: brightness(1.5); } 100% { transform: translate(0) scale(1.3); filter: brightness(3); } }
@@ -608,12 +603,11 @@ body, html {
 /* Inventory Base */
 .inv-column { flex: 1; display: flex; flex-direction: column; padding: 25px; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; position: relative; z-index: 100;}
 .inv-column::-webkit-scrollbar { display: none; }
-.mini-card-wrapper { width: 216px; height: 302px; margin: 0 auto; position: relative; cursor: pointer; transition: 0.2s; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); border-radius: 8px; overflow: hidden; content-visibility: auto; contain-intrinsic-size: 216px 302px; contain: layout style; }
-.mini-card-wrapper:hover { transform: translateY(-5px) scale(1.05); filter: brightness(1.15); z-index: 10; }
-.mini-card-scaler { width: 360px; height: 504px; transform: scale(0.6); transform-origin: top left; position: absolute; top: 0; left: 0; pointer-events: none; z-index: 1;}
+.mini-card-wrapper { width: 100%; aspect-ratio: 5 / 7; height: auto; margin: 0 auto; position: relative; cursor: pointer; transition: 0.2s; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); border-radius: 8px; overflow: hidden; }
+.mini-card-wrapper:hover { transform: translateY(-5px) scale(1.02); filter: brightness(1.15); z-index: 10; }
 @keyframes popIn { 0% { opacity: 0; transform: scale(0.5); } 100% { opacity: 1; transform: scale(1); } }
-.upgrade-pod { display: flex; flex-direction: column; align-items: center; background: rgba(15,15,20,0.8); border: 1px solid #333; border-radius: 8px; padding: 20px; gap: 15px; }
-.upgrade-card-wrapper { position: relative; width: 216px; height: 302px; }
+.upgrade-pod { display: flex; flex-direction: column; align-items: center; background: rgba(15,15,20,0.8); border: 1px solid #333; border-radius: 8px; padding: 20px; gap: 15px; width: 100%; }
+.upgrade-card-wrapper { position: relative; width: 100%; max-width: 260px; aspect-ratio: 5 / 7; height: auto; }
 .count-badge { position: absolute; top: -10px; left: -10px; background: #0c0c14; color: #fff; padding: 6px 14px; font-weight: 700; border: 1px solid #333; border-left: 3px solid var(--ep); z-index: 20; box-shadow: 0 5px 15px rgba(0,0,0,0.8); }
 
 .inspector-modal-box { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
@@ -989,7 +983,7 @@ body, html {
 
 /* Stats im reveal-container beim Art-Only-Modus trotzdem anzeigen wenn state=1 */
 .reveal-container .card-art-only .card-stats { opacity: 0 !important; }
-.inspector-card-scaler { transform: scale(1.15); transition: transform 0.3s; }
+.inspector-card-scaler { width: clamp(260px, 70vw, 420px); aspect-ratio: 5 / 7; transition: transform 0.3s; margin: 0 auto; }
 
 /* Crisis Glitch Background */
 .crisis-glitch-bg { position: absolute; inset: 0; background-image: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(255,0,33,0.03) 3px, rgba(255,0,33,0.03) 4px); pointer-events: none; animation: crisisBgShift 0.15s infinite; }
@@ -1024,18 +1018,18 @@ body, html {
     justify-content: space-between; 
   }
   .inspector-modal-box .close-btn { position: absolute; top: 10px; right: 10px; }
-  .inspector-card-scaler { transform: scale(0.65) !important; transform-origin: top center !important; height: 340px !important; }
+  .inspector-card-scaler { width: 100% !important; max-width: 300px !important; height: auto !important; margin: 0 auto; }
 
   /* Inventory & Market Grids */
-  .mobile-tab-switcher { display: flex !important; width: 100%; margin-bottom: 10px; gap: 10px; background: #0c0c14; padding: 6px; border-radius: 8px; border: 1px solid #222; }
+  .mobile-tab-switcher { display: flex !important; width: 100%; margin-bottom: 10px; gap: 10px; background: #0c0c14; padding: 6px; border-radius: 8px; border: 1px solid #222; flex-shrink: 0; }
   .tab-btn { flex: 1; padding: 12px; border: none; background: transparent; color: #666; font-weight: 700; font-family: 'Rajdhani', sans-serif; border-radius: 6px; transition: 0.3s; letter-spacing: 1px; }
   .tab-btn.active { background: rgba(0,229,255,0.1); border: 1px solid var(--win); color: #fff; box-shadow: 0 0 10px rgba(0,229,255,0.2); }
   .mobile-tab-deck:not(.active-tab), .mobile-tab-pool:not(.active-tab) { display: none !important; }
-  .inv-dual-panel { gap: 0 !important; }
-  .inv-column.active-tab { display: flex !important; width: 100% !important; padding: 10px !important; }
-  .card-grid, .mini-grid { display: grid !important; grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; justify-items: center !important; width: 100% !important; padding: 0 !important; }
-  .card-grid-cell, .mini-card-wrapper { width: 100% !important; height: 230px !important; border-radius: 8px; overflow: hidden; position: relative; }
-  .card-grid-cell .card-3d-wrapper, .mini-card-scaler { transform: scale(0.44) !important; transform-origin: top center !important; margin: 0 auto !important; left: 50% !important; margin-left: -180px !important; }
+  .inv-dual-panel { gap: 0 !important; height: auto !important; }
+  .inv-content-wrapper { flex-direction: column !important; gap: 0 !important; overflow: visible !important; height: auto !important; }
+  .inv-column.active-tab { display: flex !important; width: 100% !important; padding: 0 0 20px 0 !important; overflow: visible !important; }
+  .card-grid, .mini-grid { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important; gap: 10px !important; justify-items: center !important; width: 100% !important; padding: 0 !important; }
+  .card-grid-cell, .mini-card-wrapper { width: 100% !important; height: auto !important; aspect-ratio: 5 / 7 !important; border-radius: 8px; overflow: hidden; position: relative; }
 
   /* Pack Opening & Reveal Mobile Fix */
   .pack-opening-center { 
@@ -1056,9 +1050,8 @@ body, html {
     width: 100vw !important; height: 100dvh !important;
     padding-top: 5vh !important; z-index: 99999 !important;
   }
-  .pull-reveal-grid { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 10px !important; transform: scale(0.9) !important; margin-top: -10px !important; }
-  .pulled-card-wrapper { width: 152px !important; height: 213px !important; position: relative; }
-  .pulled-card-wrapper .card-3d-wrapper { transform: scale(0.422) !important; transform-origin: top left !important; margin: 0 !important; }
+  .pull-reveal-grid { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 10px !important; margin-top: 10px !important; width: 100% !important; justify-items: center !important; }
+  .pulled-card-wrapper { width: 100% !important; height: auto !important; aspect-ratio: 5 / 7 !important; position: relative; max-width: 200px !important; }
   .reveal-title { font-size: 1.8rem !important; letter-spacing: 4px !important; text-align: center; margin-bottom: 10px !important; }
 
   /* --- KAMPFAKTSION MOBILE FIX --- */
@@ -1066,8 +1059,7 @@ body, html {
   .cockpit-layout { display: flex !important; flex-direction: column !important; gap: 10px !important; flex: 1 !important; width: 100% !important; margin: 0 !important; justify-content: space-between !important; min-height: 0 !important; }
   .arena-row { display: flex !important; justify-content: center !important; align-items: center !important; gap: 15px !important; width: 100% !important; height: auto !important; position: static !important; }
   
-  .arena-card-wrapper { position: static !important; transform: none !important; margin: 0 !important; width: 170px !important; height: 238px !important; display: flex !important; align-items: center !important; justify-content: center !important; }
-  .arena-card-wrapper > div { transform: scale(0.47) !important; transform-origin: center center !important; }
+  .arena-card-wrapper { position: static !important; transform: none !important; margin: 0 !important; width: clamp(140px, 40vw, 180px) !important; aspect-ratio: 5 / 7 !important; height: auto !important; display: flex !important; align-items: center !important; justify-content: center !important; }
   
   .arena-side-bars { height: 180px !important; margin: 0 !important; display: flex !important; gap: 4px !important; position: static !important; transform: none !important; }
   .bar-pod { height: 100% !important; width: 34px !important; min-width: 34px !important; padding: 6px 0 !important; border-top-width: 2px !important; }
@@ -1216,14 +1208,10 @@ body, html {
   .draw-pile-count { font-size: 2rem !important; }
   .draw-pile-heading { font-size: 0.65rem !important; letter-spacing: 4px !important; margin-bottom: 14px !important; }
   .hand-card-wrapper {
-    width: 130px !important;
-    height: 182px !important;
-  }
-  .hand-card-inner {
-    transform: scale(0.361) !important;
+    width: clamp(100px, 12vw, 140px) !important; height: auto !important;
   }
   .empty-tactic-slot {
-    width: 130px !important; height: 182px !important;
+    width: clamp(100px, 12vw, 140px) !important; height: auto !important;
   }
   .empty-tactic-slot span { font-size: 1rem !important; }
 
@@ -1498,6 +1486,31 @@ body, html {
 .rank-3 { color: #cd7f32; font-size: 1.1rem !important; font-weight: 900; text-shadow: 0 0 8px rgba(205,127,50,0.5); }
 .rank-normal { color: #888; font-size: 0.9rem; }
 /* ================================================================== */
+/* GHOST NETWORK SIDEBAR (Phase 4)                                    */
+/* ================================================================== */
+.gn-sidebar-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+  z-index: 30000; opacity: 0; transition: opacity 0.3s ease; pointer-events: none;
+}
+.gn-sidebar-backdrop.open { opacity: 1; pointer-events: auto; }
+
+.gn-sidebar {
+  position: fixed; top: 0; right: 0; bottom: 0; width: 100%; max-width: 480px;
+  background: rgba(10, 5, 20, 0.98); border-left: 1px solid var(--ep);
+  box-shadow: -10px 0 40px rgba(0,0,0,0.8), inset 20px 0 50px rgba(0,229,255,0.03);
+  z-index: 30001; transform: translateX(100%); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.gn-sidebar.open { transform: translateX(0); }
+
+.gn-match-history-item {
+  padding: 12px; border-left: 3px solid #444; background: rgba(255,255,255,0.03);
+  margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; border-radius: 0 4px 4px 0;
+}
+.gn-match-history-item.win { border-left-color: var(--win); background: rgba(0,229,255,0.05); }
+.gn-match-history-item.loss { border-left-color: var(--lose); background: rgba(255,0,85,0.05); }
+
+/* ================================================================== */
 /* GHOST NODE MOBILE OPTIMIZATION                                     */
 /* ================================================================== */
 .gn-main-layout {
@@ -1523,188 +1536,104 @@ body, html {
   .cockpit-layout { transform: scale(0.65); transform-origin: top center; }
 }
 
-@media (max-width: 768px) {
-  .gn-main-layout {
-    flex-direction: column !important;
-    align-items: center !important;
-    gap: 30px !important;
-  }
-  
-  /* Verkleinert die linke Karte inkl. Stats auf dem Handy */
-  .gn-main-layout > div:first-child {
-    width: 100% !important;
-    max-width: 320px;
-  }
-  
-  /* Command Uplink Panel anpassen */
-  .gn-main-layout > div:last-child {
-    min-width: 100% !important;
-    padding: 20px !important;
-  }
-}
 /* ================================================================== */
-/* MOBILE FIXES FÜR GHOST NODE & MAP                                  */
+/* ULTIMATIVE MOBILE OPTIMIERUNG (PHASE 1: ATMUNG & SCROLLEN)         */
 /* ================================================================== */
 @media (max-width: 768px) {
-  /* Ghost Node Menü Skalierung */
-  .gn-card-wrapper {
-    transform: scale(0.75);
-    transform-origin: top center;
-    margin-bottom: -110px; /* Entfernt den leeren Raum unter der verkleinerten Karte */
-  }
-
-  /* Roguelike Map Umbruch */
-  .rl-map-layout {
-    flex-direction: column !important;
-    overflow-y: auto !important;
-  }
-  .rl-map-sidebar {
-    width: 100% !important;
-    flex-direction: row !important;
-    flex-wrap: wrap !important;
-    border-right: none !important;
-    border-bottom: 1px solid rgba(188,19,254,0.12) !important;
-    height: auto !important;
-    max-height: 220px !important;
-    overflow-y: auto !important;
-    gap: 8px !important;
-  }
-  .rl-map-sidebar > div {
-    flex: 1 1 140px; /* Sidebar-Elemente fließen auf dem Handy nebeneinander */
-  }
-  .rl-map-content {
-    padding: 10px !important;
-    overflow-y: visible !important;
-  }
-  /* Map Nodes auf dem Handy umbrechen lassen */
-  .rl-map-content > div:first-child > div:nth-child(2) {
-    flex-wrap: wrap !important;
-    gap: 15px !important;
-  }
-}
-/* ================================================================== */
-/* MOBILE FIXES FÜR SQUAD & MAP (max-width: 768px)                    */
-/* ================================================================== */
-@media (max-width: 768px) {
+  /* Globale Fixes - Erzwingt 100% Viewport, aber erlaubt Scrollen INNERHALB der Screens */
+  html, body, #root { overflow: hidden !important; height: 100dvh !important; width: 100vw !important; }
+  .screen { padding: 12px !important; height: 100dvh !important; overflow-y: auto !important; overflow-x: hidden !important; display: flex; flex-direction: column; }
   
-  /* --- SQUAD REKRUTIERUNG --- */
-  .rl-squad-layout {
-    flex-direction: column !important;
-    height: auto !important;
-    overflow: visible !important;
+  /* Einheitliche Top-Bar - Radikales Redesign für Mobile */
+  .top-bar { 
+    display: flex !important; flex-direction: column !important; align-items: flex-start !important;
+    margin-bottom: 15px !important; padding: 12px 90px 12px 12px !important; /* 90px Platz rechts für den Back-Button */
+    position: sticky !important; top: -12px !important; 
+    background: rgba(5,2,14,0.98) !important; backdrop-filter: blur(10px) !important; -webkit-backdrop-filter: blur(10px) !important;
+    pointer-events: auto !important; z-index: 10000 !important; 
+    border-bottom: 1px solid rgba(255,255,255,0.1) !important;
+    margin-left: -12px !important; margin-right: -12px !important;
+    min-height: 60px !important; gap: 12px !important;
   }
-  .rl-squad-sidebar {
-    width: 100% !important;
-    max-height: 40vh !important; /* Nimmt 40% des Bildschirms ein, scrollbar */
-    border-bottom: 2px solid rgba(188,19,254,0.3) !important;
-    padding-bottom: 15px !important;
-    padding-right: 0 !important;
-  }
-  .rl-squad-content {
-    width: 100% !important;
-    height: 55vh !important; /* Rest des Bildschirms für das Grid */
-  }
-
-  /* --- ROGUELIKE MAP --- */
-  .rl-map-layout {
-    flex-direction: column !important;
-    overflow-y: auto !important;
-  }
-  .rl-map-sidebar {
-    width: 100% !important;
-    flex-direction: row !important;
-    flex-wrap: wrap !important;
-    border-right: none !important;
-    border-bottom: 1px solid rgba(188,19,254,0.12) !important;
-    height: auto !important;
-    max-height: 250px !important;
-    overflow-y: auto !important;
-    gap: 8px !important;
-  }
-  .rl-map-sidebar > div {
-    flex: 1 1 140px; /* Sidebar-Elemente fließen nebeneinander */
-  }
-  .rl-map-content {
-    padding: 10px !important;
-    overflow-y: visible !important;
-  }
-  /* Bricht die Map-Nodes untereinander um, wenn es zu eng wird */
-  .rl-map-content > div:first-child > div:nth-child(2) {
-    flex-wrap: wrap !important;
-    gap: 15px !important;
-  }
-}
-
-/* ================================================================== */
-/* MOBILE FIXES FÜR GHOST NODE, SQUAD & MAP (max-width: 768px)        */
-/* ================================================================== */
-@media (max-width: 768px) {
   
-  /* --- GHOST NODE MENU --- */
-  .gn-main-layout {
-    flex-direction: column !important;
-    align-items: center !important;
-    gap: 30px !important;
+  /* Alle inneren Container der Top-Bar dürfen flüssig umbrechen */
+  .top-bar > div { 
+    display: flex !important; flex-wrap: wrap !important; gap: 10px !important; width: 100% !important; align-items: center !important; 
   }
-  .gn-main-layout > div:first-child {
-    width: 100% !important;
-    max-width: 320px;
+  
+  .game-title-small { font-size: 1.15rem !important; white-space: normal !important; line-height: 1.2 !important; }
+  .top-bar .mono { font-size: 0.6rem !important; margin-top: 0 !important; }
+  
+  /* Der Zurück-Button wird absolut nach oben rechts genagelt! */
+  .top-bar .btn-back { 
+    position: absolute !important; top: 12px !important; right: 12px !important; 
+    margin: 0 !important; padding: 8px 14px !important; font-size: 0.75rem !important; 
+    height: fit-content !important; z-index: 10001 !important;
   }
-  .gn-main-layout > div:last-child {
-    min-width: 100% !important;
-    padding: 20px !important;
+  
+  .btn-info { padding: 6px 12px !important; font-size: 0.75rem !important; white-space: nowrap; height: fit-content; }
+  
+  /* Main Menu (Dashboard) */
+  .main-menu-top { top: 12px !important; right: 12px !important; gap: 8px !important; position: absolute !important; }
+  .main-menu-top .mono { font-size: 0.8rem !important; }
+  .main-menu-top button { padding: 6px 10px !important; font-size: 0.75rem !important; }
+  
+  /* Dashboard atmet jetzt, wenn der Bildschirm wirklich extrem klein ist */
+  .dash-container { 
+    flex-direction: column !important; gap: 20px !important; 
+    height: auto !important; min-height: calc(100dvh - 80px) !important; 
+    justify-content: center !important; padding-top: 40px !important; padding-bottom: 20px !important; 
   }
-  .gn-card-wrapper {
-    transform: scale(0.75);
-    transform-origin: top center;
-    margin-bottom: -110px;
-  }
+  .dash-left { flex: 0 1 auto !important; margin-top: 0 !important; text-align: center; }
+  .dash-title { font-size: 2.2rem !important; letter-spacing: 4px !important; margin-bottom: 4px !important; line-height: 1 !important; }
+  .dash-subtitle { font-size: 0.65rem !important; letter-spacing: 2px !important; margin-bottom: 12px !important; }
+  .dash-main-actions { gap: 8px !important; margin: 0 auto !important; width: 100% !important; max-width: 320px !important; }
+  .dash-btn-hero { padding: 12px 15px !important; font-size: 1rem !important; min-height: 48px !important; text-align: center !important; clip-path: polygon(0 0, calc(100% - 15px) 0, 100% 15px, 100% 100%, 15px 100%, 0 calc(100% - 15px)) !important; }
+  .ghost-tags { top: 50% !important; transform: translateY(-50%) !important; right: 10px !important; flex-direction: row !important; }
+  
+  .dash-right { gap: 8px !important; grid-template-columns: 1fr 1fr !important; width: 100% !important; max-width: 360px !important; margin: 0 auto !important; }
+  .dash-btn-module { padding: 10px 5px !important; gap: 4px !important; min-height: 65px !important; }
+  .mod-icon { font-size: 1.4rem !important; margin: 0 !important; }
+  .mod-text { font-size: 0.65rem !important; text-align: center; line-height: 1.1; }
 
-  /* --- SQUAD REKRUTIERUNG --- */
-  .rl-squad-layout {
-    flex-direction: column !important;
-    height: auto !important;
-    overflow: visible !important;
-  }
-  .rl-squad-sidebar {
-    width: 100% !important;
-    max-height: 40vh !important;
-    border-bottom: 2px solid rgba(188,19,254,0.3) !important;
-    padding-bottom: 15px !important;
-    padding-right: 0 !important;
-  }
-  .rl-squad-content {
-    width: 100% !important;
-    height: 55vh !important;
-  }
+  /* Ghost Node Menu (Entspanntes Stacking) */
+  .gn-inner-wrapper { padding: 12px !important; }
+  .gn-main-layout { flex-direction: column !important; align-items: center !important; gap: 30px !important; }
+  .gn-main-layout > div { width: 100% !important; max-width: 400px !important; }
 
-  /* --- ROGUELIKE MAP --- */
-  .rl-map-layout {
-    flex-direction: column !important;
-    overflow-y: auto !important;
+  /* Squad & Map (Passen sich ebenfalls an den Screen an) */
+  .rl-squad-layout { flex-direction: column !important; height: calc(100dvh - 80px) !important; overflow: hidden !important; gap: 10px !important; }
+  .rl-squad-sidebar { max-height: 35vh !important; padding-bottom: 10px !important; border-bottom: 1px solid rgba(188,19,254,0.3) !important; }
+  .rl-squad-content { height: 65vh !important; }
+  .rl-map-layout { flex-direction: column !important; height: calc(100dvh - 80px) !important; overflow: hidden !important; gap: 10px !important; }
+  .rl-map-sidebar { max-height: 25vh !important; flex-direction: row !important; flex-wrap: wrap !important; border-bottom: 1px solid rgba(188,19,254,0.3) !important; }
+  .rl-map-sidebar > div { flex: 1 1 120px !important; }
+  .rl-map-content { overflow-y: auto !important; padding: 10px !important; }
+
+  /* --- MARKET PACKS MOBILE (Kompakt & Horizontal) --- */
+  .market-grid { gap: 12px !important; margin-top: 15px !important; }
+  .pack-item { 
+    padding: 12px 15px !important; width: 100% !important; max-width: 100% !important; 
+    flex-direction: row !important; align-items: center !important; text-align: left !important; 
+    gap: 15px !important; height: auto !important; min-height: 0 !important;
   }
-  .rl-map-sidebar {
-    width: 100% !important;
-    flex-direction: row !important;
-    flex-wrap: wrap !important;
-    border-right: none !important;
-    border-bottom: 1px solid rgba(188,19,254,0.12) !important;
-    height: auto !important;
-    max-height: 250px !important;
-    overflow-y: auto !important;
-    gap: 8px !important;
+  .pack-icon { font-size: 2.2rem !important; margin: 0 !important; }
+  /* Container für den Text (Links) */
+  .pack-item > div:first-child { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+  /* Container für Kosten & Button (Rechts) */
+  .pack-item > div:last-child { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex-shrink: 0; }
+  
+  .pack-item h3 { font-size: 0.95rem !important; margin: 0 !important; line-height: 1.1 !important; }
+  .pack-item p { font-size: 0.6rem !important; margin: 0 !important; }
+  .pack-cost { font-size: 1.1rem !important; margin: 0 !important; }
+  .pack-item .btn-act { 
+    padding: 8px 16px !important; min-height: 0 !important; height: auto !important; 
+    width: auto !important; clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px) !important; 
   }
-  .rl-map-sidebar > div {
-    flex: 1 1 140px;
-  }
-  .rl-map-content {
-    padding: 10px !important;
-    overflow-y: visible !important;
-  }
-  .rl-map-content > div:first-child > div:nth-child(2) {
-    flex-wrap: wrap !important;
-    gap: 15px !important;
-  }
+  .pack-item .act-title { font-size: 0.8rem !important; }
+  
+  /* Sektor-Belohnungen ebenfalls horizontal */
+  .reward-section .pack-item { flex-direction: row !important; }
 }
 
 /* ================================================================== */
@@ -1751,22 +1680,20 @@ body, html {
 .hand-grid { display: flex; gap: 15px; }
 .tactic-grid { display: flex; gap: 15px; }
 
+.arena-card-wrapper {
+  width: clamp(200px, 25vw, 360px);
+  aspect-ratio: 5 / 7;
+  margin: 0 auto;
+}
 .hand-card-wrapper {
-  width: 102px; 
-  height: 143px; /* Exakt 504px * 0.2833 */
+  width: clamp(75px, 10vw, 110px); 
+  aspect-ratio: 5 / 7; height: auto;
   position: relative;
   cursor: pointer; 
   transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 .hand-card-wrapper.active {
   transform: translateY(-10px);
-}
-.hand-card-inner {
-  transform: scale(0.2833); 
-  transform-origin: top left;
-  width: 360px; 
-  height: 504px; /* Original-Kartengröße, nicht 510px! Verhindert Overflows */
-  pointer-events: none;
 }
 .hand-card-glow-char, .hand-card-glow-eff {
   position: absolute; 
@@ -1779,7 +1706,8 @@ body, html {
 .hand-card-glow-eff { border: 2px solid var(--eff-col); box-shadow: 0 0 15px var(--eff-col); }
 
 .empty-tactic-slot {
-  width: 102px; height: 143px; 
+  width: clamp(75px, 10vw, 110px); 
+  aspect-ratio: 5 / 7; height: auto;
   background: #050505; border: 1px dashed #333; 
   display: flex; align-items: center; justify-content: center;
   border-radius: 6px;
@@ -1827,21 +1755,18 @@ body, html {
   .hand-card-wrapper {
     width: 64px !important; 
     min-width: 64px !important; 
-    height: 90px !important; /* 504px * 0.1777 */
-  }
-  .hand-card-inner {
-    transform: scale(0.1777) !important; 
+    height: auto !important; 
   }
   .hand-card-wrapper.active {
-    transform: translateY(-6px); /* Etwas weniger hochspringen auf Mobile */
+    transform: translateY(-6px);
   }
   .hand-card-glow-char, .hand-card-glow-eff {
-    border-radius: 4px; /* Passt besser zu der kleinen Größe */
+    border-radius: 4px;
     inset: -1px;
     border-width: 1px;
   }
   .empty-tactic-slot {
-    width: 64px !important; min-width: 64px !important; height: 90px !important;
+    width: 64px !important; min-width: 64px !important; height: auto !important; aspect-ratio: 5 / 7 !important;
     border-radius: 4px;
   }
   .empty-tactic-slot span { font-size: 0.5rem !important; }

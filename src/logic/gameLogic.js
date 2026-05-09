@@ -11,8 +11,8 @@ function hasPassive(pHandCards, nameFragment) {
 function calculateHandBuffs(pHandCards, category) {
   let bonus = 0;
   pHandCards.forEach(card => {
-    if (card?.type === 'apex' && card.passiveBuff?.stat === category) {
-      bonus += card.passiveBuff.val || 0;
+    if ((card?.type === 'apex' || card?.type === 'anomaly') && card.passiveBuff?.stat === category) {
+      bonus += (card.passiveBuff.val || 0) + ((card.level || 1) - 1) * 2;
     }
   });
   return bonus;
@@ -58,8 +58,16 @@ function calcClashDamage(atkVal, defVal, atkAction, defAction) {
   }
   // ── SONDERFALL 2: Angreifer wählt ERHOLEN ────────────────────────────
   if (atkAction === 'erholen') {
-    if (defAction === 'konter') return { dmgOnDef: 0, dmgOnAtk: 0, aEPGain: 6 };
-    return { dmgOnDef: 0, dmgOnAtk: Math.floor(defVal * 1.5), aEPGain: 0 };
+    // Verteidiger macht nur Schaden, wenn sein Wert höher ist (Differenz x 2)
+    const diff = Math.max(0, defVal - atkVal);
+    const dmg = diff * 2.0;
+
+    // Konter gibt dem Verteidiger zusätzlich die 6 EP zurück
+    if (defAction === 'konter') {
+      return { dmgOnDef: 0, dmgOnAtk: Math.floor(dmg), aEPGain: 6 };
+    }
+    // Blocken macht den exakt gleichen Schaden, aber ohne EP-Refund
+    return { dmgOnDef: 0, dmgOnAtk: Math.floor(dmg), aEPGain: 0 };
   }
 
   const diff = Math.max(0, atkVal - defVal); 

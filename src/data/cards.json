@@ -1213,7 +1213,7 @@
       "type": "legacy",
       "year": "1901",
       "bio": "Die Großmutter Europas.",
-      "stats": { "tech": 10, "finance": 92, "manipulation": 82, "erosion": 88, "kingmaking": 92, "system": 92, "arsenal": 30, "legitimacy": 100 },
+      "stats": { "tech": 10, "finance": 92, "manipulation": 82, "erosion": 88, "kingmaking": 92, "system": 92, "arsenal": 89, "legitimacy": 100 },
       "backText": "Ihr Name steht für eine Ära, in der die Ordnung des Empire die Sonne niemals untergehen ließ."
     },
     {
@@ -1273,7 +1273,7 @@
       "type": "legacy",
       "year": "1945",
       "bio": "Der Zerstörer der Welten.",
-      "stats": { "tech": 94, "finance": 60, "manipulation": 68, "erosion": 90, "kingmaking": 78, "system": 100, "arsenal": 94, "legitimacy": 72 },
+      "stats": { "tech": 94, "finance": 60, "manipulation": 68, "erosion": 90, "kingmaking": 78, "system": 100, "arsenal": 94, "legitimacy": 61 },
       "backText": "Sein Vermächtnis ist die ultimative technologische Erosion: Die Fähigkeit zur totalen Selbstauslöschung."
     },
     {
@@ -1350,13 +1350,13 @@
     {
       "id": "c118",
       "name": "Adolf Hitler",
-      "title": "1933 // Chancellor Third Reich",
+      "title": "1939 // Chancellor Third Reich",
       "faction": "Hegemony",
       "gti": 101,
       "type": "anomaly",
       "bio": "Ein katastrophaler Fehler im Code der Menschlichkeit.",
-      "passiveBuff": { "stat": "system", "val": 20 },
-      "stats": { "tech": 60, "finance": 50, "manipulation": 98, "erosion": 100, "kingmaking": 85, "system": 100, "arsenal": 99, "legitimacy": 10 },
+      "passiveBuff": { "stat": "erosion", "val": 20 },
+      "stats": { "tech": 86, "finance": 82, "manipulation": 98, "erosion": 100, "kingmaking": 90, "system": 100, "arsenal": 99, "legitimacy": 0 },
       "backText": "Das Dossier ist leer – es gibt keine Erklärung für das Unentschuldbare, nur die Warnung vor der Wiederholung."
     },
     {
@@ -1394,7 +1394,7 @@
     },
     {
       "id": "c122",
-      "name": "Teodore Robert 'Ted' Bundy",
+      "name": "Theodore 'Ted' Bundy",
       "title": "Serienkiller",
       "faction": "Shadow Power",
       "gti": 77,
@@ -1667,7 +1667,7 @@
   "id": "c138",
   "name": "Winston Churchill",
   "title": "1945",
-  "faction": "hegemony",
+  "faction": "Hegemony",
   "gti": 91,
   "type": "legacy",
   "bio": "Bulldog of Britain",
@@ -1688,7 +1688,7 @@
   "id": "c139",
   "name": "Alice Weidel",
   "title": "AfD Chair",
-  "faction": "Shadow power",
+  "faction": "Shadow Power",
   "gti": 83,
   "type": "std",
   "bio": "Cold message, sharp edge",
@@ -1750,7 +1750,7 @@
   "id": "c142",
   "name": "Jack the Ripper",
   "title": "Serienkiller",
-  "faction": "Shadow power",
+  "faction": "Shadow Power",
   "gti": 79,
   "type": "std",
   "bio": "Fog, fear, and faceless violence",
@@ -1829,7 +1829,7 @@
 },
 {
   "id": "c148",
-  "name": "Che Guevara",
+  "name": "Ernesto Che Guevara",
   "title": "Revolutionary Icon",
   "faction": "Fanatics",
   "gti": 89,
@@ -1906,7 +1906,169 @@
     "legitimacy": 97
   },
   "backText": "He turned military victory into constitutional order and personal authority into institutional precedent. His greatest strength was restraint, which gave the new republic durability and form. By stepping back from absolute power, he made the system stronger than the man."
+},
+{
+  "id": "c157",
+  "name": "Bob Iger",
+  "title": "Disney CEO",
+  "faction": "Narrative Matrix",
+  "gti": 90,
+  "type": "legendary",
+  "bio": "Curator of cultural machinery",
+  "stats": {
+    "tech": 68,
+    "finance": 90,
+    "manipulation": 84,
+    "erosion": 69,
+    "kingmaking": 92,
+    "system": 91,
+    "arsenal": 58,
+    "legitimacy": 89
+  },
+  "backText": "He mastered succession, acquisition, and brand consolidation at the highest level of entertainment power. His influence came from controlling franchises, distribution, and the emotional economy of mass culture. He did not invent the kingdom, but he made it larger and more integrated."
+},
+{
+  "id": "c156",
+  "name": "Carlos Slim Helu",
+  "title": "Telecom Magnate",
+  "faction": "Finance Elite",
+  "gti": 91,
+  "type": "legendary",
+  "bio": "Empire through acquisition",
+  "stats": {
+    "tech": 72,
+    "finance": 94,
+    "manipulation": 85,
+    "erosion": 71,
+    "kingmaking": 86,
+    "system": 92,
+    "arsenal": 52,
+    "legitimacy": 83
+  },
+  "backText": "He built enduring power by buying undervalued assets and turning national infrastructure into private leverage. His influence is less theatrical than structural, rooted in telecom, capital, and long-range control. Wealth became reach, and reach became a system of its own."
+},
+{
+  "id": "c152",
+  "name": "Erich Honecker",
+  "title": "1987",
+  "faction": "Hegemony",
+  "gti": 85,
+  "type": "legacy",
+  "bio": "Concrete rule, sealed borders",
+  "stats": {
+    "tech": 54,
+    "finance": 73,
+    "manipulation": 86,
+    "erosion": 84,
+    "kingmaking": 79,
+    "system": 88,
+    "arsenal": 82,
+    "legitimacy": 58
+  },
+  "backText": "He preserved a rigid state through surveillance, party discipline, and the management of a closed society. His order looked stable until history moved faster than the regime could adapt. In the end, the wall outlived the man only by weeks."
+},
+{
+  "id": "c158",
+  "name": "Gianni Infantino",
+  "title": "FIFA President",
+  "faction": "Finance Elite",
+  "gti": 87,
+  "type": "std",
+  "bio": "Today I feel rich.",
+  "stats": {
+    "tech": 51,
+    "finance": 86,
+    "manipulation": 88,
+    "erosion": 73,
+    "kingmaking": 90,
+    "system": 89,
+    "arsenal": 34,
+    "legitimacy": 76
+  },
+  "backText": "Football has always been political."
+},
+{
+  "id": "c151",
+  "name": "Karl Marx",
+  "title": "1843",
+  "faction": "Fanatics",
+  "gti": 91,
+  "type": "legacy",
+  "bio": "Theory as detonation",
+  "stats": {
+    "tech": 37,
+    "finance": 68,
+    "manipulation": 91,
+    "erosion": 92,
+    "kingmaking": 91,
+    "system": 92,
+    "arsenal": 21,
+    "legitimacy": 90
+  },
+  "backText": "He built no state himself, yet his ideas entered states, parties, and revolutions across continents. His strength was to turn critique into doctrine and doctrine into a durable political engine. Few men wielded so much power through text alone."
+},
+{
+  "id": "c155",
+  "name": "Larry Page",
+  "title": "Google Co-Founder",
+  "faction": "Tech Cartel",
+  "gti": 93,
+  "type": "legendary",
+  "bio": "Search turned into empire",
+  "stats": {
+    "tech": 97,
+    "finance": 91,
+    "manipulation": 84,
+    "erosion": 81,
+    "kingmaking": 90,
+    "system": 93,
+    "arsenal": 74,
+    "legitimacy": 88
+  },
+  "backText": "He helped turn information retrieval into one of the central infrastructures of modern life. His power came from code, scale, and the quiet architecture behind everyday decisions online. Few founders shaped the digital environment so deeply while remaining so personally distant."
+},
+{
+  "id": "c154",
+  "name": "Michail Gorbatschow",
+  "title": "1991",
+  "faction": "Hegemony",
+  "gti": 91,
+  "type": "legacy",
+  "bio": "Reform that broke the empire",
+  "stats": {
+    "tech": 64,
+    "finance": 82,
+    "manipulation": 82,
+    "erosion": 93,
+    "kingmaking": 88,
+    "system": 93,
+    "arsenal": 82,
+    "legitimacy": 91
+  },
+  "backText": "He tried to save the system by opening it, and in doing so dissolved the fear that kept it standing. His reforms changed East-West relations, weakened party monopoly, and accelerated the end of the Soviet order. He remains the rare ruler whose greatest act of power was to loosen it."
+},
+
+{
+  "id": "c160",
+  "name": "Vladimir Iljic Lenin",
+  "title": "1923",
+  "faction": "Fanatics",
+  "gti": 95,
+  "type": "legacy",
+  "bio": "Theory seized the state",
+  "stats": {
+    "tech": 48,
+    "finance": 79,
+    "manipulation": 94,
+    "erosion": 97,
+    "kingmaking": 95,
+    "system": 96,
+    "arsenal": 84,
+    "legitimacy": 90
+  },
+  "backText": "He turned doctrine into seizure, party discipline into state power, and collapse into revolution. His strength lay in timing, ideological clarity, and the ruthless ability to convert crisis into a new order. He did not merely take power in Russia, he built the template for a century of revolutionary rule."
 }
+
 
 
 
@@ -1962,13 +2124,13 @@
       "id": "e15", "name": "Atombombe", "type": "effect", "gti": 98, "cost": 6, "stat": "arsenal", "buff": 60, "syn": ["J. Robert Oppenheimer", "Kim Jong Un"], "synBuff": 40, "desc": "Totaler Vernichter.", "backText": "Die ultimative Erosion jeder Zivilisation."
     },
     {
-      "id": "e16", "name": "Epstein Files", "type": "effect", "gti": 96, "cost": 5, "stat": "manipulation", "buff": 40, "syn": ["Prince Andrew", "Donald Trump", "Ghislaine Maxwell"], "synBuff": 0, "desc": "Blackmail-Informationen.", "backText": "Das Netzwerk der Schande ist das mächtigste Kontrollinstrument der Welt."
+      "id": "e16", "name": "Epstein Files", "type": "effect", "gti": 96, "cost": 4, "stat": "manipulation", "buff": 40, "syn": ["Prince Andrew", "Donald Trump", "Ghislaine Maxwell"], "synBuff": 50, "desc": "Blackmail-Informationen.", "backText": "Das Netzwerk der Schande ist das mächtigste Kontrollinstrument der Welt."
     },
     {
-      "id": "e17", "name": "Apfel", "type": "effect", "gti": 70, "cost": 1, "stat": "tech", "buff": 1, "syn": ["Isaac Newton"], "synBuff": 30, "desc": "just an Apple.", "backText": "Der Apfel fällt nicht weit vom Stamm."
+      "id": "e17", "name": "Apfel", "type": "effect", "gti": 70, "cost": 1, "stat": "tech", "buff": 1, "syn": ["Isaac Newton"], "synBuff": 50, "desc": "just an Apple.", "backText": "Der Apfel fällt nicht weit vom Stamm."
     },
     {
-      "id": "e18", "name": "Ledger", "type": "effect", "gti": 80, "cost": 2, "stat": "finance", "buff": 30, "syn": ["Satoshi Nakamoto", "Elon Musk"], "synBuff": 60, "desc": "...", "backText": "Schnapp, macht das Krokodil."
+      "id": "e18", "name": "Ledger", "type": "effect", "gti": 80, "cost": 3, "stat": "finance", "buff": 30, "syn": ["Satoshi Nakamoto", "Elon Musk"], "synBuff": 30, "desc": "...", "backText": "Schnapp, macht das Krokodil."
     }
   ]
 }

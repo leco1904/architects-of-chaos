@@ -97,6 +97,7 @@ function RoguelikeEventScreen({ nodeObj, roguelikeRun, avatarCard, cardsData, on
   const [resultMsg, setResultMsg] = useState('');
   const [resultColor, setResultColor] = useState('var(--win)');
   const [pendingUpdates, setPendingUpdates] = useState(null);
+  const [rewardCard, setRewardCard] = useState(null); // NEU: Speichert die Legacy-Karte für die Anzeige
 
   const isSafehouse = nodeObj.type === 'safehouse';
   const isLeak = nodeObj.type === 'dataleak';
@@ -130,6 +131,7 @@ function RoguelikeEventScreen({ nodeObj, roguelikeRun, avatarCard, cardsData, on
       const legacies = cardsData.characters.filter(c => c.type === 'legacy');
       const reward = legacies[Math.floor(Math.random() * legacies.length)];
       nextRun.runDeck.chars.push({ ...reward, level: 1, isNew: true });
+      setRewardCard({ ...reward, level: 1 }); // NEU: Karte für UI speichern
       msg = `SHADOW BROKER: [${selectedCard.name}] GEOPFERT. LEGACY ASSET [${reward.name}] ERHALTEN.`;
       col = 'var(--legacy-sepia)';
     }
@@ -210,7 +212,16 @@ function RoguelikeEventScreen({ nodeObj, roguelikeRun, avatarCard, cardsData, on
         <div className="glass-panel animate-panel-in" style={{ width: '100%', maxWidth: '600px', padding: '40px', textAlign: 'center', borderColor: resultColor }}>
            <div style={{ fontSize: '4rem', marginBottom: '10px' }}>✓</div>
            <h2 style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: '2.5rem', color: resultColor, letterSpacing: '4px', margin: '0 0 20px 0' }}>EVENT ABGESCHLOSSEN</h2>
-           <div className="mono" style={{ color: '#fff', fontSize: '1rem', marginBottom: '40px', lineHeight: '1.6', padding: '15px', background: 'rgba(0,0,0,0.5)', borderLeft: `3px solid ${resultColor}` }}>{resultMsg}</div>
+           <div className="mono" style={{ color: '#fff', fontSize: '1rem', marginBottom: '30px', lineHeight: '1.6', padding: '15px', background: 'rgba(0,0,0,0.5)', borderLeft: `3px solid ${resultColor}` }}>{resultMsg}</div>
+           
+           {rewardCard && (
+             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '30px' }}>
+               <div style={{ width: 'clamp(180px, 30vw, 240px)', aspectRatio: '5/7', height: 'auto', filter: 'drop-shadow(0 0 20px rgba(210,180,140,0.3))' }}>
+                 <Card card={rewardCard} context="inventory" />
+               </div>
+             </div>
+           )}
+
            <button className="menu-btn btn-play modern-btn" onClick={() => onComplete(pendingUpdates.nextRun, pendingUpdates.nextAvatar)}>
              WEITER ZUR MAP ▸
            </button>
@@ -302,6 +313,14 @@ export default function App() {
   const [floats, setFloats] = useState([]);
   const [playMenuOpen, setPlayMenuOpen] = useState(false);
 
+  // --- ADMIN BALANCING STATES (NORMAL GAMES) ---
+  const [normalPlayerHp, setNormalPlayerHp] = useState(200);
+  const [normalEnemyHp, setNormalEnemyHp] = useState(200);
+
+  // Admin-Check für das Hauptmenü
+  const username = (session?.user?.user_metadata?.username || '').toUpperCase();
+  const isAdmin = ['LEON', 'ELSON', 'MANU'].includes(username);
+
   const [credits, setCredits] = useState(() => {
     const saved = localStorage.getItem('aoc_credits');
     return (saved !== null && !isNaN(parseInt(saved))) ? parseInt(saved) : 500;
@@ -374,6 +393,8 @@ export default function App() {
   const [lexiconInspectCard, setLexiconInspectCard] = useState(null);
   const [lexSearch, setLexSearch] = useState('');
   const [lexFaction, setLexFaction] = useState('ALL');
+  
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // NEU: Ghost Network Sidebar
 
   // ADMIN STATE: Dynamischer HP-Faktor
   const [baseHp, setBaseHp] = useState(() => {
@@ -832,8 +853,8 @@ export default function App() {
             let clientChars = [{ ...clientSquadReady.avatarCard }, ...clientSquadReady.chars];
             if (assignedToClient) clientChars.push(assignedToClient);
 
-            // FIX: Co-Op Base (200 HP Team-Pool)
-            const baseRunInfo = { currentHP: 400, maxHP: 400, sector: 1, node: 1, seed: Math.random(), isCoop: true };
+            // FIX: Co-Op Base (500 HP Team-Pool)
+            const baseRunInfo = { currentHP: 1000, maxHP: 1000, sector: 1, node: 1, seed: Math.random(), isCoop: true };
             
             const hostRun = { ...baseRunInfo, runDeck: { chars: hostChars, effs: selectedEffs } };
             const clientRun = { ...baseRunInfo, runDeck: { chars: clientChars, effs: clientSquadReady.effs } };
@@ -856,8 +877,8 @@ export default function App() {
     if (teamChar) compiledChars.push({ ...teamChar, isTeamAsset: true });
     
     const newRun = {
-      currentHP: 200, 
-      maxHP: 200, 
+      currentHP: 500, 
+      maxHP: 500, 
       sector: 1, 
       node: 1, 
       seed: Math.random(),
@@ -911,38 +932,32 @@ export default function App() {
   };
 
   // --- DIE REPARIERTE LOOT & DRAFT LOGIK ---
-  const handleRoguelikeEndGame = ({ isWin, remainingHP = 0, isAbort = false, matchData }) => {
+  const handleEndGame = ({ isWin, sarcasmNews, isAbort = false }) => {
+    const isOnlineMatch = !!conn;
+    const effectiveDifficulty = isOnlineMatch ? 4 : difficulty;
+    const conf = DIFFICULTY_CONFIG[effectiveDifficulty];
+    const reward = isWin ? conf.reward : (isAbort ? 0 : conf.loseReward);
     
-    // 1. GLOBALE LEADERBOARD STATS TRACKEN
-    setMetaStats(prev => {
-      const next = { ...prev };
-      // Schadens-Werte aufaddieren (wenn vorhanden)
-      if (matchData) {
-        next.total_damage_dealt = (next.total_damage_dealt || 0) + (matchData.dmgDealt || 0);
-        next.total_damage_taken = (next.total_damage_taken || 0) + (matchData.dmgTaken || 0);
-        // FIX: Höchsten Einzel-Hit statt Gesamtschaden speichern!
-        if ((matchData.highestHit || 0) > (next.highest_crit || 0)) next.highest_crit = matchData.highestHit;
-      }
-      
-      // NEU: Weitesten Ghost Node Run tracken (Berechnung: Sektor * 10 + Node)
-      if (roguelikeRun) {
-        const runScore = (roguelikeRun.sector * 10) + roguelikeRun.node;
-        next.furthest_run_score = Math.max(next.furthest_run_score || 0, runScore);
-      }
-      
-      // Sieg/Niederlagen Zähler
-      if (isWin) {
-        next.total_wins = (next.total_wins || 0) + 1;
-        next.nodes_cleared_total = (next.nodes_cleared_total || 0) + 1;
-        if (roguelikeRun?.node >= 5 || roguelikeMatchData?.difficulty >= 4) {
-          next.bosses_defeated = (next.bosses_defeated || 0) + 1;
+    setStats(prev => ({ ...prev, wins: prev.wins + (isWin ? 1 : 0), losses: prev.losses + (isWin ? 0 : 1), bossDefeats: (prev.bossDefeats || 0) + (isWin && effectiveDifficulty === 4 ? 1 : 0) }));
+    
+    if (!isAbort) {
+        handleMissionProgress('play', 1);
+        if (effectiveDifficulty >= 3) handleMissionProgress('play_hard', 1);
+        if (isWin) {
+            handleMissionProgress('win', 1);
+            if (effectiveDifficulty >= 3) handleMissionProgress('win_hard', 1);
         }
-      } else if (!isAbort) {
-        next.total_losses = (next.total_losses || 0) + 1;
-      }
-      return next;
-    });
+    }
 
+    setCredits(prev => prev + reward);
+    setLastMatch({ isWin, news: sarcasmNews.text, reward });
+    
+    if (isAbort && conn) disconnectPeer();
+
+    setCurrentView('postmatch'); 
+  };
+
+  const handleRoguelikeEndGame = ({ isWin, sarcasmNews, remainingHP, isAbort = false }) => {
     if (!isWin || isAbort) {
       setRoguelikeMatchData(null);
       setRoguelikeRun(null);
@@ -951,7 +966,8 @@ export default function App() {
     }
 
     const node = roguelikeRun.node;
-    const isBoss = node >= 5 || roguelikeMatchData?.difficulty >= 4; 
+    // FIX: difficulty >= 4 ist in Sektoren >= 4 für ALLE Nodes gesetzt – daher nur node.type prüfen!
+    const isBoss = node >= 5 || roguelikeMatchData?.node?.type === 'boss';
     const isElite = node === 3 || roguelikeMatchData?.node?.type === 'elite';
     const currentSector = roguelikeRun.sector;
     
@@ -1043,9 +1059,11 @@ export default function App() {
     });
     setCurrentView('roguelikereward');
     
+    // FIX: active_run muss das gesamte allRuns-Dict speichern, nicht nur den Raw-Run.
+    const updatedAllRuns = { ...allRuns, [runContextRef.current]: updatedRun };
     saveToCloud({ 
       credits: credits + earnedCredits, 
-      active_run: updatedRun, 
+      active_run: updatedAllRuns, 
       avatar_card: updatedAvatar
     });
   };
@@ -1062,34 +1080,37 @@ export default function App() {
       return;
     }
     
-    const deck = { chars: [...roguelikeRun.runDeck.chars], effs: [...roguelikeRun.runDeck.effs] };
+    // FIX: Functional update statt direktem roguelikeRun-Spread – verhindert Stale-Closure-Bug,
+    // der node/sector nach handleRoguelikeEndGame wieder auf den alten Wert zurücksetzen würde.
+    setRoguelikeRun(prev => {
+      if (!prev) return prev;
+      const deck = { chars: [...prev.runDeck.chars], effs: [...prev.runDeck.effs] };
 
-    if (isUpgrade) {
-      // KARTE IM DECK FINDEN UND LEVEL ERHÖHEN
-      if (newCard.type === 'effect' || newCard.buff !== undefined) {
-        const idx = deck.effs.findIndex(c => c.name === newCard.name);
-        if (idx > -1) deck.effs[idx].level = (deck.effs[idx].level || 1) + 1;
+      if (isUpgrade) {
+        // KARTE IM DECK FINDEN UND LEVEL ERHÖHEN
+        if (newCard.type === 'effect' || newCard.buff !== undefined) {
+          const idx = deck.effs.findIndex(c => c.name === newCard.name);
+          if (idx > -1) deck.effs[idx].level = (deck.effs[idx].level || 1) + 1;
+        } else {
+          const idx = deck.chars.findIndex(c => c.name === newCard.name);
+          if (idx > -1) deck.chars[idx].level = (deck.chars[idx].level || 1) + 1;
+        }
       } else {
-        const idx = deck.chars.findIndex(c => c.name === newCard.name);
-        if (idx > -1) deck.chars[idx].level = (deck.chars[idx].level || 1) + 1;
-      }
-    } else {
-      // NORMALES ERSETZEN (Level 1)
-      if (replaceIn === 'chars') {
-        deck.chars.splice(replaceIndex, 1);
-      } else {
-        deck.effs.splice(replaceIndex, 1);
+        // NORMALES ERSETZEN (Level 1)
+        if (replaceIn === 'chars') {
+          deck.chars.splice(replaceIndex, 1);
+        } else {
+          deck.effs.splice(replaceIndex, 1);
+        }
+        if (newCard.type === 'effect' || newCard.buff !== undefined) {
+          deck.effs.push({ ...newCard, level: 1 });
+        } else {
+          deck.chars.push({ ...newCard, level: 1 });
+        }
       }
 
-      if (newCard.type === 'effect' || newCard.buff !== undefined) {
-        deck.effs.push({ ...newCard, level: 1 });
-      } else {
-        deck.chars.push({ ...newCard, level: 1 });
-      }
-    }
-
-    const updated = { ...roguelikeRun, runDeck: deck };
-    setRoguelikeRun(updated);
+      return { ...prev, runDeck: deck };
+    });
     
     setRewardData(null); 
     setCurrentView('roguelikemap');
@@ -1122,8 +1143,8 @@ export default function App() {
           else deck.chars.push({ ...receivedCard, level: receivedCard.level || 1 });
       }
 
-      // Zustand synchronisieren (wird nach dem Match automatisch in der Cloud gespeichert)
-      setRoguelikeRun({ ...roguelikeRun, runDeck: deck });
+      // FIX: Functional update statt Closure-Spread
+      setRoguelikeRun(prev => prev ? { ...prev, runDeck: deck } : prev);
   };
 
   // NEU: Bulletproof Background Receiver (Stört keine aktiven Menüs!)
@@ -1388,31 +1409,6 @@ export default function App() {
     });
   };
 
-  const handleEndGame = ({ isWin, sarcasmNews, isAbort = false }) => {
-    const isOnlineMatch = !!conn;
-    const effectiveDifficulty = isOnlineMatch ? 4 : difficulty;
-    const conf = DIFFICULTY_CONFIG[effectiveDifficulty];
-    const reward = isWin ? conf.reward : (isAbort ? 0 : conf.loseReward);
-    
-    setStats(prev => ({ ...prev, wins: prev.wins + (isWin ? 1 : 0), losses: prev.losses + (isWin ? 0 : 1), bossDefeats: (prev.bossDefeats || 0) + (isWin && effectiveDifficulty === 4 ? 1 : 0) }));
-    
-    if (!isAbort) {
-        handleMissionProgress('play', 1);
-        if (effectiveDifficulty >= 3) handleMissionProgress('play_hard', 1);
-        if (isWin) {
-            handleMissionProgress('win', 1);
-            if (effectiveDifficulty >= 3) handleMissionProgress('win_hard', 1);
-        }
-    }
-
-    setCredits(prev => prev + reward);
-    setLastMatch({ isWin, news: sarcasmNews.text, reward });
-    
-    if (isAbort && conn) disconnectPeer();
-
-    setCurrentView('postmatch'); 
-  };
-
   const resetGame = () => {
     playSound('click');
     if (window.confirm("ACHTUNG: Möchtest du wirklich alle Credits, Karten und Statistiken löschen? Dieser Vorgang kann nicht rückgängig gemacht werden!")) {
@@ -1473,7 +1469,15 @@ export default function App() {
       if (!roguelikeRun) return <div className="screen active" style={{ justifyContent: 'center', alignItems: 'center' }}><div className="mono" style={{ color: 'var(--ep)', fontSize: '1.2rem', animation: 'pulse 1s infinite' }}>INITIALISIERE THE GRID...</div></div>;
       return <RoguelikeMap baseHp={baseHp} avatarCard={avatarCard} roguelikeRun={roguelikeRun} onStartRun={startRoguelikeRun} onStartBattle={startRoguelikeMatch} onStartEvent={startRoguelikeEvent} onBack={() => setCurrentView('ghostnodemenu')} onGoToLab={() => setCurrentView('avatarlab')} isCoop={isCoopMode} conn={conn} isHost={lobbyMode === 'host'} />;
     }
-    if (currentView === 'roguelikeevent' && roguelikeEventData) return <RoguelikeEventScreen nodeObj={roguelikeEventData} roguelikeRun={roguelikeRun} avatarCard={avatarCard} cardsData={cardsData} onComplete={(nextRun, nextAvatar) => { playSound('click'); setRoguelikeRun(nextRun); setAvatarCard(nextAvatar); setRoguelikeEventData(null); setCurrentView('roguelikemap'); }} />;
+    if (currentView === 'roguelikeevent' && roguelikeEventData) return <RoguelikeEventScreen nodeObj={roguelikeEventData} roguelikeRun={roguelikeRun} avatarCard={avatarCard} cardsData={cardsData} onComplete={(nextRun, nextAvatar) => {
+      playSound('click');
+      setRoguelikeRun(nextRun);
+      setAvatarCard(nextAvatar);
+      setRoguelikeEventData(null);
+      // FIX: Sofortiges Save – kein Fortschrittsverlust im 1500ms-Debounce-Fenster
+      saveToCloud({ active_run: { ...allRuns, [runContextRef.current]: nextRun }, avatar_card: nextAvatar });
+      setCurrentView('roguelikemap');
+    }} />;
     if (currentView === 'roguelikereward') return (
       <RoguelikeReward 
         rewardData={rewardData} 
@@ -1614,8 +1618,9 @@ export default function App() {
                 <div className="rules-section">
                   <h3 style={{ color: '#bc13fe' }}>ERHOLEN (+2⚡)</h3>
                   <p className="mono" style={{ fontSize: '0.65rem', lineHeight: '1.4' }}>
-                    ▸ vs STANDARD: Gegner-Stat x 1.5 Schaden.<br/>
-                    ▸ vs KONTER: 0 Schaden & Energie-Refund für Partner.
+                    ▸ Erleidet (Gegner - Du) x 2.0 Schaden, falls Gegner stärker.<br/>
+                    ▸ Block & Konter verhalten sich dabei gleich (Diff x 2.0).<br/>
+                    ▸ Gegner-Konter erstattet dessen 6⚡ zurück.
                   </p>
                 </div>
                 <div className="rules-section">
@@ -1671,6 +1676,8 @@ export default function App() {
             partnerChars={conn && isCoopMode ? (remoteDeck?.chars || []) : []}
             partnerEffs={conn && isCoopMode ? (remoteDeck?.effs || []) : []}
             difficulty={difficulty}
+            initialPHP={normalPlayerHp}
+            initialAHP={normalEnemyHp}
             isOnline={!!conn}
             isCoop={isCoopMode}
             isHost={lobbyMode === 'host'}
@@ -1703,6 +1710,35 @@ export default function App() {
               <button className="menu-btn" style={{ margin: '0', borderColor: '#444', color: '#888' }} onClick={() => setCurrentView('menu')}>ZURÜCK</button>
             </div>
           </div>
+
+          {/* --- SYSTEM ADMIN PANEL (NUR FÜR ARCHITECTS) --- */}
+          {isAdmin && (
+            <div style={{ 
+              position: 'absolute', bottom: '20px', left: '20px', zIndex: 1000, 
+              padding: '15px', background: 'rgba(255,215,0,0.05)', 
+              border: '1px dashed rgba(255,215,0,0.4)', borderLeft: '3px solid #ffd700', 
+              backdropFilter: 'blur(4px)' 
+            }}>
+               <div className="mono" style={{ fontSize: '0.65rem', color: '#ffd700', letterSpacing: '2px', marginBottom: '12px', fontWeight: 'bold' }}>▸ SYSTEM ADMIN: NORMAL GAMES</div>
+               
+               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                     <span className="mono" style={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.6)' }}>PLAYER HP ({normalPlayerHp})</span>
+                     <button onClick={() => setNormalPlayerHp(200)} style={{ background: 'transparent', border: '1px solid #555', color: '#888', fontSize: '0.45rem', padding: '2px 6px', cursor: 'pointer' }}>RESET</button>
+                  </div>
+                  <input type="range" min="50" max="1000" step="10" value={normalPlayerHp} onChange={(e) => setNormalPlayerHp(parseInt(e.target.value))} style={{ width: '200px', accentColor: '#ffd700' }} />
+               </div>
+
+               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                     <span className="mono" style={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.6)' }}>ENEMY HP ({normalEnemyHp})</span>
+                     <button onClick={() => setNormalEnemyHp(200)} style={{ background: 'transparent', border: '1px solid #555', color: '#888', fontSize: '0.45rem', padding: '2px 6px', cursor: 'pointer' }}>RESET</button>
+                  </div>
+                  <input type="range" min="50" max="1000" step="10" value={normalEnemyHp} onChange={(e) => setNormalEnemyHp(parseInt(e.target.value))} style={{ width: '200px', accentColor: '#ffd700' }} />
+               </div>
+            </div>
+          )}
+
         </div>
       )}
 
@@ -1890,7 +1926,10 @@ export default function App() {
               {/* Dropdown nur einblenden, wenn wir bei den Agenten sind */}
               {lexFaction !== 'EFFECTS' && (
                 <select value={lexFaction} onChange={e => setLexFaction(e.target.value)} className="mono" style={{ padding: '8px', background: '#000', border: '1px solid #444', color: '#fff' }}>
-                  <option value="ALL">ALLE FRAKTIONEN</option>
+                  <option value="ALL">ALLE</option>
+                  <option value="OWNED">IN BESITZ</option>
+                  <option value="UNOWNED">NICHT IN BESITZ</option>
+                  <option disabled>──────────────</option>
                   {allFactions.map(f => <option key={f} value={f}>{f}</option>)}
                 </select>
               )}
@@ -1903,11 +1942,14 @@ export default function App() {
               .filter(c => {
                  const matchSearch = (c.name || '').toLowerCase().includes(lexSearch.toLowerCase());
                  const isEffect = c.type === 'effect' || c.buff !== undefined;
+                 const isOwned = inventory.some(inv => inv.name === c.name);
                  
                  let matchFaction = false;
                  // Trennt Agenten und Effekte strikt voneinander
                  if (lexFaction === 'EFFECTS') matchFaction = isEffect;
                  else if (lexFaction === 'ALL') matchFaction = !isEffect;
+                 else if (lexFaction === 'OWNED') matchFaction = !isEffect && isOwned;
+                 else if (lexFaction === 'UNOWNED') matchFaction = !isEffect && !isOwned;
                  else matchFaction = c.faction === lexFaction && !isEffect;
                  
                  return matchSearch && matchFaction;
@@ -1947,12 +1989,12 @@ export default function App() {
       {currentView === 'menu' && (
         <div className="screen active" style={{ justifyContent: 'center', alignItems: 'center', position: 'relative', padding: '20px' }}>
           
-          {/* Top Bar (Credits & Logout) bleibt erhalten */}
-          <div style={{ position: 'absolute', top: '20px', right: '30px', display: 'flex', gap: '15px', alignItems: 'center', zIndex: 100 }}>
+          {/* Top Bar (Credits & Profil-Icon) */}
+          <div className="main-menu-top" style={{ position: 'absolute', top: '20px', right: '30px', display: 'flex', gap: '15px', alignItems: 'center', zIndex: 100 }}>
              <div className="mono" style={{ fontSize: '1.2rem', color: '#fff', marginRight: '10px', textShadow: '0 0 10px var(--ep)' }}><span style={{color: 'var(--ep)'}}>{credits}</span> 💳</div>
              {session ? (
-               <button className="btn-back" style={{borderColor:'var(--win)',color:'var(--win)'}} onClick={handleLogout}>
-                 {session.user?.user_metadata?.username || 'LOGOUT'} ⏻
+               <button className="btn-back" style={{borderColor:'var(--ep)', color:'var(--ep)', display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 14px'}} onClick={() => { playSound('click'); setIsSidebarOpen(true); }}>
+                 <span style={{ fontSize: '1.2rem' }}>👤</span> {session.user?.user_metadata?.username || 'AGENT'}
                </button>
              ) : (
                <button className="btn-back" style={{borderColor: 'var(--lose)', color: 'var(--lose)'}} onClick={resetGame}>RESET DATA</button>
@@ -2045,12 +2087,12 @@ export default function App() {
                <button 
                   className="dash-btn-module" 
                   style={{ 
-                     gridColumn: '1 / -1', /* Zieht den Button über beide Spalten! */
+                     gridColumn: '1 / -1', 
                      borderColor: 'var(--ep)', 
                      background: 'linear-gradient(90deg, rgba(0,229,255,0.05) 0%, rgba(188,19,254,0.08) 100%)',
                      display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: '20px', padding: '15px'
                   }} 
-                  onClick={() => { playSound('click'); setPlayMenuOpen(false); setCurrentView('ghostnetwork'); }}
+                  onClick={() => { playSound('click'); setPlayMenuOpen(false); setIsSidebarOpen(true); }}
                >
                   <div className="mod-icon" style={{ fontSize: '2.2rem', margin: 0, animation: 'pulse 2s infinite', filter: 'drop-shadow(0 0 10px var(--ep))' }}>📡</div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
@@ -2071,14 +2113,15 @@ export default function App() {
          </div>
       )}
 
-      {/* GHOST NETWORK SCREEN (Mit verkabeltem Invite-Prop) */}
-      {currentView === 'ghostnetwork' && (
-         <GhostNetwork 
-           session={session} 
-           onBack={() => setCurrentView('menu')} 
-           onInvite={(targetId, mode) => startHosting(mode, targetId)} 
-         />
-      )}
+      {/* GHOST NETWORK SIDEBAR (Phase 4) */}
+      <GhostNetwork 
+         session={session} 
+         isOpen={isSidebarOpen}
+         onClose={() => setIsSidebarOpen(false)}
+         onInvite={(targetId, mode) => { setIsSidebarOpen(false); startHosting(mode, targetId); }}
+         onLogout={handleLogout}
+         metaStats={metaStats}
+      />
 
       {/* PASSIVE HOSTING STATUS INDICATOR — dezenter Floating Button, kein blockierendes Fenster */}
       {pendingOutgoingInvite && (

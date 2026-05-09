@@ -318,11 +318,11 @@ const Card = memo(function Card({
           <div className="cb-datapad-text">
             {isEffect ? (
               <><span className="cb-hl">EFFEKT:</span>{' '}
-              +{card.buff} {CAT_CONFIG[card.stat]?.name} — Kosten: {card.cost}⚡
-              {card.syn && <><br/><span className="cb-muted">SYN: {Array.isArray(card.syn) ? card.syn.join(', ') : card.syn}</span></>}</>
-            ) : isApex && card.passiveBuff ? (
-              <><span className="cb-hl-gold">PASSIV-KOMPETENZ:</span>{' '}
-              +{card.passiveBuff.val} {CAT_CONFIG[card.passiveBuff.stat]?.name}
+              +{(card.buff || 0) + ((card.level || 1) - 1) * 2} {CAT_CONFIG[card.stat]?.name} — Kosten: {card.cost}⚡
+              {card.syn && <><br/><span className="cb-muted">SYN +{(card.synBuff || 0) + ((card.level || 1) - 1) * 4}: {Array.isArray(card.syn) ? card.syn.join(', ') : card.syn}</span></>}</>
+            ) : (isApex || isAnomaly) && card.passiveBuff ? (
+              <><span className="cb-hl-gold">{isAnomaly ? 'ANOMALY-KOMPETENZ:' : 'PASSIV-KOMPETENZ:'}</span>{' '}
+              +{card.passiveBuff.val * (card.level || 1)} {CAT_CONFIG[card.passiveBuff.stat]?.name}{(card.level || 1) > 1 ? ` (LVL ${card.level})` : ''}
               {(card.backText || card.bio) && <><br/><br/>{card.backText || card.bio}</>}</>
             ) : (card.backText || card.bio || '— Keine weiteren Informationen verfügbar —')}
           </div>
@@ -344,11 +344,13 @@ const Card = memo(function Card({
 
   // ── JSX ────────────────────────────────────────────────────────────────────
   return (
-    <div className={`synergy-aura-host${isFactionSynergyActive ? ' synergy-aura-active' : ''}`}>
+    <div className={`synergy-aura-host${isFactionSynergyActive ? ' synergy-aura-active' : ''}`} style={{ position: 'relative', display: 'block', width: '100%', height: '100%' }}>
       {isFactionSynergyActive && <div className="synergy-aura-glow" aria-hidden="true" />}
-      <div className="card-drop-shadow">
-        <div
-          className={`card-3d-wrapper ${isFlipContext ? 'is-flip-context' : ''} ${flipState === 0 ? 'flip-art-only' : ''}`}
+      <div className="card-drop-shadow magic-scaler-host">
+        {/* MAGIC SCALER: Nutzt reine CSS Klassen, um Reacts Filter für moderne Features zu umgehen! */}
+        <div className="magic-scaler-inner" style={{ position: 'absolute', top: 0, left: 0, width: '360px', height: '504px' }}>
+          <div
+            className={`card-3d-wrapper ${isFlipContext ? 'is-flip-context' : ''} ${flipState === 0 ? 'flip-art-only' : ''}`}
           ref={wrapperRef}
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
@@ -455,19 +457,21 @@ const Card = memo(function Card({
                         <div className="c-bio" style={{ color:'rgba(255,255,255,0.75)', fontStyle:'italic', textShadow:'0 1px 8px rgba(0,0,0,1)' }}>
                           "{card.bio}"
                         </div>
-                      ) : isApex && card.passiveBuff ? (
+                      ) : (isApex || isAnomaly) && card.passiveBuff ? (
                         <div className="apex-passive-info">
-                          <b style={{ color:'var(--ep)' }}>+{card.passiveBuff.val} {CAT_CONFIG[card.passiveBuff.stat]?.name}</b>
-                          <small>PASSIV-KOMPETENZ</small>
+                          <b style={{ color: isAnomaly ? '#ff4444' : 'var(--ep)' }}>
+                            +{card.passiveBuff.val + (currentLevel - 1) * 2} {CAT_CONFIG[card.passiveBuff.stat]?.name}
+                          </b>
+                          <small>{isAnomaly ? 'PASSIV-KOMPETENZ' : 'PASSIV-KOMPETENZ'}</small>
                         </div>
                       ) : isEffect ? (
                         <div className="apex-passive-info" style={{ gap:'10px' }}>
                           <b style={{ color:'var(--eff-col)', fontSize:'1.3rem' }}>
-                            +{card.buff} {CAT_CONFIG[card.stat]?.name}
+                            +{(card.buff || 0) + (currentLevel - 1) * 2} {CAT_CONFIG[card.stat]?.name}
                           </b>
                           {card.syn && (
                             <small style={{ color:'#aaa', borderTop:'1px solid rgba(255,255,255,0.1)', paddingTop:'5px', width:'100%' }}>
-                              SYN: {Array.isArray(card.syn) ? card.syn.join(', ') : card.syn}
+                              SYN +{(card.synBuff || 0) + (currentLevel - 1) * 4}: {Array.isArray(card.syn) ? card.syn.join(', ') : card.syn}
                             </small>
                           )}
                         </div>
@@ -482,6 +486,23 @@ const Card = memo(function Card({
                     <div className="card-stats parallax-layer">
                       {STAT_KEYS.map(k => {
                         let val = Math.floor(card[k] ?? card.stats?.[k] ?? 0);
+
+                        // ANOMALY RULE: Legitimität ist absolut auf 0 fixiert – kein Buff, kein Level, keine Krise
+                        if (isAnomaly && k === 'legitimacy') {
+                          const fillPct = 0;
+                          return (
+                            <div key={k} className="card-stat" style={{ background: 'rgba(255,0,0,0.08)', border: '1px solid rgba(255,0,0,0.25)' }}>
+                              <div className="stat-header">
+                                <span style={{ display:'flex', alignItems:'center', gap:'4px' }}>{STAT_ICONS[k]} <span>{CAT_CONFIG[k].name}</span></span>
+                                <div style={{ display:'flex', alignItems:'baseline', justifyContent:'flex-end', gap:'3px', flexShrink:0, minWidth:'44px' }}>
+                                  <b className="mono" style={{ color:'var(--lose)', minWidth:'1.8ch', textAlign:'right', display:'inline-block' }}>0</b>
+                                </div>
+                              </div>
+                              <div className="stat-bar-bg"><div className="stat-bar-fill" style={{ width:'0%', background:'var(--lose)' }}/></div>
+                            </div>
+                          );
+                        }
+
                         val += (currentLevel - 1) * 2;
 
                         const apexEntry = apexBuffs[k];
@@ -615,10 +636,11 @@ const Card = memo(function Card({
               </div>
             </>
           )}
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  );
-});
+    );
+  });
 
 export default Card;

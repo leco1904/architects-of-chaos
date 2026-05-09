@@ -220,11 +220,11 @@ export default function AvatarLab({ avatarCard, updateAvatar, onBack, onGoToMiss
           <div style={{display:'flex', gap:'20px', justifyContent:'center', alignItems:'flex-start', flexWrap:'wrap'}}>
 
             {/* ── Center: Card with clickable stats ─────────────────────── */}
-            <div style={{display:'flex', flexDirection:'column', alignItems:'center', gap:'8px'}}>
+            <div style={{display:'flex', flexDirection:'column', alignItems:'center', gap:'8px', width: '100%', maxWidth: '380px'}}>
               <div className="mono" style={{fontSize:'0.52rem', color:'rgba(188,19,254,0.5)', letterSpacing:'3px', marginBottom:'2px'}}>
                 ▸ KLICKE AUF EINEN STAT ZUM UPGRADEN
               </div>
-              <div className="lab-card-wrapper" style={{filter:'drop-shadow(0 0 18px rgba(188,19,254,0.4))'}}>
+              <div className="lab-card-wrapper" style={{filter:'drop-shadow(0 0 18px rgba(188,19,254,0.4))', width: '100%', aspectRatio: '5/7', height: 'auto'}}>
                 <Card card={working} context="inventory" onStatClick={handleUpgrade}/>
               </div>
             </div>
@@ -332,9 +332,9 @@ export default function AvatarLab({ avatarCard, updateAvatar, onBack, onGoToMiss
       <div style={{ display:'flex', gap:'40px', justifyContent:'center', alignItems:'flex-start', flexWrap:'wrap', maxWidth:'1000px', margin:'0 auto' }}>
         
         {/* LINKE SEITE: LIVE PREVIEW KARTE */}
-        <div style={{ flexShrink:0, display:'flex', flexDirection:'column', alignItems:'center', gap:'10px' }}>
+        <div style={{ flexShrink:0, display:'flex', flexDirection:'column', alignItems:'center', gap:'10px', width: 'clamp(240px, 30vw, 360px)' }}>
           <div className="mono" style={{fontSize:'0.5rem', color:selectedColor, letterSpacing:'3px', opacity:0.8, transition:'color 0.3s'}}>▸ LIVE VORSCHAU</div>
-          <div className="lab-card-wrapper" style={{ filter:`drop-shadow(0 0 20px ${selectedColor}44)`, transition:'filter 0.3s' }}>
+          <div className="lab-card-wrapper" style={{ filter:`drop-shadow(0 0 20px ${selectedColor}44)`, transition:'filter 0.3s', width: '100%', aspectRatio: '5/7', height: 'auto' }}>
             <Card card={previewCard} context="inventory" customColor={selectedColor} customArt={selectedArt} />
           </div>
         </div>

@@ -55,7 +55,7 @@ export default function Market({
     if (pool.length === 0) pool = allCards.filter(c => c.type === 'std');
 
     const randomCard = pool[Math.floor(Math.random() * pool.length)];
-    return { ...randomCard, id: Date.now() + Math.random(), isNew: true, level: 1 };
+    return { ...randomCard, id: Date.now() + Math.random(), level: 1 };
   };
 
   // ─── ÖFFNUNGS-LOGIK (Mit Tier-Check) ───
@@ -94,8 +94,14 @@ export default function Market({
     setCredits(prev => prev - pack.cost);
     
     let newCards = [];
+    let pulledNames = []; // NEU: Merkt sich Karten, die im exakt selben Pack stecken
     for (let i = 0; i < pack.num; i++) {
-      newCards.push(getRandomCard(pack.id));
+      const rawCard = getRandomCard(pack.id);
+      // Nur 'NEW', wenn sie weder im echten Inventar noch vorher im aktuellen Pack war
+      const isReallyNew = !inventory.some(inv => inv.name === rawCard.name) && !pulledNames.includes(rawCard.name);
+      
+      pulledNames.push(rawCard.name);
+      newCards.push({ ...rawCard, isNew: isReallyNew });
     }
     processOpening(newCards);
   };
@@ -139,9 +145,9 @@ export default function Market({
             <span style={{ animation: 'pulse 1s infinite' }}>●</span> // GEFUNDENE DATENFRAGMENTE (KOSTENLOS)
           </div>
           
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', justifyContent: 'center' }}>
             {rewardPacks.map(rp => (
-              <div key={rp.id} className="pack-item" style={{ borderColor: rp.color, width: '280px', minHeight: 'auto', padding: '15px', margin: 0, boxShadow: `0 0 15px ${rp.color}33` }}>
+              <div key={rp.id} className="pack-item" style={{ borderColor: rp.color, width: '100%', maxWidth: '280px', minHeight: 'auto', padding: '15px', margin: 0, boxShadow: `0 0 15px ${rp.color}33` }}>
                 <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
                   <div className="pack-icon" style={{ color: rp.color, fontSize: '2rem', marginBottom: 0, textShadow: `0 0 10px ${rp.color}` }}>🎁</div>
                   <div>
@@ -271,19 +277,19 @@ export default function Market({
         <div className="reveal-container" style={{ 
           zIndex: 2000, position: 'fixed', inset: 0, background: 'rgba(5, 5, 12, 0.98)', 
           overflowY: 'auto', display: 'flex', flexDirection: 'column', 
-          alignItems: 'center', padding: '60px 20px 100px 20px' 
+          alignItems: 'center', justifyContent: 'center', padding: '40px 20px' 
         }}>
           <h2 className="reveal-title" style={{ flexShrink: 0, marginBottom: '40px' }}>ACCESS GRANTED</h2>
           <div className="pull-reveal-grid" style={{ 
             display: 'flex', flexWrap: 'wrap', justifyContent: 'center', 
-            gap: '30px', maxWidth: '1400px', marginBottom: '40px', flexShrink: 0 
+            gap: '2vw', width: '100%', maxWidth: '1800px', marginBottom: '40px', flexShrink: 0 
           }}>
             {pulledCards.map((c, i) => {
               // Zählt, wie oft diese Karte im gesamten Inventar existiert
               const totalOwned = inventory.filter(inv => inv.name === c.name).length;
               
               return (
-                <div key={i} className="pulled-card-wrapper" style={{ animationDelay: `${i * 0.2}s`, position: 'relative' }}>
+                <div key={i} className="pulled-card-wrapper" style={{ animationDelay: `${i * 0.2}s`, position: 'relative', width: 'clamp(140px, 18vw, 300px)', aspectRatio: '5/7', height: 'auto' }}>
                   <Card card={c} context="reveal" />
                   
                   {/* Badge wird nur angezeigt, wenn man die Karte als Duplikat zieht */}
@@ -303,7 +309,7 @@ export default function Market({
               );
             })}
           </div>
-          <button className="menu-btn btn-primary" style={{ flexShrink: 0, marginTop: 'auto', maxWidth: '300px', zIndex: 100, padding: '15px 40px' }} onClick={closeReveal}>ÜBERNEHMEN</button>
+          <button className="menu-btn btn-primary" style={{ flexShrink: 0, marginTop: '10px', maxWidth: '300px', zIndex: 100, padding: '15px 40px' }} onClick={closeReveal}>ÜBERNEHMEN</button>
         </div>
       )}
       {/* ODDS MODAL */}

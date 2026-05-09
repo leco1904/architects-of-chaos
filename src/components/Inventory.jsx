@@ -29,9 +29,7 @@ const MiniCard = memo(function MiniCard({ card, onClick, onRightClick, onHover, 
       boxShadow: rc !== 'transparent' ? `0 0 8px ${rc}44` : 'none',
     }}
   >
-    <div className="mini-card-scaler">
-      <Card card={card} context="inventory" isFactionSynergyActive={isFactionSynergyActive} />
-    </div>
+    <Card card={card} context="inventory" isFactionSynergyActive={isFactionSynergyActive} />
   </div>
   );
 });
@@ -72,9 +70,12 @@ const InspectorModal = ({ card, isInDeck, isEffect, onClose, onAdd, onRemove, is
   );
 };
 
-const UpgradeModal = ({ group, isEffect, onClose, onConfirm }) => {
+const UpgradeModal = ({ group, isEffect, fromLevel = 1, onClose, onConfirm }) => {
   const [phase, setPhase] = useState('hidden'); 
-  const [simCard, setSimCard] = useState(group.main);
+  // Animation startet auf fromLevel, springt dann auf fromLevel+1
+  const [simCard, setSimCard] = useState({ ...group.main, level: fromLevel });
+
+  const upgradeLabel = fromLevel === 1 ? 'LEVEL UP 1 → 2' : '★ PRESTIGE 2 → 3 ★';
 
   useEffect(() => {
     playSound('clash'); 
@@ -82,34 +83,32 @@ const UpgradeModal = ({ group, isEffect, onClose, onConfirm }) => {
     const t1 = setTimeout(() => {
       playSound('win'); 
       setPhase('upgrading');
-      // FIX: Nur das Level hochziehen, Card.jsx rechnet den Rest
-      setSimCard(prev => ({ ...prev, level: (prev.level || 1) + 1 }));
+      setSimCard(prev => ({ ...prev, level: fromLevel + 1 }));
     }, 1200); 
     const t2 = setTimeout(() => {
       setPhase('done');
     }, 2200); 
     return () => { clearTimeout(t0); clearTimeout(t1); clearTimeout(t2); };
-  }, [group]);
+  }, [group, fromLevel]);
 
   return (
     <div className="glass-overlay cinematic active" style={{ zIndex: 9999 }}>
-      <div className="game-title-small" style={{ fontSize: '2rem', marginBottom: '40px', opacity: phase === 'hidden' ? 0 : 1, transition: 'opacity 0.5s', letterSpacing: '8px', textAlign: 'center', color: phase === 'done' ? 'var(--win)' : '#fff', textShadow: phase === 'done' ? '0 0 15px var(--win)' : 'none' }}>
-        {phase === 'done' ? 'UPGRADE ABGESCHLOSSEN' : 'SYSTEM-UPGRADE INITIALISIERT...'}
+      <div className="game-title-small" style={{ fontSize: '2rem', marginBottom: '40px', opacity: phase === 'hidden' ? 0 : 1, transition: 'opacity 0.5s', letterSpacing: '8px', textAlign: 'center', color: phase === 'done' ? (fromLevel === 2 ? '#bc13fe' : 'var(--win)') : '#fff', textShadow: phase === 'done' ? `0 0 15px ${fromLevel === 2 ? '#bc13fe' : 'var(--win)'}` : 'none' }}>
+        {phase === 'done' ? upgradeLabel + ' ABGESCHLOSSEN' : 'SYSTEM-UPGRADE INITIALISIERT...'}
       </div>
       <div className={`upgrade-modal-card phase-${phase}`} style={{
-        position: 'relative',
+        position: 'relative', width: 'clamp(220px, 40vw, 360px)', aspectRatio: '5/7', margin: '0 auto',
         transition: 'all 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-        transform: phase === 'done' ? 'scale(1.15)' : (phase === 'upgrading' ? 'scale(1.05)' : 'scale(1)'),
-        filter: (phase === 'done' || phase === 'upgrading') ? 'drop-shadow(0 0 40px var(--win))' : 'none',
+        transform: phase === 'done' ? 'scale(1.1)' : (phase === 'upgrading' ? 'scale(1.05)' : 'scale(1)'),
+        filter: (phase === 'done' || phase === 'upgrading') ? `drop-shadow(0 0 40px ${fromLevel === 2 ? '#bc13fe' : 'var(--win)'})` : 'none',
         zIndex: 10
       }}>
         <Card card={simCard} context="inventory" />
         
-        {/* Die Pfeil-Animation direkt im Modal */}
         {(phase === 'upgrading' || phase === 'done') && (
           <div className="mono" style={{
             position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-            fontSize: '6rem', color: 'var(--win)', textShadow: '0 0 40px var(--win)',
+            fontSize: '6rem', color: fromLevel === 2 ? '#bc13fe' : 'var(--win)', textShadow: `0 0 40px ${fromLevel === 2 ? '#bc13fe' : 'var(--win)'}`,
             animation: 'pulse 0.5s infinite', pointerEvents: 'none', zIndex: 20
           }}>
                       </div>
@@ -117,7 +116,7 @@ const UpgradeModal = ({ group, isEffect, onClose, onConfirm }) => {
       </div>
       <div style={{ height: '80px', marginTop: '60px', opacity: phase === 'done' ? 1 : 0, transition: 'opacity 0.5s', visibility: phase === 'done' ? 'visible' : 'hidden' }}>
         <button className="menu-btn btn-play modern-btn" onClick={() => { 
-            onConfirm(group.main.name, isEffect); 
+            onConfirm(group.main.name, isEffect, fromLevel); 
             onClose(); 
         }}>
             BESTÄTIGEN
@@ -128,25 +127,40 @@ const UpgradeModal = ({ group, isEffect, onClose, onConfirm }) => {
 };
 
 const UpgradeCard = ({ group, isUpgrading, onInitiateUpgrade, onSell }) => {
-  const { main, count } = group;
+  const { main, count, countByLevel = {} } = group;
   const isEffect = main.type === 'effect';
-  const isMax = main.level === 3;
-  
-  const canUpgrade = count >= 3 && !isMax && !isEffect;
+  const isMax = (main.level || 1) >= 3;
+
+  const countL1 = countByLevel[1] || 0;
+  const countL2 = countByLevel[2] || 0;
+
+  // L1→L2: braucht 3 LVL-1 Kopien
+  const canUpgradeToL2 = countL1 >= 3;
+  // L2→L3 (Prestige): braucht 3 LVL-2 Kopien
+  const canUpgradeToL3 = countL2 >= 3;
+
   const canSell = count > 1 && (isMax || isEffect);
   const sellValue = getSellValue(main);
+
+  // Tracks anzeigen wenn relevant
+  const showL1Track = countL1 > 0 && !isMax;
+  const showL2Track = (main.level || 1) >= 2 && !isMax;
+
+  const TrackBar = ({ current, color }) => (
+    <div style={{ height: '3px', background: 'rgba(255,255,255,0.06)', borderRadius: '2px', overflow: 'hidden' }}>
+      <div style={{ height: '100%', width: `${(Math.min(current, 3) / 3) * 100}%`, background: color, transition: 'width 0.4s ease' }} />
+    </div>
+  );
 
   return (
     <div className="upgrade-pod" style={{ position: 'relative' }}>
        <div className="upgrade-card-wrapper" style={{ 
           transition: 'all 1s cubic-bezier(0.175, 0.885, 0.32, 1.275)', 
-          transform: isUpgrading ? 'translateY(-20px) scale(1.05)' : 'none',
+          transform: isUpgrading ? 'translateY(-20px) scale(1.02)' : 'none',
           filter: isUpgrading ? 'drop-shadow(0 0 25px var(--win))' : 'none',
           zIndex: isUpgrading ? 10 : 1
        }}>
-         <div className="mini-card-scaler">
-            <Card card={main} context="inventory" />
-         </div>
+         <Card card={main} context="inventory" />
          <div className="count-badge mono">KOPIEN: {count}</div>
          
          {isUpgrading && (
@@ -161,12 +175,58 @@ const UpgradeCard = ({ group, isUpgrading, onInitiateUpgrade, onSell }) => {
        </div>
 
        <div className="upgrade-actions" style={{ marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-         {canUpgrade && (
-            <button className="btn-act" style={{ width: '100%', borderLeftColor: 'var(--win)' }} onClick={() => onInitiateUpgrade(main.name, isEffect)}>
-               <span className="act-title">LEVEL UP (3)</span>
-            </button>
+
+         {/* ── Track 1: LVL 1 → 2 ── */}
+         {showL1Track && (
+           <div style={{
+             display: 'flex', flexDirection: 'column', gap: '6px', padding: '10px',
+             background: canUpgradeToL2 ? 'rgba(0,229,255,0.05)' : 'rgba(255,255,255,0.02)',
+             border: `1px solid ${canUpgradeToL2 ? 'rgba(0,229,255,0.25)' : 'rgba(255,255,255,0.07)'}`,
+             borderLeft: `3px solid ${canUpgradeToL2 ? 'var(--win)' : '#333'}`,
+           }}>
+             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+               <span className="mono" style={{ fontSize: '0.58rem', color: canUpgradeToL2 ? 'var(--win)' : '#555', letterSpacing: '2px' }}>LVL 1 → 2</span>
+               <span className="mono" style={{ fontSize: '0.65rem', fontWeight: 'bold', color: canUpgradeToL2 ? 'var(--win)' : '#444' }}>
+                 {Math.min(countL1, 3)}/3 LVL-1
+               </span>
+             </div>
+             <TrackBar current={countL1} color={canUpgradeToL2 ? 'var(--win)' : '#333'} />
+             {canUpgradeToL2 && (
+               <button className="btn-act" style={{ width: '100%', borderLeftColor: 'var(--win)', marginTop: '4px' }} onClick={() => onInitiateUpgrade(main.name, isEffect, 1)}>
+                 <span className="act-title">LEVEL UP (1→2)</span>
+               </button>
+             )}
+           </div>
          )}
-         
+
+         {/* ── Track 2: LVL 2 → 3 (Prestige) ── */}
+         {showL2Track && (
+           <div style={{
+             display: 'flex', flexDirection: 'column', gap: '6px', padding: '10px',
+             background: canUpgradeToL3 ? 'rgba(188,19,254,0.06)' : 'rgba(255,255,255,0.02)',
+             border: `1px solid ${canUpgradeToL3 ? 'rgba(188,19,254,0.35)' : 'rgba(255,255,255,0.07)'}`,
+             borderLeft: `3px solid ${canUpgradeToL3 ? '#bc13fe' : '#333'}`,
+           }}>
+             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+               <span className="mono" style={{ fontSize: '0.58rem', color: canUpgradeToL3 ? '#bc13fe' : '#555', letterSpacing: '2px' }}>LVL 2 → 3 ★</span>
+               <span className="mono" style={{ fontSize: '0.65rem', fontWeight: 'bold', color: canUpgradeToL3 ? '#bc13fe' : '#444' }}>
+                 {Math.min(countL2, 3)}/3 LVL-2
+               </span>
+             </div>
+             <TrackBar current={countL2} color={canUpgradeToL3 ? '#bc13fe' : '#333'} />
+             {!canUpgradeToL3 && (
+               <span className="mono" style={{ fontSize: '0.52rem', color: '#444', letterSpacing: '1px', marginTop: '2px' }}>
+                 Noch {3 - Math.min(countL2, 3)} LVL-2 Kopie{3 - Math.min(countL2, 3) !== 1 ? 'n' : ''} benötigt
+               </span>
+             )}
+             {canUpgradeToL3 && (
+               <button className="btn-act" style={{ width: '100%', borderLeftColor: '#bc13fe', marginTop: '4px' }} onClick={() => onInitiateUpgrade(main.name, isEffect, 2)}>
+                 <span className="act-title" style={{ color: '#bc13fe' }}>PRESTIGE (2→3)</span>
+               </button>
+             )}
+           </div>
+         )}
+
          {canSell && (
             <button className="btn-act" style={{ width: '100%', borderLeftColor: 'var(--ep)' }} onClick={(e) => onSell(main.name, isEffect, e)}>
                <span className="act-title">VERKAUFEN</span>
@@ -174,15 +234,17 @@ const UpgradeCard = ({ group, isUpgrading, onInitiateUpgrade, onSell }) => {
             </button>
          )}
 
-         {!canUpgrade && !canSell && (
-            <button className="btn-act" style={{ width: '100%', borderLeftColor: '#444', opacity: 0.5, cursor: 'not-allowed' }} disabled>
-               <span className="act-title" style={{ color: '#888' }}>ZU WENIG KOPIEN</span>
+         {!showL1Track && !showL2Track && !canSell && (
+            <button className="btn-act" style={{ width: '100%', borderLeftColor: '#333', opacity: 0.5, cursor: 'not-allowed' }} disabled>
+               <span className="act-title" style={{ color: '#555' }}>
+                 {isMax ? 'MAX LEVEL ✓' : 'ZU WENIG KOPIEN'}
+               </span>
             </button>
          )}
        </div>
     </div>
-  )
-}
+  );
+};
 
 export default function Inventory({ inventory = [], setInventory, decks = [], setDecks, allFactions = [], onBack, onShowRules, onClearNew, onCreditGain, onMissionAction }) {
   const [search, setSearch] = useState('');
@@ -344,12 +406,15 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
   const getGroupedInventory = () => {
     const grouped = {};
     safeInv.forEach(c => {
+        const lvl = c.level || 1;
         if (!grouped[c.name]) {
-            grouped[c.name] = { main: { ...c }, count: 1, hasNew: c.isNew };
+            grouped[c.name] = { main: { ...c }, count: 1, hasNew: c.isNew, countByLevel: { [lvl]: 1 } };
         } else {
             grouped[c.name].count++;
+            // NEU: Kopien pro Level zählen – Basis für das zweistufige Upgrade-System
+            grouped[c.name].countByLevel[lvl] = (grouped[c.name].countByLevel[lvl] || 0) + 1;
             if (c.isNew) grouped[c.name].hasNew = true;
-            if ((c.level || 1) > (grouped[c.name].main.level || 1)) {
+            if (lvl > (grouped[c.name].main.level || 1)) {
                 grouped[c.name].main = { ...c }; 
             }
         }
@@ -360,44 +425,44 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
     return grouped;
   };
 
-  const executeLevelUp = (cardName, isEffect) => {
+  const executeLevelUp = (cardName, isEffect, fromLevel = 1) => {
       const grouped = getGroupedInventory();
       const group = grouped[cardName];
-      if (!group || group.count < 3) return;
+      if (!group) return;
 
-      const mainCard = group.main;
-      const currentLevel = mainCard.level || 1;
+      // Sicherheitsprüfung: Genug Kopien auf dem Quell-Level?
+      const countAtLevel = group.countByLevel?.[fromLevel] || 0;
+      if (countAtLevel < 3) return;
 
+      const nextLevel = fromLevel + 1;
       onMissionAction('upgrade', 1); 
-      let removed = 0;
+
+      let burned = 0;
       let upgraded = false;
       
-      // FIX: Wir bauen das Array neu auf, verbrennen exakt 2 Kopien und leveln die 3. auf!
+      // Verbrenne exakt 2 Kopien vom fromLevel und upgrade die 3. auf nextLevel
       const finalInv = safeInv.reduce((acc, c) => {
-          if (c.name === cardName) {
-              if (removed < 2) {
-                  removed++; // Verbrenne diese Kopie
-                  return acc; 
-              }
+          if (c.name === cardName && (c.level || 1) === fromLevel) {
+              if (burned < 2) { burned++; return acc; }
               if (!upgraded) {
-                  upgraded = true; // Level diese Kopie auf!
-                  acc.push({ ...c, level: currentLevel + 1 });
+                  upgraded = true;
+                  acc.push({ ...c, level: nextLevel });
                   return acc;
               }
           }
-          acc.push(c); // Alle anderen Karten unverändert übernehmen
+          acc.push(c);
           return acc;
       }, []);
       
       setInventory(finalInv);
 
+      // Decks updaten: nur Karten auf fromLevel werden hochgestuft
       setDecks(prev => prev.map(d => ({
           ...d,
-          chars: d.chars.map(c => c.name === cardName ? { ...c, level: currentLevel + 1 } : c),
-          effs: d.effs.map(c => c.name === cardName ? { ...c, level: currentLevel + 1 } : c)
+          chars: d.chars.map(c => (c.name === cardName && (c.level || 1) === fromLevel) ? { ...c, level: nextLevel } : c),
+          effs:  d.effs.map(c => (c.name === cardName && (c.level || 1) === fromLevel) ? { ...c, level: nextLevel } : c)
       })));
       
-      // NEU: Inline-Animation triggern
       setUpgradingCard(cardName);
       setTimeout(() => setUpgradingCard(null), 1200);
   };
@@ -437,7 +502,11 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
   const currentCollected = Object.keys(groupedInventory).length;
   
   const hasUpgradesAvailable = useMemo(() =>
-    Object.values(groupedInventory).some(g => g.count >= 3 && (g.main.level || 1) < 3 && g.main.type !== 'effect'),
+    Object.values(groupedInventory).some(g => {
+      const c1 = g.countByLevel?.[1] || 0;
+      const c2 = g.countByLevel?.[2] || 0;
+      return c1 >= 3 || c2 >= 3;
+    }),
     [groupedInventory]
   );
 
@@ -473,6 +542,7 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
          <UpgradeModal 
             group={activeUpgradeSession.group} 
             isEffect={activeUpgradeSession.isEffect}
+            fromLevel={activeUpgradeSession.fromLevel || 1}
             onClose={() => setActiveUpgradeSession(null)}
             onConfirm={executeLevelUp}
          />
@@ -531,7 +601,7 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
             </button>
           </div>
 
-          <div style={{ display: 'flex', gap: '30px', flex: 1, overflow: 'hidden' }}>
+          <div className="inv-content-wrapper" style={{ display: 'flex', gap: '30px', flex: 1, minHeight: 0 }}>
             
             {/* DECK SPALTE */}
             <div className={`glass-panel inv-column mobile-tab-deck ${mobileTab === 'deck' ? 'active-tab' : ''}`}>
@@ -556,10 +626,13 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
                     </div>
                  </div>
 
-                 <div style={{ display: 'flex', gap: '15px', fontSize: '0.85rem', color: '#aaa', flexWrap: 'wrap', fontWeight: 'bold', marginTop: '10px' }}>
-                   <span style={{ color: stats.apex > 1 ? 'var(--lose)' : 'var(--apex-pink)' }}>APEX: {stats.apex}/1</span> |
-                   <span style={{ color: stats.legacy > 1 ? 'var(--lose)' : 'var(--legacy-sepia)' }}>LEGACY: {stats.legacy}/1</span> |
-                   <span style={{ color: stats.legendary > 3 ? 'var(--lose)' : 'var(--r-leg)' }}>LEGENDARY: {stats.legendary}/3</span> |
+                 <div style={{ display: 'flex', gap: '8px', fontSize: '0.75rem', color: '#aaa', flexWrap: 'wrap', fontWeight: 'bold', marginTop: '10px', lineHeight: '1.4' }}>
+                   <span style={{ color: stats.apex > 1 ? 'var(--lose)' : 'var(--apex-pink)' }}>APEX: {stats.apex}/1</span>
+                   <span style={{ color: '#444' }}>|</span>
+                   <span style={{ color: stats.legacy > 1 ? 'var(--lose)' : 'var(--legacy-sepia)' }}>LEGACY: {stats.legacy}/1</span>
+                   <span style={{ color: '#444' }}>|</span>
+                   <span style={{ color: stats.legendary > 3 ? 'var(--lose)' : 'var(--r-leg)' }}>LEGENDARY: {stats.legendary}/3</span>
+                   <span style={{ color: '#444' }}>|</span>
                    <span style={{ color: stats.epic > 3 ? 'var(--lose)' : 'var(--r-epi)' }}>EPIC: {stats.epic}/3</span>
                    {isDeckValid ? <span style={{ marginLeft: 'auto', color: 'var(--win)' }}>BEREIT ✓</span> : <span style={{ marginLeft: 'auto', color: 'var(--lose)' }}>UNVOLLSTÄNDIG ⚠</span>}
                  </div>
@@ -703,7 +776,11 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
           <h2 style={{ color: 'var(--ep)', letterSpacing: '2px', borderBottom: '1px solid #333', paddingBottom: '10px', textAlign: 'center' }}>
             KARTEN UPGRADEN & VERKAUFEN
           </h2>
-          <p style={{textAlign: 'center', color: '#888', marginBottom: '30px'}}>Klicke auf LEVEL UP, um überschüssige Kopien zu verbrennen und die Stats der Karte dauerhaft zu verbessern (+2 auf alle Werte pro Level). Max Level Karten und Effekte können verkauft werden.</p>
+          <p style={{textAlign: 'center', color: '#888', marginBottom: '30px'}}>
+            <b style={{color:'var(--win)'}}>LVL 1 → 2:</b> 3× LVL-1 Kopien (verbrennt 2, upgraded 1). &nbsp;
+            <b style={{color:'#bc13fe'}}>LVL 2 → 3 (PRESTIGE):</b> 3× LVL-2 Kopien = insgesamt 9 Basiskarten. &nbsp;
+            Charaktere: +2 auf alle Stats. Taktiken: +2 Boost & +4 Synergie pro Level.
+          </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', justifyItems: 'center', gap: '40px', paddingBottom: '50px' }}>
             {Object.values(groupedInventory)
               .filter(g => (g.main.name || '').toLowerCase().includes(search.toLowerCase()) && (factionFilter === 'ALL' || g.main.faction === factionFilter))
@@ -714,7 +791,7 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
                     <UpgradeCard 
                        group={group} 
                        isUpgrading={upgradingCard === group.main.name}
-                       onInitiateUpgrade={(name, isEff) => setActiveUpgradeSession({ group, isEffect: isEff })}
+                       onInitiateUpgrade={(name, isEff, fromLevel) => setActiveUpgradeSession({ group, isEffect: isEff, fromLevel })}
                        onSell={handleSell}
                     />
                  </div>
