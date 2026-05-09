@@ -640,10 +640,7 @@ export default function App() {
 // --- GLOBALES CLICK-AUDIO ---
   useEffect(() => {
     const handleGlobalClick = (e) => {
-      // Ignoriere Klicks auf Texteingabefelder (sonst piept es beim Tippen)
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-      
-      // Prüfe, ob das geklickte Element ein Button ist oder "cursor: pointer" hat
       const isButton = e.target.closest('button');
       let hasPointer = false;
       try {
@@ -655,27 +652,81 @@ export default function App() {
         playSound('click');
       }
     };
-    
     document.addEventListener('click', handleGlobalClick);
     return () => document.removeEventListener('click', handleGlobalClick);
   }, []);
 
+  // --- GLOBALES KEY-ROUTING (ESC & LEERTASTE) ---
+  useEffect(() => {
+    const handleGlobalKeys = (e) => {
+      // Ignoriere Tastendrücke in Such- oder Chatfeldern
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+      // 1. LEERTASTE = WEITER / ACTION
+      if (e.code === 'Space') {
+        const actionBtn = document.querySelector('.space-action-btn');
+        if (actionBtn) {
+          const style = window.getComputedStyle(actionBtn);
+          // Nur auslösen, wenn der Button nicht deaktiviert oder ausgegraut ist
+          if (!actionBtn.disabled && style.pointerEvents !== 'none' && style.opacity !== '0.3' && style.opacity !== '0.5') {
+            e.preventDefault(); // Verhindert das lästige Runterscrollen der Seite
+            actionBtn.click();
+            return;
+          }
+        }
+      }
+
+      // 2. ESC = ZURÜCK / ABBRECHEN
+      if (e.key === 'Escape') {
+        // 1. Priorität: Overlays & Modals schließen
+        if (lexiconInspectCard) { playSound('click'); setLexiconInspectCard(null); return; }
+        if (showGlobalRules) { playSound('click'); setShowGlobalRules(false); return; }
+        if (pendingOutgoingInvite) { playSound('click'); disconnectPeer(); setPendingOutgoingInvite(null); return; }
+
+        // 2. Priorität: Sub-Menü im Hauptmenü (Mission Starten) abbrechen
+        if (currentView === 'menu' && playMenuOpen) { playSound('click'); setPlayMenuOpen(false); return; }
+
+        // 3. Priorität: Menüs, die ins Ghost Node Menu zurückgehen
+        const backToGhostViews = ['avatarlab', 'roguelikesquad', 'roguelikemap', 'roguelikefailed'];
+        if (backToGhostViews.includes(currentView)) {
+          playSound('click');
+          setCurrentView('ghostnodemenu');
+          return;
+        }
+
+        // 4. Priorität: Menüs, die ins Hauptmenü zurückgehen
+        const backToMenuViews = ['ghostnodemenu', 'inventory', 'market', 'missions', 'lexicon', 'overrides', 'leaderboard', 'stats', 'ghostnetwork', 'difficulty'];
+        if (backToMenuViews.includes(currentView)) {
+          playSound('click');
+          setCurrentView('menu');
+          return;
+        }
+
+        // Spezialfall: Multiplayer (Nur wenn noch NICHT verbunden)
+        if (currentView === 'multiplayer' && !conn) {
+          playSound('click');
+          setCurrentView('menu');
+          return;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeys);
+    return () => window.removeEventListener('keydown', handleGlobalKeys);
+  }, [currentView, playMenuOpen, showGlobalRules, lexiconInspectCard, pendingOutgoingInvite, conn]);
+
   const updateAvatar = (newAvatar) => { setAvatarCard(newAvatar); };
 
-  // ── PHASE 2: Roguelike Match-Logik ────────────────────────────────────────
-  const [roguelikeMatchData, setRoguelikeMatchData] = useState(null); 
-  const [rewardData,         setRewardData]         = useState(null);
-  const [roguelikeEventData, setRoguelikeEventData] = useState(null);
-
-  const startRoguelikeEvent = (nodeObj) => {
-    setRoguelikeEventData(nodeObj);
-    setCurrentView('roguelikeevent');
-    
-    // NEU: Partner in das Event-Fenster mitziehen
-    if (conn && isCoopMode) {
-        conn.send({ type: 'START_RL_EVENT', nodeObj });
-    }
-  };   
+  // Der Rest deiner Hilfsfunktionen (generateAIDeck, startMatchFlow etc.) 
+  // bleibt wie er ist, achte nur darauf, dass die Datei am Ende so schließt:
+  
+  return (
+    <div style={{ '--matrix-col': getThemeColor(currentView), height: '100vh', width: '100vw', position: 'relative', overflow: 'hidden' }}>
+      <CyberBackground color={getThemeColor(currentView)} />
+      {/* ... dein restlicher JSX-Code ... */}
+    </div>
+  );
+   
 
   const generateAIDeck = (nodeObj, sector) => {
     const isBoss = nodeObj.type === 'boss';

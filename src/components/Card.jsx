@@ -101,9 +101,11 @@ const Card = memo(function Card({
   highlightSynergyStat = null,
   lockedStat          = null,
   isFactionSynergyActive = false,
-  forceArtOnly        = false,  // überspringt Stats/Header im DOM komplett
-  customColor         = null,   // Avatar-Individualisierung: überschreibt themeColor
-  customArt           = null,   // Avatar-Individualisierung: überschreibt photoSrc
+  isEffectSynergyHint = false,
+  isSynergyHint       = false,  // NEU: Signal für Fraktions-Glow
+  forceArtOnly        = false,  
+  customColor         = null,   
+  customArt           = null,   
 }) {
   const wrapperRef = useRef(null);
   const cardRef    = useRef(null);
@@ -396,7 +398,15 @@ const Card = memo(function Card({
                 <div className="card-glare"/>
                 <div className="card-scanlines"/>
 
-                <div className="vertical-faction-tab" style={{ color: themeColor, zIndex:15 }}>{card.faction}</div>
+                <div className="vertical-faction-tab" style={{ 
+                  color: isSynergyHint ? '#abce21' : (isEffectSynergyHint ? '#00e5ff' : (isFactionSynergyActive ? 'var(--win)' : themeColor)), 
+                  textShadow: isSynergyHint 
+                    ? '0 0 5px #abce21, 0 0 15px #abce21, 0 0 30px #abce21' 
+                    : isEffectSynergyHint 
+                    ? '0 0 5px #00e5ff, 0 0 15px #00e5ff, 0 0 30px #00e5ff' 
+                    : (isFactionSynergyActive ? '0 0 10px var(--win)' : 'none'),
+                  zIndex:15 
+                }}>{card.faction}</div>
 
                 {levelBadge}
 

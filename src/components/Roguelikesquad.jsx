@@ -19,14 +19,15 @@ const typeIcon = (card) => {
 };
 
 // ── Empty slot placeholder (BIG) ──────────────────────────────────────────
-function EmptySlot({ label }) {
+function EmptySlot({ label, onClick }) {
   return (
-    <div style={{
+    <div onClick={onClick} style={{
       padding: '16px 14px', background: 'rgba(0,0,0,0.3)',
       border: '1px dashed #2a3a4a', borderLeft: '4px solid #2a3a4a',
       display: 'flex', alignItems: 'center', gap: '12px', minHeight: '60px',
+      cursor: onClick ? 'pointer' : 'default', transition: '0.2s'
     }}>
-      <div className="mono" style={{ fontSize: '0.75rem', color: '#3a4a5a', letterSpacing: '3px' }}>{label}</div>
+      <div className="mono" style={{ fontSize: '0.75rem', color: onClick ? '#4a5a6a' : '#3a4a5a', letterSpacing: '3px', transition: '0.2s' }}>{label}</div>
     </div>
   );
 }
@@ -60,7 +61,7 @@ function FilledSlot({ card, locked, onRemove }) {
 }
 
 // ── New Visual Draft Card ─────────────────────────────────────────────────
-function DraftCard({ card, selected, disabled, onToggle, isFactionSynergyActive = false }) {
+function DraftCard({ card, selected, disabled, onToggle, isFactionSynergyActive = false, isSynergyHint = false, isEffectSynergyHint = false }) {
   const tc = typeColor(card);
   return (
     <div
@@ -70,13 +71,20 @@ function DraftCard({ card, selected, disabled, onToggle, isFactionSynergyActive 
         cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.3 : 1,
         transform: selected ? 'translateY(-8px) scale(1.02)' : 'none',
-        boxShadow: selected ? `0 0 30px ${tc}66` : 'none',
+        boxShadow: isSynergyHint 
+          ? '0 0 25px #abce21, inset 0 0 20px #abce21, 0 0 40px rgba(171, 206, 33, 0.3)' 
+          : isEffectSynergyHint
+          ? '0 0 25px #00e5ff, inset 0 0 20px #00e5ff, 0 0 40px rgba(0, 229, 255, 0.3)'
+          : (selected ? `0 0 30px ${tc}66` : 'none'),
+        // NEU: Pulsieren stoppt, wenn die Karte 'selected' ist
+        animation: ((isSynergyHint || isEffectSynergyHint) && !selected) ? 'pulse 1.5s infinite' : 'none',
         borderRadius: '8px', overflow: 'hidden',
         transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
       }}
     >
       <div style={{ width: '360px', height: '504px', transform: 'scale(0.6)', transformOrigin: 'top left', pointerEvents: 'none' }}>
-        <Card card={card} context="inventory" isFactionSynergyActive={isFactionSynergyActive} />
+        {/* NEU: Hint-Signale werden an Card.jsx weitergegeben */}
+        <Card card={card} context="inventory" isFactionSynergyActive={isFactionSynergyActive} isSynergyHint={isSynergyHint} isEffectSynergyHint={isEffectSynergyHint} />
       </div>
       
       {selected && (
@@ -114,12 +122,23 @@ export default function RoguelikeSquad({ avatarCard, inventory = [], onConfirm, 
     }, {}));
   }, [inventory]);
 
+  // Erweiterte Such-Logik
+  const matchesSearch = (c, q) => {
+    if (!q) return true;
+    const n = (c.name || '').toLowerCase();
+    const t = (c.type || '').toLowerCase();
+    const f = (c.faction || '').toLowerCase();
+    const synStr = Array.isArray(c.syn) ? c.syn.join(' ') : (c.syn || '');
+    const s = synStr.toLowerCase();
+    return n.includes(q) || t.includes(q) || f.includes(q) || s.includes(q);
+  };
+
   // Filter inventory (nutzt jetzt uniqueInventory)
   const invChars = useMemo(() => {
     const q = search.toLowerCase();
     return uniqueInventory
       .filter(c => c.type !== 'effect' && c.id !== 'avatar' && c.name !== avatarCard?.name)
-      .filter(c => !search || (c.name||'').toLowerCase().includes(q))
+      .filter(c => matchesSearch(c, q))
       .sort((a,b) => (b.gti||0) - (a.gti||0));
   }, [uniqueInventory, avatarCard, search]);
 
@@ -127,7 +146,7 @@ export default function RoguelikeSquad({ avatarCard, inventory = [], onConfirm, 
     const q = search.toLowerCase();
     return uniqueInventory
       .filter(c => c.type === 'effect')
-      .filter(c => !search || (c.name||'').toLowerCase().includes(q));
+      .filter(c => matchesSearch(c, q));
   }, [uniqueInventory, search]);
 
   // Toggle selection helpers
@@ -221,7 +240,7 @@ export default function RoguelikeSquad({ avatarCard, inventory = [], onConfirm, 
           {Array.from({ length: isCoop ? 4 : 5 }).map((_, i) => (
             selChars[i]
               ? <FilledSlot key={i} card={selChars[i]} locked={false} onRemove={() => setSelChars(p => p.filter((_, j) => j !== i))} />
-              : <EmptySlot key={i} label={`CHAR SLOT ${i + 1}`} />
+              : <EmptySlot key={i} label={`CHAR SLOT ${i + 1}`} onClick={() => setTab('chars')} />
           ))}
           
           {/* NEU: TEAM SLOT (nur im Co-Op) */}
@@ -232,7 +251,7 @@ export default function RoguelikeSquad({ avatarCard, inventory = [], onConfirm, 
               </div>
               {teamChar 
                 ? <div style={{ border: '2px solid #bc13fe', borderRadius: '4px', boxShadow: '0 0 15px rgba(188,19,254,0.2)' }}><FilledSlot card={teamChar} locked={false} onRemove={() => setTeamChar(null)} /></div>
-                : <EmptySlot label="TEAM KARTE WÄHLEN" />
+                : <EmptySlot label="TEAM KARTE WÄHLEN" onClick={() => setTab('chars')} />
               }
             </>
           )}
@@ -244,7 +263,7 @@ export default function RoguelikeSquad({ avatarCard, inventory = [], onConfirm, 
           {Array.from({ length: 2 }).map((_, i) => (
             selEffs[i]
               ? <FilledSlot key={i} card={selEffs[i]} locked={false} onRemove={() => setSelEffs(p => p.filter((_, j) => j !== i))} />
-              : <EmptySlot key={i} label={`EFFEKT SLOT ${i + 1}`} />
+              : <EmptySlot key={i} label={`EFFEKT SLOT ${i + 1}`} onClick={() => setTab('effs')} />
           ))}
 
           {/* GTI Cap indicator (#005) */}
@@ -257,7 +276,10 @@ export default function RoguelikeSquad({ avatarCard, inventory = [], onConfirm, 
           )}
 
           {/* Confirm */}
-         <button onClick={handleConfirm} disabled={!ready || mySquadReady || (isCoop && isHost && !partnerReady)}
+         <button 
+            className="space-action-btn"
+            onClick={handleConfirm} 
+            disabled={!ready || mySquadReady || (isCoop && isHost && !partnerReady)}
             style={{
               marginTop: '16px', padding: '18px 10px',
               opacity: (!ready || mySquadReady || (isCoop && isHost && !partnerReady)) ? 0.5 : 1,
@@ -306,26 +328,72 @@ export default function RoguelikeSquad({ avatarCard, inventory = [], onConfirm, 
             {tab === 'chars' ? (
               invChars.length === 0
                 ? <div className="mono" style={{ gridColumn: '1/-1', color: '#3a4a5a', padding: '40px', textAlign: 'center', fontSize: '0.9rem', letterSpacing: '2px' }}>KEINE CHARAKTERE GEFUNDEN</div>
-                : invChars.map((c, i) => (
-                    <DraftCard 
-                      key={`char-${c.name}-${i}`} card={c}
-                      selected={selChars.some(s => s.name === c.name)}
-                      disabled={!selChars.some(s => s.name === c.name) && selChars.length >= 5}
-                      onToggle={() => toggleChar(c)}
-                      isFactionSynergyActive={activeFactions.includes(c.faction)}
-                    />
-                  ))
+                : (() => {
+                    // NEU: Fraktionen zählen (inkl. Team Char)
+                    const allSelected = [...selChars];
+                    if (teamChar) allSelected.push(teamChar);
+                    
+                    const factionCounts = {};
+                    allSelected.forEach(c => {
+                      if (c.faction) factionCounts[c.faction] = (factionCounts[c.faction] || 0) + 1;
+                    });
+                    
+                    // Welche Fraktionen haben 2 ODER MEHR Agenten im Deck?
+                    const factionsWithHint = Object.keys(factionCounts).filter(f => factionCounts[f] >= 2);
+
+                    return invChars.map((c, i) => {
+                      const isSelected = selChars.some(s => s.name === c.name) || (teamChar && teamChar.name === c.name);
+                      const wouldExceedGTI = totalGTI + (c.gti || 0) > GTI_CAP;
+                      const isFull = charsDone && teamDone;
+                      
+                      const isDisabled = !isSelected && (isFull || wouldExceedGTI);
+                      // NEU: isHint ist nun auch für bereits selektierte Karten aktiv
+                      const isHint = !isDisabled && factionsWithHint.includes(c.faction);
+                      
+                      return (
+                        <DraftCard 
+                          key={`char-${c.name}-${i}`} card={c}
+                          selected={isSelected}
+                          disabled={isDisabled}
+                          onToggle={() => toggleChar(c)}
+                          isFactionSynergyActive={activeFactions.includes(c.faction)}
+                          isSynergyHint={isHint}
+                        />
+                      );
+                    });
+                  })()
             ) : (
               invEffs.length === 0
                 ? <div className="mono" style={{ gridColumn: '1/-1', color: '#3a4a5a', padding: '40px', textAlign: 'center', fontSize: '0.9rem', letterSpacing: '2px' }}>KEINE EFFEKTE GEFUNDEN</div>
-                : invEffs.map((c, i) => (
-                    <DraftCard 
-                      key={`eff-${c.name}-${i}`} card={c}
-                      selected={selEffs.some(s => s.name === c.name)}
-                      disabled={!selEffs.some(s => s.name === c.name) && selEffs.length >= 2}
-                      onToggle={() => toggleEff(c)}
-                    />
-                  ))
+                : (() => {
+                    // Sammle alle Keywords (Name, Fraktion, Klasse) der Chars im Squad (inkl. Avatar)
+                    const activeKeywords = [...selChars, ...(teamChar ? [teamChar] : []), ...(avatarCard ? [avatarCard] : [])].flatMap(c => [
+                      (c.name || '').toLowerCase(),
+                      (c.faction || '').toLowerCase(),
+                      (c.type || '').toLowerCase()
+                    ].filter(Boolean));
+
+                    return invEffs.map((c, i) => {
+                      const isSelected = selEffs.some(s => s.name === c.name);
+                      const isFull = effsDone;
+                      const isDisabled = !isSelected && isFull;
+
+                      // Prüfen, ob eine Synergie besteht
+                      const synStr = Array.isArray(c.syn) ? c.syn.join(' ') : (c.syn || '');
+                      const hasSynergyData = synStr.trim().length > 0;
+                      const isEffectHint = !isDisabled && hasSynergyData && activeKeywords.some(kw => synStr.toLowerCase().includes(kw));
+
+                      return (
+                        <DraftCard 
+                          key={`eff-${c.name}-${i}`} card={c}
+                          selected={isSelected}
+                          disabled={isDisabled}
+                          onToggle={() => toggleEff(c)}
+                          isEffectSynergyHint={isEffectHint}
+                        />
+                      );
+                    });
+                  })()
             )}
           </div>
         </div>

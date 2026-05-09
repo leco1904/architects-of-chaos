@@ -180,9 +180,15 @@ export default function GhostNodeMenu({ session, baseHp, setBaseHp, avatarCard, 
                       onClick={()=>{if(window.confirm('Solo Run wirklich abbrechen? Permadeath.'))window.dispatchEvent(new CustomEvent('abortRun'));}}/>
                   </>
                 ) : (
-                  <HubButton icon="⬡" color="var(--win)" title="SOLO RUN STARTEN"
-                    sub={avatarCard?'Squad wählen — Mission initialisieren':'AVATAR ERFORDERLICH'}
-                    locked={!avatarCard} onClick={onGoToSquad}/>
+                  <div 
+                    className="space-action-btn" 
+                    onClick={() => avatarCard && onGoToSquad()} 
+                    style={{ pointerEvents: avatarCard ? 'auto' : 'none', cursor: avatarCard ? 'pointer' : 'default' }}
+                  >
+                    <HubButton icon="⬡" color="var(--win)" title="SOLO RUN STARTEN"
+                      sub={avatarCard?'Squad wählen — Mission initialisieren':'AVATAR ERFORDERLICH'}
+                      locked={!avatarCard} />
+                  </div>
                 )}
                 
                 <div style={{height:'1px',background:'rgba(255,255,255,0.06)',margin:'2px 0'}}/>
