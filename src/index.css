@@ -1913,3 +1913,24 @@ body, html {
   transform: translateY(-6px) scale(1.08);
   filter: brightness(1.3);
 }
+/* Globale Skalierung: Simuliert 1440p auf 1080p Bildschirmen */
+@media screen and (max-height: 1100px) {
+  #root > div {
+    transform: scale(0.75);
+    transform-origin: top left;
+    width: 133.33vw !important;
+    height: 133.33vh !important;
+    overflow: hidden;
+  }
+}
+
+/* Optional: Für ganz kleine Laptops (z.B. 720p Auflösung) */
+@media screen and (max-height: 800px) {
+  #root > div {
+    transform: scale(0.55);
+    transform-origin: top left;
+    width: 181.81vw !important;
+    height: 181.81vh !important;
+    overflow: hidden;
+  }
+}

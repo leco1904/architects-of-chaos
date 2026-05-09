@@ -1383,7 +1383,8 @@ export default function App() {
   // ════════════════════════════════════════════════════════════════════════════
 
   const renderRoguelikeView = () => {
-    const scaleStyle = { zoom: 1.5, width: '66.6vw', height: '66.6vh', overflow: 'hidden' };
+    // scaleStyle entfernt, da es Layout-Probleme auf verschiedenen Auflösungen verursacht
+    const scaleStyle = {};
     
     if (currentView === 'ghostnodemenu') return (
       <div style={scaleStyle}>
@@ -1745,7 +1746,7 @@ export default function App() {
       )}
 
       {currentView === 'missions' && (
-        <div className="screen active" style={{ justifyContent: 'center', alignItems: 'center', zoom: 1.5 }}>
+        <div className="screen active" style={{ justifyContent: 'center', alignItems: 'center' }}>
           <div className="game-title-small" style={{ fontSize: '2rem', marginBottom: '30px' }}>AKTUELLE MISSIONEN</div>
           <div className="glass-panel" style={{ width: '100%', maxWidth: '500px', padding: '30px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '30px' }}>
@@ -1804,7 +1805,7 @@ export default function App() {
         </div>
       )}
       {currentView === 'leaderboard' && (
-        <div style={{ zoom: 1.5, width: '100%', height: '100%' }}>
+        <div style={{ width: '100%', height: '100%' }}>
            <Leaderboard onBack={() => setCurrentView('menu')} />
         </div>
       )}
@@ -1895,7 +1896,7 @@ export default function App() {
         <div className="screen active" style={{ justifyContent: 'center', alignItems: 'center', position: 'relative', padding: '20px' }}>
           
           {/* Top Bar (Credits & Logout) bleibt erhalten */}
-          <div style={{ position: 'absolute', top: '20px', right: '30px', display: 'flex', gap: '15px', alignItems: 'center', zIndex: 100, zoom: 1.5 }}>
+          <div style={{ position: 'absolute', top: '20px', right: '30px', display: 'flex', gap: '15px', alignItems: 'center', zIndex: 100 }}>
              <div className="mono" style={{ fontSize: '1.2rem', color: '#fff', marginRight: '10px', textShadow: '0 0 10px var(--ep)' }}><span style={{color: 'var(--ep)'}}>{credits}</span> 💳</div>
              {session ? (
                <button className="btn-back" style={{borderColor:'var(--win)',color:'var(--win)'}} onClick={handleLogout}>
@@ -1907,7 +1908,7 @@ export default function App() {
           </div>
 
           {/* NEUES DASHBOARD LAYOUT */}
-          <div className="dash-container" style={{ zoom: 1.5, width: '66.6vw', height: '66.6vh', overflow: 'hidden' }}>
+          <div className="dash-container" style={{ width: '100%', height: '100%', maxWidth: '1400px', maxHeight: '900px', margin: '0 auto', overflow: 'hidden' }}>
             
             {/* LINKE SEITE: Core Actions & Titel */}
             <div className="dash-left">
@@ -2013,7 +2014,7 @@ export default function App() {
 
       {/* SYSTEM OVERRIDES SCREEN */}
       {currentView === 'overrides' && (
-         <div style={{ zoom: 1.5, width: '100%', height: '100%' }}>
+         <div style={{ width: '100%', height: '100%' }}>
             <SystemOverrides metaStats={metaStats} onBack={() => setCurrentView('menu')} onClaim={claimOverride} />
          </div>
       )}
