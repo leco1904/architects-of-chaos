@@ -111,7 +111,7 @@ export default function Market({
   };
 
   return (
-    <div className="screen active" style={{ display: 'block', padding: '30px', overflowY: 'auto', zoom: 1.5 }}>
+    <div className="screen active" style={{ display: 'block', padding: '30px', overflowY: 'auto' }}>
       {/* HEADER */}
       <div className="top-bar">
         <div className="game-title-small">SCHWARZMARKT</div>
@@ -268,9 +268,16 @@ export default function Market({
       {showFlash && <div className="screen-flash"></div>}
 
       {pulledCards.length > 0 && (
-        <div className="reveal-container" style={{ zIndex: 2000 }}>
-          <h2 className="reveal-title">ACCESS GRANTED</h2>
-          <div className="pull-reveal-grid">
+        <div className="reveal-container" style={{ 
+          zIndex: 2000, position: 'fixed', inset: 0, background: 'rgba(5, 5, 12, 0.98)', 
+          overflowY: 'auto', display: 'flex', flexDirection: 'column', 
+          alignItems: 'center', padding: '60px 20px 100px 20px' 
+        }}>
+          <h2 className="reveal-title" style={{ flexShrink: 0, marginBottom: '40px' }}>ACCESS GRANTED</h2>
+          <div className="pull-reveal-grid" style={{ 
+            display: 'flex', flexWrap: 'wrap', justifyContent: 'center', 
+            gap: '30px', maxWidth: '1400px', marginBottom: '40px', flexShrink: 0 
+          }}>
             {pulledCards.map((c, i) => {
               // Zählt, wie oft diese Karte im gesamten Inventar existiert
               const totalOwned = inventory.filter(inv => inv.name === c.name).length;
@@ -296,7 +303,7 @@ export default function Market({
               );
             })}
           </div>
-          <button className="menu-btn btn-primary" style={{ marginTop: '20px', maxWidth: '300px', zIndex: 100 }} onClick={closeReveal}>ÜBERNEHMEN</button>
+          <button className="menu-btn btn-primary" style={{ flexShrink: 0, marginTop: 'auto', maxWidth: '300px', zIndex: 100, padding: '15px 40px' }} onClick={closeReveal}>ÜBERNEHMEN</button>
         </div>
       )}
       {/* ODDS MODAL */}

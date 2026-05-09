@@ -402,7 +402,10 @@ export default function App() {
   const [friends, setFriends] = useState([]); // NEU: Liste für Ghost Node Direct-Invites
 
   const [clientSquadReady, setClientSquadReady] = useState(null); 
-  const [mySquadReady, setMySquadReady] = useState(false); 
+  const [mySquadReady, setMySquadReady] = useState(false);
+  const [roguelikeMatchData, setRoguelikeMatchData] = useState(null);
+  const [roguelikeEventData, setRoguelikeEventData] = useState(null);
+  const [rewardData, setRewardData] = useState(null);
   const activeDeck = decks.find(d => d.isActive) || decks[0];
 
   // NEU: Freunde für das Schnell-Invite-System im Ghost Node Hub laden
@@ -868,6 +871,14 @@ export default function App() {
     setCurrentView('roguelikemap');
   };
 
+  const startRoguelikeEvent = (nodeObj) => {
+    setRoguelikeEventData(nodeObj);
+    setCurrentView('roguelikeevent');
+    if (conn && isCoopMode) {
+      conn.send({ type: 'START_RL_EVENT', nodeObj });
+    }
+  };
+
   const startRoguelikeRun = () => {
     if (!avatarCard) { setCurrentView('avatarlab'); return; }
     if (roguelikeRun) { setCurrentView('roguelikemap'); return; } 
@@ -944,6 +955,7 @@ export default function App() {
     const isElite = node === 3 || roguelikeMatchData?.node?.type === 'elite';
     const currentSector = roguelikeRun.sector;
     
+    const isSector5Boss = isBoss && currentSector === 5; // Finalboss: Sektor 5 Architect
     const spGain = isBoss ? (3 + Math.floor(currentSector/3)) : (isElite ? (currentSector > 3 ? 2 : 1) : 1);
     const earnedCredits = Math.floor((isBoss ? 500 : (isElite ? 200 : 75)) * (1 + currentSector * 0.15));
 
