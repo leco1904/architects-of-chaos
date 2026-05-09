@@ -717,17 +717,6 @@ export default function App() {
 
   const updateAvatar = (newAvatar) => { setAvatarCard(newAvatar); };
 
-  // Der Rest deiner Hilfsfunktionen (generateAIDeck, startMatchFlow etc.) 
-  // bleibt wie er ist, achte nur darauf, dass die Datei am Ende so schließt:
-  
-  return (
-    <div style={{ '--matrix-col': getThemeColor(currentView), height: '100vh', width: '100vw', position: 'relative', overflow: 'hidden' }}>
-      <CyberBackground color={getThemeColor(currentView)} />
-      {/* ... dein restlicher JSX-Code ... */}
-    </div>
-  );
-   
-
   const generateAIDeck = (nodeObj, sector) => {
     const isBoss = nodeObj.type === 'boss';
     const isElite = nodeObj.type === 'elite';
