@@ -63,7 +63,7 @@ function Corners({ color='var(--win)', size=8 }) {
 }
 
 // ── Node Preview Modal ────────────────────────────────────────────────────
-function NodeModal({ nodeObj, sector, currentNode, onClose, onStartBattle, onStartEvent, isCoop, myNodeReady, partnerNodeReady, onReadyClick }) {
+function NodeModal({ nodeObj, sector, currentNode, onClose, onStartBattle, onStartEvent, isCoop, myNodeReady, partnerNodeReady, onReadyClick, baseHp = 200 }) {
   if (!nodeObj) return null;
   const n = nodeObj.step;
   const info = NODE_TYPES[nodeObj.type];
@@ -74,26 +74,29 @@ function NodeModal({ nodeObj, sector, currentNode, onClose, onStartBattle, onSta
   const isEvent = info.type === 'event';
   const eventData = isEvent ? EVENT_DETAILS[nodeObj.type] : null;
 
+  // DYNAMISCHE SCALING BERECHNUNG (entspricht exakt App.jsx)
+  const isBoss = nodeObj.type === 'boss';
+  const isElite = nodeObj.type === 'elite';
+
   // Battle Specific Data
   const actualDiff = (isBoss || sector >= 4) ? 4 : 3;
   const diffNames = ['','TRAINEE','OPERATIVE','EXECUTIVE','ARCHITECT'];
   const diffColors = ['','var(--win)','var(--ep)','var(--r-epi)','var(--lose)'];
-
-  // DYNAMISCHE SCALING BERECHNUNG (entspricht exakt App.jsx)
-  const isBoss = nodeObj.type === 'boss';
-  const isElite = nodeObj.type === 'elite';
   
-  let displayHp = 500;
+  const BASE_HP = baseHp; // DYNAMISCHER BALANCING WERT
+  const isHighSec = (sector === 3 || sector === 5);
+  let displayHp = BASE_HP;
+
   if (isBoss) {
-    if (sector > 5) displayHp = 2000 + (sector - 5) * 500;
-    else displayHp = [0, 800, 1000, 1300, 1600, 2000][sector] || 2000;
+    const bossMults = [0, 1.6, 2.0, 2.6, 3.2, 4.0];
+    const bHP = BASE_HP * (bossMults[sector] || 4.0);
+    displayHp = sector > 5 ? bHP + (sector - 5) * (BASE_HP * 0.5) : bHP;
   } else {
-    if (sector > 5) displayHp = (isElite ? 1000 : 700) + (sector - 5) * 250;
-    else if (sector <= 2) displayHp = isElite ? 750 : 500;
-    else if (sector === 3) displayHp = isElite ? 1000 : 700;
-    else if (sector === 4) displayHp = isElite ? 750 : 500;
-    else displayHp = isElite ? 1000 : 700;
+    const tMult = isElite ? (isHighSec ? 2.0 : 1.5) : (isHighSec ? 1.4 : 1.0);
+    const nHP = BASE_HP * tMult;
+    displayHp = sector > 5 ? nHP + (sector - 5) * (BASE_HP * 0.25) : nHP;
   }
+  displayHp = Math.floor(displayHp);
 
   const spGain = isBoss ? (3 + Math.floor(sector/3)) : (isElite ? (sector > 3 ? 2 : 1) : 1);
   const creditGain = Math.floor((isBoss ? 500 : (isElite ? 200 : 75)) * (1 + sector * 0.15));
@@ -372,7 +375,7 @@ function MiniCard({ card }) {
 }
 
 // ── Main Component ────────────────────────────────────────────────────────
-export default function RoguelikeMap({ avatarCard, roguelikeRun, onStartRun, onStartBattle, onStartEvent, onBack, onGoToLab, isCoop = false, conn = null, isHost = false }) {
+export default function RoguelikeMap({ baseHp = 200, avatarCard, roguelikeRun, onStartRun, onStartBattle, onStartEvent, onBack, onGoToLab, isCoop = false, conn = null, isHost = false }) {
   const [selectedNodeObj, setSelectedNodeObj] = useState(null);
   
   // CO-OP VOTING STATES
@@ -643,6 +646,7 @@ export default function RoguelikeMap({ avatarCard, roguelikeRun, onStartRun, onS
 
       {selectedNodeObj !== null && (
         <NodeModal 
+          baseHp={baseHp}
           nodeObj={selectedNodeObj} 
           sector={sector} 
           currentNode={node} 

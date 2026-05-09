@@ -79,7 +79,7 @@ function DrawPile({ charCount, effCount }) {
   );
 }
 
-export default function MatchEngine({ playerChars, playerEffs, partnerChars, partnerEffs, aiChars, aiEffs, difficulty = 1, isOnline = false, isCoop = false, isHost = false, conn = null, onEndGame, onShowRules, initialPHP = 500, initialAHP = 500, isRoguelike = false, contextLabel = '', onTrade }) {
+export default function MatchEngine({ playerChars, playerEffs, partnerChars, partnerEffs, aiChars, aiEffs, difficulty = 1, isOnline = false, isCoop = false, isHost = false, conn = null, onEndGame, onShowRules, initialPHP = 100, initialAHP = 100, isRoguelike = false, contextLabel = '', onTrade }) {
   // Shuffle ONCE, then split — avoids duplicates across hand/deck (Bug #011)
   const _sc = React.useRef(shuffle([...playerChars])).current;
   const _se = React.useRef(shuffle([...playerEffs])).current;

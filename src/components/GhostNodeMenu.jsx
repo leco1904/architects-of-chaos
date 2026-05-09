@@ -47,9 +47,13 @@ function HubButton({ icon, title, sub, color='var(--win)', locked, onClick, acti
 }
 
 // ── Main Component ────────────────────────────────────────────────────────
-export default function GhostNodeMenu({ avatarCard, roguelikeRun, allRuns = {}, onGoToLab, onGoToSquad, onGoToMap, onBack, friends = [], onInviteDirect, onDeleteCoop }) {
+export default function GhostNodeMenu({ session, baseHp, setBaseHp, avatarCard, roguelikeRun, allRuns = {}, onGoToLab, onGoToSquad, onGoToMap, onBack, friends = [], onInviteDirect, onDeleteCoop }) {
   const hasRun = !!roguelikeRun;
-  const [showInviteList, setShowInviteList] = React.useState(false); // NEU: Toggle für die Liste
+  const [showInviteList, setShowInviteList] = React.useState(false);
+
+  // Check, ob der eingeloggte User Manu oder Leon ist (egal welche Schreibweise)
+  const username = (session?.user?.user_metadata?.username || '').toUpperCase();
+  const isAdmin = username === 'MANU' || username === 'LEON' || username === 'ELSON'; // Added Elson per prompt instruction
 
   return (
     <div className="screen active" style={{display:'block',padding:'0',position:'relative',overflow:'hidden'}}>
@@ -198,6 +202,37 @@ export default function GhostNodeMenu({ avatarCard, roguelikeRun, allRuns = {}, 
                 ▸ Deck: Avatar + 5 Chars + 2 Effekte
               </div>
             </div>
+
+            {/* NEU: ADMIN TERMINAL (NUR FÜR MANU / LEON / ELSON) */}
+            {isAdmin && (
+              <div style={{ marginTop: '10px', padding: '14px', background: 'rgba(255,215,0,0.05)', border: '1px dashed rgba(255,215,0,0.4)', borderLeft: '3px solid #ffd700' }}>
+                 <div className="mono" style={{ fontSize: '0.65rem', color: '#ffd700', letterSpacing: '2px', marginBottom: '12px', fontWeight: 'bold' }}>
+                   ▸ SYSTEM ADMIN: THE ARCHITECTS
+                 </div>
+                 
+                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                       <span className="mono" style={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.6)' }}>BASE HP-SCALING (AKTUELL: {baseHp})</span>
+                       <button onClick={() => setBaseHp(200)} style={{ background: 'transparent', border: '1px solid #555', color: '#888', fontSize: '0.45rem', padding: '2px 6px', cursor: 'pointer' }}>RESET</button>
+                    </div>
+                    
+                    <input 
+                       type="range" 
+                       min="50" max="1000" step="10" 
+                       value={baseHp} 
+                       onChange={(e) => setBaseHp(parseInt(e.target.value))}
+                       style={{ width: '100%', accentColor: '#ffd700' }}
+                    />
+                    
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', marginTop: '6px' }}>
+                       <div className="mono" style={{ fontSize: '0.48rem', color: '#888' }}>STD. GEGNER: <span style={{ color: '#fff' }}>{baseHp} HP</span></div>
+                       <div className="mono" style={{ fontSize: '0.48rem', color: '#888' }}>ELITE GEGNER: <span style={{ color: 'var(--apex-pink)' }}>{Math.floor(baseHp * 1.5)} HP</span></div>
+                       <div className="mono" style={{ fontSize: '0.48rem', color: '#888' }}>SEKTOR-BOSS (S1): <span style={{ color: 'var(--lose)' }}>{Math.floor(baseHp * 1.6)} HP</span></div>
+                    </div>
+                 </div>
+              </div>
+            )}
+            
           </div>
         </div>
       </div>

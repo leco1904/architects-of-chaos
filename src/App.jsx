@@ -375,6 +375,16 @@ export default function App() {
   const [lexSearch, setLexSearch] = useState('');
   const [lexFaction, setLexFaction] = useState('ALL');
 
+  // ADMIN STATE: Dynamischer HP-Faktor
+  const [baseHp, setBaseHp] = useState(() => {
+    const saved = localStorage.getItem('aoc_base_hp');
+    return saved ? parseInt(saved) : 200; // Standardwert 200
+  });
+
+  useEffect(() => {
+    localStorage.setItem('aoc_base_hp', baseHp.toString());
+  }, [baseHp]);
+
   // --- MULTIPLAYER STATE ---
   const [peer, setPeer] = useState(null);
   const [myPeerId, setMyPeerId] = useState('');
@@ -511,7 +521,17 @@ export default function App() {
         
         if (p.avatar_card) {
           const baseAvatar = allBaseCards.find(c => c.name === p.avatar_card.name);
-          setAvatarCard(baseAvatar ? { ...baseAvatar, sp: p.avatar_card.sp } : p.avatar_card);
+          let avatarData = baseAvatar ? { ...baseAvatar, sp: p.avatar_card.sp } : p.avatar_card;
+          
+          // NEU: Automatische Bildzuweisung basierend auf dem Usernamen
+          const normalizedName = p.username?.toUpperCase();
+          if (normalizedName === 'MANU') {
+            avatarData.photo = 'avatars/manu.png';
+          } else if (normalizedName === 'LEON') {
+            avatarData.photo = 'avatars/leon.png';
+          }
+          
+          setAvatarCard(avatarData);
         } else if (p.avatar_card === null) {
           setAvatarCard(null);
         }
@@ -660,39 +680,31 @@ export default function App() {
   const generateAIDeck = (nodeObj, sector) => {
     const isBoss = nodeObj.type === 'boss';
     const isElite = nodeObj.type === 'elite';
-    let aHP = 500;
-    let diff = 3; // Startet auf Executive
+    const BASE_HP = baseHp; // DYNAMISCHER BALANCING WERT
+    let aHP = BASE_HP;
+    let diff = (isBoss || sector >= 4) ? 4 : 3;
 
-    // 1. HP & Schwierigkeit nach Sektor-Regeln (inkl. Endless Scaling)
     if (isBoss) {
-      if (sector > 5) {
-        aHP = 2000 + (sector - 5) * 500; // +500 HP pro Sektor ab S6
-      } else {
-        const bossHP = [0, 800, 1000, 1300, 1600, 2000];
-        aHP = bossHP[sector] || 2000;
-      }
-      diff = 4;
+      // Bosse skalieren von 1.6x bis 4.0x BASE_HP
+      const bossMultipliers = [0, 1.6, 2.0, 2.6, 3.2, 4.0];
+      const baseBossHP = BASE_HP * (bossMultipliers[sector] || 4.0);
+      aHP = sector > 5 ? baseBossHP + (sector - 5) * (BASE_HP * 0.5) : baseBossHP;
     } else {
-      if (sector > 5) {
-        aHP = (isElite ? 1000 : 700) + (sector - 5) * 250; // +250 HP pro Sektor ab S6
-        diff = 4;
-      } else if (sector <= 2) {
-        aHP = isElite ? 750 : 500;
-        diff = 3;
-      } else if (sector === 3) {
-        aHP = isElite ? 1000 : 700;
-        diff = 3;
-      } else if (sector === 4) {
-        aHP = isElite ? 750 : 500;
-        diff = 4;
-      } else if (sector === 5) {
-        aHP = isElite ? 1000 : 700;
-        diff = 4;
-      }
+      // Standard: 1.0x (S1-2, S4) oder 1.4x (S3, S5)
+      // Elite: 1.5x (S1-2, S4) oder 2.0x (S3, S5)
+      const isHighSecSector = (sector === 3 || sector === 5);
+      const typeMult = isElite ? (isHighSecSector ? 2.0 : 1.5) : (isHighSecSector ? 1.4 : 1.0);
+      
+      const baseNodeHP = BASE_HP * typeMult;
+      aHP = sector > 5 ? baseNodeHP + (sector - 5) * (BASE_HP * 0.25) : baseNodeHP;
     }
+    aHP = Math.floor(aHP);
 
     // 3. KARTEN-LEVEL BERECHNEN (Maximal 3 für visuelles Cap)
     const finalLevel = nodeObj.type === 'boss' ? 3 : Math.min(3, Math.ceil(sector / 2));
+
+    // 4. ENDLESS SCALING: Extra GTI-Buff auf alle Stats ab Sektor 6
+    const extraGtiBuff = sector > 5 ? (sector - 5) * 5 : 0;
 
     // 5. DECK ZUSAMMENSTELLEN (Mit stufenabhängigen Fraktions-Synergien!)
     let charPool = [...cardsData.characters];
@@ -777,8 +789,8 @@ export default function App() {
             let clientChars = [{ ...clientSquadReady.avatarCard }, ...clientSquadReady.chars];
             if (assignedToClient) clientChars.push(assignedToClient);
 
-            // FIX: Co-Op Base (1000 HP)
-            const baseRunInfo = { currentHP: 1000, maxHP: 1000, sector: 1, node: 1, seed: Math.random(), isCoop: true };
+            // FIX: Co-Op Base (200 HP Team-Pool)
+            const baseRunInfo = { currentHP: 400, maxHP: 400, sector: 1, node: 1, seed: Math.random(), isCoop: true };
             
             const hostRun = { ...baseRunInfo, runDeck: { chars: hostChars, effs: selectedEffs } };
             const clientRun = { ...baseRunInfo, runDeck: { chars: clientChars, effs: clientSquadReady.effs } };
@@ -801,8 +813,8 @@ export default function App() {
     if (teamChar) compiledChars.push({ ...teamChar, isTeamAsset: true });
     
     const newRun = {
-      currentHP: 500, 
-      maxHP: 500, 
+      currentHP: 200, 
+      maxHP: 200, 
       sector: 1, 
       node: 1, 
       seed: Math.random(),
@@ -1376,6 +1388,9 @@ export default function App() {
     if (currentView === 'ghostnodemenu') return (
       <div style={scaleStyle}>
         <GhostNodeMenu 
+          session={session}
+          baseHp={baseHp}
+          setBaseHp={setBaseHp}
           avatarCard={avatarCard} 
           updateAvatar={updateAvatar} 
           roguelikeRun={roguelikeRun} 
@@ -1403,7 +1418,7 @@ export default function App() {
     if (currentView === 'roguelikesquad') return <div style={scaleStyle}><RoguelikeSquad avatarCard={avatarCard} inventory={inventory} onConfirm={startRoguelikeRunWithDeck} onBack={() => setCurrentView('ghostnodemenu')} isCoop={isCoopMode} isHost={lobbyMode === 'host'} partnerReady={!!clientSquadReady} mySquadReady={mySquadReady} /></div>;
     if (currentView === 'roguelikemap') {
       if (!roguelikeRun) return <div className="screen active" style={{ justifyContent: 'center', alignItems: 'center' }}><div className="mono" style={{ color: 'var(--ep)', fontSize: '1.2rem', animation: 'pulse 1s infinite' }}>INITIALISIERE THE GRID...</div></div>;
-      return <RoguelikeMap avatarCard={avatarCard} roguelikeRun={roguelikeRun} onStartRun={startRoguelikeRun} onStartBattle={startRoguelikeMatch} onStartEvent={startRoguelikeEvent} onBack={() => setCurrentView('ghostnodemenu')} onGoToLab={() => setCurrentView('avatarlab')} isCoop={isCoopMode} conn={conn} isHost={lobbyMode === 'host'} />;
+      return <RoguelikeMap baseHp={baseHp} avatarCard={avatarCard} roguelikeRun={roguelikeRun} onStartRun={startRoguelikeRun} onStartBattle={startRoguelikeMatch} onStartEvent={startRoguelikeEvent} onBack={() => setCurrentView('ghostnodemenu')} onGoToLab={() => setCurrentView('avatarlab')} isCoop={isCoopMode} conn={conn} isHost={lobbyMode === 'host'} />;
     }
     if (currentView === 'roguelikeevent' && roguelikeEventData) return <RoguelikeEventScreen nodeObj={roguelikeEventData} roguelikeRun={roguelikeRun} avatarCard={avatarCard} cardsData={cardsData} onComplete={(nextRun, nextAvatar) => { playSound('click'); setRoguelikeRun(nextRun); setAvatarCard(nextAvatar); setRoguelikeEventData(null); setCurrentView('roguelikemap'); }} />;
     if (currentView === 'roguelikereward') return (
