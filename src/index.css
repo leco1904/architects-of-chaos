@@ -10,7 +10,7 @@
 
 * { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
 
-/* Hide all scrollbars globally — scroll still works, just no visible bar */
+/* Hide all scrollbars globally â€” scroll still works, just no visible bar */
 * { scrollbar-width: none; -ms-overflow-style: none; }
 *::-webkit-scrollbar { display: none; }
 
@@ -31,10 +31,56 @@ body, html {
 /* ========================================= */
 /* --- 1. CARD BASE & MAGIC SCALER ---       */
 /* ========================================= */
-.card-drop-shadow { filter: drop-shadow(0 15px 25px rgba(0,0,0,0.8)) drop-shadow(0 0 5px rgba(255,255,255,0.05)); cursor: pointer; display: inline-block; }
-.magic-scaler-host { container-type: inline-size; width: 100%; height: 100%; position: relative; display: block; }
-.magic-scaler-inner { transform: scale(calc(100cqi / 360px)); transform-origin: top left; }
-.card-3d-wrapper { width: 360px; height: 504px; position: relative; transition: transform 0.1s ease-out; will-change: transform; z-index: 10; }
+.synergy-aura-host {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 0 !important;
+  /* ULTIMATER HACK: 140% (7/5) zwingt Chrome dazu, das Raster VOR der Berechnung aufzuspannen! */
+  padding-bottom: 140%; 
+}
+
+.card-drop-shadow {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: pointer;
+}
+
+.magic-scaler-host {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  container-type: inline-size;
+  /* FIX: content-visibility entfernt, da es diesen fiesen "Stotter-Lag" beim Scrollen verursacht */
+}
+
+.magic-scaler-inner {
+  position: absolute;
+  top: 0; left: 0;
+  width: 360px;
+  height: 504px;
+  /* translateZ(0) erzwingt, dass die Grafikkarte (GPU) das Rendern übernimmt = Butterweiches Scrollen */
+  transform: scale(calc(100cqi / 360px)) translateZ(0); 
+  transform-origin: top left;
+  will-change: transform;
+  
+  /* PERFORMANCE BOOST: box-shadow statt filter: drop-shadow. 
+     Entlastet die Grafikkarte um bis zu 95%! */
+  border-radius: 12px; /* Entspricht den abgerundeten Ecken deiner Karten */
+  box-shadow: 0 15px 25px rgba(0,0,0,0.8), 0 0 5px rgba(255,255,255,0.05);
+}
+
+.card-3d-wrapper { 
+  width: 360px; height: 504px; 
+  position: absolute; top: 0; left: 0; 
+  transition: transform 0.1s ease-out; 
+  will-change: transform; z-index: 10; 
+}
 .card-edge { position: absolute; inset: 0; clip-path: polygon(20px 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%, 0 20px); }
 .edge-apex { background: var(--apex-pink); } .edge-legacy { background: var(--legacy-sepia); }
 .edge-legendary { background: var(--r-leg); } .edge-epic { background: var(--r-epi); }
@@ -62,7 +108,7 @@ body, html {
 /* --- 1.5 3D FLIP & REVEAL MECHANICS ---    */
 /* ========================================= */
 
-/* (alter card-flipper/backface-visibility Code entfernt — wird durch JS-Flip in Card.jsx ersetzt) */
+/* (alter card-flipper/backface-visibility Code entfernt â€” wird durch JS-Flip in Card.jsx ersetzt) */
 
 /* Art Only Mode (Versteckt die Details sanft) */
 .art-only-mode .card-stats,
@@ -82,12 +128,12 @@ body, html {
 
 
 
-/* Elemente, die standardmäßig faden können */
+/* Elemente, die standardmÃ¤ÃŸig faden kÃ¶nnen */
 .card-stats, .c-center-visual, .gti-core, .type-badge, .card-tags-container, .card-micro-data, .level-badge {
   transition: opacity 0.5s ease-in;
 }
 
-/* Datapad Style für die Rückseite */
+/* Datapad Style fÃ¼r die RÃ¼ckseite */
 .datapad-box {
   background: rgba(10,10,15,0.85);
   border: 1px solid #333;
@@ -134,7 +180,7 @@ body, html {
 .card-name { font-size: 1.4rem; font-weight: 700; color: #fff; line-height: 1.1; }
 .card-title { font-size: 0.7rem; color: #888; text-transform: uppercase; margin-top: 2px; }
 
-/* BUGFIX 4: Radar drückt keine Stats mehr runter */
+/* BUGFIX 4: Radar drÃ¼ckt keine Stats mehr runter */
 .radar-wrapper { position: absolute; top: 35%; left: 50%; transform: translate(-50%, -50%); z-index: 1; pointer-events: none; opacity: 0.8; }
 .c-center-visual { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; margin: 10px 0 15px 0; position: relative; }
 .c-text-wrap { position: relative; z-index: 2; padding: 12px; text-align: center; background: rgba(15,15,20,0.45); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.05); border-top: 1px solid rgba(255,255,255,0.3); border-radius: 8px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.6); }
@@ -160,19 +206,23 @@ body, html {
 /* Card Selection FX */
 .card-stat.selected-player { background: rgba(0,229,255,0.15); border: 1px solid var(--win); box-shadow: 0 0 15px rgba(0,229,255,0.4); transform: scale(1.02); }
 .card-stat.selected-ai { background: rgba(255,0,85,0.2); border: 1px solid var(--lose); box-shadow: 0 0 15px rgba(255,0,85,0.4); transform: scale(1.02); }
-/* ── Faction Synergy — Golden Aura HINTER der Karte ────────────────────── */
+/* â”€â”€ Faction Synergy â€” Golden Aura HINTER der Karte â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .synergy-aura-host {
   position: relative;
   display: inline-block;
 }
 
-/* :has() macht Parent-Wrapper overflow:visible → Glow wird nicht mehr geclipt */
+/* :has() macht Parent-Wrapper overflow:visible â†’ Glow wird nicht mehr geclipt */
 .mini-card-wrapper:has(.synergy-aura-active),
-.hand-card-wrapper:has(.synergy-aura-active) {
+.hand-card-wrapper:has(.synergy-aura-active),
+.card-grid-cell:has(.synergy-aura-active) {
   overflow: visible;
+  z-index: 5;
 }
+/* ErhÃ¶ht den Z-Index bei Hover, damit die Aura Ã¼ber Nachbarkarten liegt */
+.mini-card-wrapper:hover, .card-grid-cell:hover { z-index: 50 !important; }
 
-/* Glow-Div liegt im DOM VOR card-drop-shadow → rendert hinter der Karte */
+/* Glow-Div liegt im DOM VOR card-drop-shadow â†’ rendert hinter der Karte */
 .synergy-aura-glow {
   position: absolute;
   inset: -50px;
@@ -189,7 +239,7 @@ body, html {
   filter: blur(20px);
 }
 
-/* Dünner Gold-Ring um die Karte */
+/* DÃ¼nner Gold-Ring um die Karte */
 .synergy-aura-active::after {
   content: '';
   position: absolute;
@@ -216,6 +266,8 @@ body, html {
 .syn-chip { font-size: 0.65rem; background: rgba(0,255,204,0.1); border: 1px solid rgba(0,255,204,0.3); padding: 1px 5px; border-radius: 4px; color: #fff; }
 
 @keyframes pulse { 0%, 100% { transform: scale(0.95); opacity: 0.8; } 50% { transform: scale(1.05); opacity: 1; } }
+/* CRITICAL FIX: 'filter: brightness' entfernt. Animierte Filter zerschießen Chrome Container-Queries! */
+@keyframes glowPulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
 @keyframes anomalyGlitch { 0% { transform: translate(0); } 10% { transform: translate(-1px, 1px); } 20% { transform: translate(1px, -1px); } 30% { transform: translate(0); } }
 
 /* ========================================= */
@@ -223,7 +275,7 @@ body, html {
 /* ========================================= */
 .screen { 
   display: none; width: 100%; 
-  height: 100%; /* FIX: Verhindert, dass Screens über den Viewport hinauswachsen */
+  height: 100%; /* FIX: Verhindert, dass Screens Ã¼ber den Viewport hinauswachsen */
   flex-direction: column; padding: 20px; background-color: transparent !important; 
 }
 .screen.active { display: flex; animation: screenFadeIn 0.4s ease-out forwards; position: relative; z-index: 10; }
@@ -250,157 +302,177 @@ body, html {
 @keyframes floatUpMoney { 0% { opacity: 0; transform: translateY(0) scale(0.5); } 20% { opacity: 1; transform: translateY(-20px) scale(1.2); } 100% { opacity: 0; transform: translateY(-60px) scale(0.8); } }
 
 /* ========================================= */
-/* --- 3. MAIN MENU (DASHBOARD LAYOUT) ---   */
+/* --- 3. COMMAND CENTER (DASHBOARD) ---     */
 /* ========================================= */
-
-.dash-container {
+.command-center-layout {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
   width: 100%;
-  max-width: 1200px; /* Begrenzt die maximale Breite! */
-  margin: 0 auto;
-  gap: 60px;
+  height: 100%;
+  padding: 80px 40px 40px; /* Platz für die Top-Bar gelassen */
+  gap: 40px;
+  background: radial-gradient(circle at 30% 50%, rgba(188, 19, 254, 0.05) 0%, transparent 50%);
+  position: relative;
   z-index: 10;
 }
 
-/* Linke Seite: Titel & Haupt-Action */
-.dash-left {
-  flex: 1.2;
-  display: flex;
-  flex-direction: column;
-}
-
-.dash-title {
-  color: #fff;
-  font-size: 4.5rem;
-  font-weight: 900;
-  line-height: 1.1;
-  letter-spacing: 12px;
-  text-shadow: 0 0 30px rgba(255,255,255,0.2);
-  margin-bottom: 10px;
-}
-
-.dash-subtitle {
-  color: var(--win);
-  font-size: 1rem;
-  font-weight: 700;
-  letter-spacing: 8px;
-  margin-bottom: 50px;
-  text-transform: uppercase;
-}
-
-.dash-main-actions, .dash-play-menu {
+.ops-column {
+  width: 420px;
   display: flex;
   flex-direction: column;
   gap: 20px;
-  width: 100%;
-  max-width: 450px;
 }
 
-/* Fette Hero Buttons (Start & Ghost Node) */
-.dash-btn-hero {
+.ops-header {
+  font-family: 'Share Tech Mono', monospace;
+  color: rgba(255, 255, 255, 0.3);
+  letter-spacing: 5px;
+  font-size: 0.8rem;
+  margin-bottom: 10px;
+}
+
+/* GHOST NODE BUTTON */
+.btn-main-op {
   position: relative;
-  background: transparent;
-  border: 2px solid var(--win);
-  color: var(--win);
-  padding: 25px 30px;
-  font-family: 'Rajdhani', sans-serif;
-  font-size: 1.5rem;
-  font-weight: 900;
-  letter-spacing: 4px;
+  background: rgba(188, 19, 254, 0.1);
+  border: 2px solid #bc13fe;
+  padding: 30px;
   text-align: left;
+  color: white;
   cursor: pointer;
-  overflow: hidden;
-  border-radius: 4px;
-  transition: all 0.3s ease;
-  clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px));
+  clip-path: polygon(0 0, 100% 0, 100% 75%, 85% 100%, 0 100%);
+  transition: all 0.3s;
 }
 
-.dash-btn-hero .hero-bg {
-  position: absolute; inset: 0; background: var(--win); opacity: 0.1; transition: 0.3s;
-}
-.dash-btn-hero:hover .hero-bg { opacity: 0.25; }
-.dash-btn-hero:hover { transform: translateX(10px); box-shadow: -10px 0 30px rgba(0,229,255,0.2); }
-.dash-btn-hero .hero-text { position: relative; z-index: 2; }
-
-.ghost-node-btn { border-color: var(--apex-pink); color: var(--apex-pink); }
-.ghost-node-btn .hero-bg { background: var(--apex-pink); opacity: 0.05; }
-.ghost-node-btn:hover .hero-bg { opacity: 0.15; }
-.ghost-node-btn:hover { box-shadow: -10px 0 30px rgba(255,0,127,0.2); }
-
-.ghost-tags {
-  position: absolute; top: 15px; right: 20px; display: flex; flex-direction: column; align-items: flex-end; gap: 5px; font-size: 0.6rem; z-index: 2;
-}
-.tag-new { background: var(--ep); color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; }
-.tag-active { background: var(--apex-pink); color: #fff; padding: 2px 6px; border-radius: 3px; font-weight: bold; box-shadow: 0 0 10px var(--apex-pink); animation: pulse 2s infinite; }
-
-/* Rechte Seite: System Module Grid */
-.dash-right {
-  flex: 1;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 15px;
+.btn-main-op:hover {
+  background: rgba(188, 19, 254, 0.2);
+  box-shadow: 0 0 30px rgba(188, 19, 254, 0.3);
+  transform: scale(1.02);
 }
 
-.dash-btn-module {
+.btn-main-glitch {
+  position: absolute; inset: 0; background: #bc13fe; opacity: 0; pointer-events: none;
+}
+.btn-main-op:hover .btn-main-glitch { animation: btnGlitch 0.2s steps(2) infinite; }
+@keyframes btnGlitch { 0% { opacity: 0.1; transform: translate(2px, -2px); } 50% { opacity: 0.2; transform: translate(-2px, 2px); } 100% { opacity: 0.1; transform: translate(0); } }
+
+.op-tag { background: #bc13fe; color: black; font-weight: bold; padding: 2px 8px; font-size: 0.7rem; border-radius: 2px; }
+.op-title { font-size: 1.6rem; font-weight: 900; margin-top: 10px; letter-spacing: 2px; }
+.op-desc { color: rgba(255, 255, 255, 0.5); font-size: 0.8rem; margin-bottom: 15px; }
+.op-status { font-family: 'Roboto Mono', monospace; color: #bc13fe; font-size: 0.7rem; }
+
+/* SCHNELLES SPIEL */
+.btn-quick-play {
   position: relative;
-  background: rgba(15, 15, 20, 0.6);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255,255,255,0.1);
-  padding: 30px 15px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
+  background: rgba(0, 229, 255, 0.05);
+  border: 1px solid #00e5ff;
+  padding: 20px 30px;
+  text-align: left;
+  color: white;
   cursor: pointer;
-  border-radius: 6px;
-  transition: all 0.2s ease;
-  font-family: 'Rajdhani', sans-serif;
-  color: #aaa;
+  clip-path: polygon(0 0, 100% 0, 100% 80%, 92% 100%, 0 100%);
+  transition: 0.2s;
+}
+.btn-quick-play:hover { background: rgba(0, 229, 255, 0.12); box-shadow: 0 0 20px rgba(0,229,255,0.2); }
+
+.op-tag-cyan { color: #00e5ff; font-size: 0.7rem; border-bottom: 1px solid #00e5ff; display: inline-block; }
+
+.quick-play-dropdown {
+  position: absolute; top: 100%; left: 0; right: 0; background: #0c0c14; border: 1px solid #00e5ff;
+  z-index: 200; margin-top: 5px; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+}
+.quick-play-dropdown div { padding: 12px 20px; font-family: 'Roboto Mono', monospace; font-size: 0.8rem; color: #aaa; transition: 0.2s; cursor: pointer; }
+.quick-play-dropdown div:hover { background: rgba(0,229,255,0.1); color: #fff; }
+
+/* MODULES GRID */
+.modules-side { flex: 1; display: flex; flex-direction: column; gap: 30px; }
+.modules-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 15px;
+  flex: 1;
+}
+
+.module-item {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  padding: 0 25px;
+  gap: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
   clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
 }
 
-.dash-btn-module:hover {
-  background: rgba(0, 229, 255, 0.05);
-  border-color: var(--win);
-  color: #fff;
-  transform: translateY(-5px);
-  box-shadow: 0 10px 20px rgba(0,0,0,0.5);
-}
+.module-item:hover { background: rgba(255, 255, 255, 0.08); border-color: white; transform: translateY(-3px); }
+.module-item::before { content: ''; position: absolute; left: 0; top: 0; width: 4px; height: 100%; }
 
-.mod-icon { font-size: 2.2rem; filter: drop-shadow(0 0 8px currentColor); }
-.mod-text { font-size: 0.95rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+.mod-blue::before { background: #00e5ff; }
+.mod-gold::before { background: #ffd700; }
+.mod-green::before { background: #00ff44; }
+.mod-white::before { background: #fff; }
+.mod-orange::before { background: #ff8800; }
+.mod-pink::before { background: #ff007f; }
 
-.highlight-module { border-color: rgba(255,215,0,0.3); color: var(--ep); }
-.highlight-module:hover { background: rgba(255,215,0,0.08); border-color: var(--ep); }
+.mod-icon { font-size: 1.8rem; opacity: 0.7; }
+.mod-label { font-weight: bold; letter-spacing: 2px; font-size: 0.9rem; text-transform: uppercase; }
 
 .notif-dot {
   position: absolute; top: 12px; right: 12px; width: 10px; height: 10px;
   border-radius: 50%; box-shadow: 0 0 10px currentColor; animation: pulse 1.5s infinite;
 }
 
-/* === MOBILE ANPASSUNG FÜR DAS NEUE DASHBOARD === */
+/* TERMINAL */
+.live-terminal {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 15px;
+  font-family: 'Roboto Mono', monospace;
+  font-size: 0.65rem;
+  color: rgba(0, 229, 255, 0.4);
+  height: 120px;
+}
+.terminal-header { border-bottom: 1px solid rgba(0, 229, 255, 0.1); margin-bottom: 8px; padding-bottom: 4px; color: #00e5ff; }
+.terminal-line { margin-bottom: 4px; animation: terminalLineIn 0.3s ease-out; }
+@keyframes terminalLineIn { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: translateX(0); } }
+
+/* SETTINGS */
+.btn-settings-trigger {
+  background: transparent; border: none; color: rgba(255, 255, 255, 0.2);
+  font-family: 'Roboto Mono', monospace; font-size: 0.8rem; cursor: pointer; text-align: left;
+  transition: 0.2s; padding: 10px 0;
+}
+.btn-settings-trigger:hover { color: #fff; text-shadow: 0 0 10px #fff; }
+
+.settings-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+  display: flex; align-items: center; justify-content: center; z-index: 20000;
+  backdrop-filter: blur(10px);
+}
+.settings-box {
+  width: 400px; background: #0c0c14; border: 1px solid #bc13fe; padding: 30px;
+  box-shadow: 0 0 50px rgba(188, 19, 254, 0.2);
+}
+.settings-header { display: flex; justify-content: space-between; border-bottom: 1px solid #333; padding-bottom: 15px; margin-bottom: 20px; }
+.settings-header span { font-weight: bold; letter-spacing: 2px; color: #bc13fe; }
+.settings-header button { background: transparent; border: none; color: #555; cursor: pointer; font-size: 1.2rem; }
+.setting-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.setting-row label { font-size: 0.8rem; color: #888; }
+
+/* === MOBILE ADAPTATION COMMAND CENTER === */
 @media (max-width: 900px) {
-  .dash-container {
-    flex-direction: column;
-    gap: 40px;
-    padding-top: 40px;
-  }
-  .dash-left {
-    align-items: center;
-    text-align: center;
-  }
-  .dash-title { font-size: 3rem; letter-spacing: 6px; }
-  .dash-subtitle { font-size: 0.8rem; letter-spacing: 4px; margin-bottom: 30px; }
-  .dash-main-actions { align-items: center; max-width: 100%; }
-  .dash-btn-hero { width: 100%; text-align: center; padding: 20px; font-size: 1.2rem; }
-  .ghost-tags { position: static; flex-direction: row; justify-content: center; margin-top: 8px; }
-  .dash-right { width: 100%; }
-  .dash-btn-module { padding: 20px 10px; }
-  .mod-icon { font-size: 1.8rem; }
-  .mod-text { font-size: 0.8rem; }
+  .command-center-layout { flex-direction: column; padding: 80px 20px 20px; overflow-y: auto; gap: 20px; }
+  .ops-column { width: 100%; }
+  .btn-main-op { padding: 20px; }
+  .op-title { font-size: 1.2rem; }
+  .modules-grid { grid-template-columns: 1fr 1fr; height: auto; flex: none; }
+  .module-item { padding: 15px 10px; flex-direction: column; text-align: center; gap: 8px; }
+  .mod-icon { font-size: 1.2rem; }
+  .mod-label { font-size: 0.7rem; }
+  .live-terminal { height: 100px; }
 }
 
 /* ========================================= */
@@ -419,12 +491,12 @@ body, html {
 .ep-bg { background: var(--ep); box-shadow: 0 0 15px var(--ep); } .crisis-bg { background: var(--crisis); box-shadow: 0 0 15px var(--crisis); }
 
 .cockpit-action-column { display: flex; flex-direction: column; width: 320px; }
-/* Draw pile — mirrors action column width to center the card */
+/* Draw pile â€” mirrors action column width to center the card */
 .cockpit-draw-column { width: 320px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; }
 /* Prevent in-game scrolling (Fix 5) */
 #game-ui { overflow: hidden; max-height: 100vh; }
 
-/* ── NACHZIEHSTAPEL ──────────────────────────────────────────────────── */
+/* â”€â”€ NACHZIEHSTAPEL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .draw-pile-panel { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 16px 20px; }
 .draw-pile-heading { font-size: 0.58rem; color: rgba(255,255,255,0.25); letter-spacing: 3px; margin-bottom: 10px; text-align: center; }
 .draw-pile-group { display: flex; flex-direction: column; align-items: center; gap: 8px; }
@@ -442,7 +514,7 @@ body, html {
   box-shadow: 0 4px 14px rgba(0,0,0,0.7), inset 0 0 20px rgba(0,229,255,0.06);
 }
 .dp-char::after {
-  content: '⬡';
+  content: 'â¬¡';
   position: absolute; top: 50%; left: 50%;
   transform: translate(-50%,-50%);
   font-size: 1.8rem; color: rgba(0,229,255,0.15);
@@ -453,7 +525,7 @@ body, html {
   box-shadow: 0 4px 14px rgba(0,0,0,0.7), inset 0 0 20px rgba(0,255,204,0.06);
 }
 .dp-eff::after {
-  content: '◈';
+  content: 'â—ˆ';
   position: absolute; top: 50%; left: 50%;
   transform: translate(-50%,-50%);
   font-size: 1.5rem; color: rgba(0,255,204,0.15);
@@ -462,7 +534,7 @@ body, html {
 .draw-pile-count { font-size: 1.8rem; font-weight: 900; line-height: 1; }
 .draw-pile-sub { font-size: 0.5rem; letter-spacing: 2px; color: rgba(255,255,255,0.22); }
 
-/* ── Card draw animation — flies from draw pile (left) to hand ────────── */
+/* â”€â”€ Card draw animation â€” flies from draw pile (left) to hand â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 /* The draw pile is ~320px to the left of the hand card position */
 @keyframes cardDrawFromPile {
   0%   { opacity: 0; transform: translateX(-340px) translateY(-160px) scale(0.55) rotate(-12deg); filter: brightness(2.5) blur(2px); }
@@ -477,7 +549,7 @@ body, html {
 
 .action-container { display: flex; flex-direction: column; gap: 15px; }
 .hand-hub { display: flex; justify-content: center; align-items: center; gap: 15px; margin-top: 30px; }
-/* ── GAME ARENA — base classes (mobile default, desktop overridden in media query) ── */
+/* â”€â”€ GAME ARENA â€” base classes (mobile default, desktop overridden in media query) â”€â”€ */
 .game-arena {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -500,7 +572,7 @@ body, html {
 .action-row .btn-act { flex: 1; min-height: 48px; display: flex; flex-direction: row; justify-content: space-between; align-items: center; padding: 0 12px; }
 .action-row .act-title { font-size: 1rem; letter-spacing: 2px; }
 .action-row .act-cost  { font-size: 0.9rem; }
-/* ─────────────────────────────────────────────────────────────────────── */
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 .hand-grid, .tactic-grid { display: flex; gap: 15px; }
 .tactic-separator { width: 2px; height: 100px; background: rgba(255,255,255,0.1); }
@@ -615,7 +687,7 @@ body, html {
 .inspector-actions { width: 100%; margin-top: 20px; display: flex; flex-direction: column; gap: 10px; align-items: center; }
 .mobile-tab-switcher { display: none; }
 
-/* BUG-FIX: is-new-glow ist eine Klasse auf card-UI selbst — niemals display:none! */
+/* BUG-FIX: is-new-glow ist eine Klasse auf card-UI selbst â€” niemals display:none! */
 .reveal-container .new-tag { display: none !important; }
 .reveal-container .card-ui, .reveal-container .c-text-wrap, .reveal-container .type-badge, .reveal-container .card-micro-data { opacity: 1 !important; display: flex !important; visibility: visible !important; transition: none !important; }
 .reveal-container .card-stats { opacity: 1 !important; display: grid !important; visibility: visible !important; transition: none !important; }
@@ -635,7 +707,7 @@ body, html {
 .card-art-only .card-glare,
 .card-art-only .card-scanlines { opacity: 0; pointer-events: none; }
 
-/* GTI Rating über dem Artwork sichtbar */
+/* GTI Rating Ã¼ber dem Artwork sichtbar */
 .card-art-only .gti-core { opacity: 1 !important; pointer-events: none; }
 
 /* Wenn kein Foto geladen: NeuralCore + Badge anzeigen statt gelber card-edge */
@@ -658,7 +730,7 @@ body, html {
   -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 70%, rgba(0,0,0,0.3) 100%) !important;
 }
 
-/* Smooth transition on photo wrapper — verhindert den Sprung */
+/* Smooth transition on photo wrapper â€” verhindert den Sprung */
 .card-ui > div:first-child {
   transition: height 0.4s cubic-bezier(0.25, 1, 0.5, 1);
 }
@@ -680,10 +752,10 @@ body, html {
 
 
 /* ================================================================== */
-/*  CARD BACK — ENCRYPTED DATAPAD SYSTEM                               */
+/*  CARD BACK â€” ENCRYPTED DATAPAD SYSTEM                               */
 /* ================================================================== */
 
-/* ─── BASE ─────────────────────────────────────────────────────────── */
+/* â”€â”€â”€ BASE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .card-back {
   position: absolute; inset: 0; z-index: 2;
   clip-path: polygon(20px 0,100% 0,100% calc(100% - 20px),calc(100% - 20px) 100%,0 100%,0 20px);
@@ -693,7 +765,7 @@ body, html {
   font-family: 'Roboto Mono', monospace;
 }
 
-/* ─── SCANLINES ─────────────────────────────────────────────────────── */
+/* â”€â”€â”€ SCANLINES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .cb-scanlines {
   position: absolute; inset: 0; z-index: 3; pointer-events: none;
   background: repeating-linear-gradient(
@@ -703,7 +775,7 @@ body, html {
 }
 @keyframes cbScanMove { 0% { transform: translateY(0); } 100% { transform: translateY(3px); } }
 
-/* ─── CORNER ACCENTS ────────────────────────────────────────────────── */
+/* â”€â”€â”€ CORNER ACCENTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .cb-corner {
   position: absolute; width: 32px; height: 32px;
   z-index: 4; pointer-events: none;
@@ -712,10 +784,10 @@ body, html {
 .cb-corner-tl { top:10px; left:44px; border-top-width:1px; border-left-width:1px; }
 .cb-corner-br { bottom:10px; right:10px; border-bottom-width:1px; border-right-width:1px; }
 
-/* ─── PATTERN ───────────────────────────────────────────────────────── */
+/* â”€â”€â”€ PATTERN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .card-back-pattern { position: absolute; inset:0; pointer-events:none; z-index:0; }
 
-/* ─── CONTENT WRAPPER — muss über allem anderen liegen ─────────────── */
+/* â”€â”€â”€ CONTENT WRAPPER â€” muss Ã¼ber allem anderen liegen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .card-back-content {
   position: relative; z-index: 20;
   display: flex; flex-direction: column; height: 100%;
@@ -749,7 +821,7 @@ body, html {
   opacity:0.4; margin:1px 0;
 }
 
-/* ─── DATAPAD BOX ───────────────────────────────────────────────────── */
+/* â”€â”€â”€ DATAPAD BOX â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .cb-datapad {
   flex:1; min-height:0; display:flex; flex-direction:column;
   background:rgba(0,0,0,0.55);
@@ -774,30 +846,30 @@ body, html {
   animation:cbDotBlink 1.5s ease-in-out infinite;
 }
 
-/* Der Hauptcontainer für den Text im Datapad */
+/* Der Hauptcontainer fÃ¼r den Text im Datapad */
 .cb-datapad-text {
   /* Hacking-Vibe: Monospace ist Pflicht */
   font-family: 'Share Tech Mono', 'Roboto Mono', monospace;
   
-  /* Größe so gewählt, dass auch längere Texte (Mao/Caesar) gut draufpassen */
+  /* GrÃ¶ÃŸe so gewÃ¤hlt, dass auch lÃ¤ngere Texte (Mao/Caesar) gut draufpassen */
   font-size: 0.92rem; 
   line-height: 1.5;
-  color: #ccddee; /* Leichtes bläuliches Weiß für Terminal-Look */
+  color: #ccddee; /* Leichtes blÃ¤uliches WeiÃŸ fÃ¼r Terminal-Look */
   
   text-align: left;
   padding: 10px 5px;
   
-  /* Subtiler Glow-Effekt für die Lesbarkeit auf dunklem Grund */
+  /* Subtiler Glow-Effekt fÃ¼r die Lesbarkeit auf dunklem Grund */
   text-shadow: 0 0 5px rgba(200, 230, 255, 0.2);
   
-  /* Verhindert, dass Text aus dem Rahmen läuft */
+  /* Verhindert, dass Text aus dem Rahmen lÃ¤uft */
   overflow-y: auto;
   max-height: 280px; 
 }
 
-/* Spezifische Formatierung für die Highlights (EFFEKT:, PASSIV-KOMPETENZ:) */
+/* Spezifische Formatierung fÃ¼r die Highlights (EFFEKT:, PASSIV-KOMPETENZ:) */
 .cb-hl, .cb-hl-gold {
-  display: block; /* Erzeugt eine eigene Zeile für das Label */
+  display: block; /* Erzeugt eine eigene Zeile fÃ¼r das Label */
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 2px;
@@ -829,7 +901,7 @@ body, html {
   border-top:1px solid rgba(255,255,255,0.04); flex-shrink:0;
 }
 
-/* ─── CARD FOOTER ───────────────────────────────────────────────────── */
+/* â”€â”€â”€ CARD FOOTER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .cb-footer {
   display:flex; justify-content:space-between; align-items:center;
   font-size:0.56rem; letter-spacing:1.5px; color:rgba(255,255,255,0.28); flex-shrink:0;
@@ -976,7 +1048,7 @@ body, html {
 .card-back.edge-anomaly .cb-dp-live { color:#ff0000; }
 .card-back.edge-anomaly .cb-dp-dot  { background:#ff0000; }
 
-/* ─── ACCESSIBILITY ─────────────────────────────────────────────────── */
+/* â”€â”€â”€ ACCESSIBILITY â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @media (prefers-reduced-motion:reduce) {
   .cb-scanlines,.card-back-pattern,.card-back::before,.cb-dp-dot,.cb-dp-live { animation:none !important; }
 }
@@ -998,20 +1070,20 @@ body, html {
   html, body, #root { overflow-x: hidden; }
   .cockpit-draw-column { display: none !important; } /* draw pile hidden on mobile */
   
-  /* Main Menu */
-  .main-menu-grid { gap: 10px !important; }
-  .menu-btn-hero { min-height: 80px !important; font-size: 1.2rem !important; padding: 15px !important; }
-  .menu-btn-card { min-height: 120px !important; padding: 10px 5px !important; }
-  .menu-icon { font-size: 2rem !important; margin-bottom: 8px !important; }
-  .menu-btn-card span { font-size: 0.75rem !important; letter-spacing: 1px !important; }
-  .menu-btn-wide { min-height: 60px !important; font-size: 1rem !important; padding: 10px !important; }
-  .menu-btn-small { min-height: 50px !important; font-size: 0.85rem !important; padding: 10px !important; }
-  .menu-title { padding-top: 30px; font-size: 2.5rem; letter-spacing: 5px; }
-  .menu-subtitle { font-size: 1rem; letter-spacing: 4px; margin-bottom: 30px; }
+  /* Mobile Terminal Adaptation */
+  .command-center-layout { flex-direction: column; padding: 80px 20px 20px; overflow-y: auto; gap: 20px; }
+  .ops-column { width: 100%; }
+  .btn-main-op { padding: 20px; }
+  .op-title { font-size: 1.2rem; }
+  .modules-grid { grid-template-columns: 1fr 1fr; height: auto; flex: none; }
+  .module-item { padding: 15px 10px; flex-direction: column; text-align: center; gap: 8px; }
+  .mod-icon { font-size: 1.2rem; }
+  .mod-label { font-size: 0.7rem; }
+  .live-terminal { height: 100px; margin-top: 10px; }
   .game-title-small { font-size: 1.1rem !important; letter-spacing: 2px !important; text-align: center; }
   .glass-panel { padding: 15px !important; }
   
-  /* Inspector Modal für Mobile */
+  /* Inspector Modal fÃ¼r Mobile */
   .inspector-modal-box { 
     background: rgba(10, 10, 15, 0.98); border: 1px solid #333; border-radius: 12px;
     padding: 20px; max-width: 95vw; max-height: 92vh; box-shadow: 0 20px 50px rgba(0,0,0,0.8);
@@ -1095,11 +1167,11 @@ body, html {
 } /* HIER WIRD DER MOBILE BLOCK KORREKT GESCHLOSSEN! */
 
   /* ================================================================== */
-/* DESKTOP COMBAT OVERHAUL V4 — SKETCH LAYOUT                        */
+/* DESKTOP COMBAT OVERHAUL V4 â€” SKETCH LAYOUT                        */
 /* ================================================================== */
 @media (min-width: 769px) {
 
-  /* 1. MASTER CONTAINER — 25% Zoom-Korrektur für 1440p */
+  /* 1. MASTER CONTAINER â€” 25% Zoom-Korrektur fÃ¼r 1440p */
   #game-ui {
     padding: 10px 40px !important;
     width: 80vw !important;
@@ -1113,10 +1185,10 @@ body, html {
     position: relative;
   }
 
-  /* 2. TURN INDICATOR — centered relative to viewport (Fix 3) */
+  /* 2. TURN INDICATOR â€” centered relative to viewport (Fix 3) */
   .top-bar { position: relative; margin-bottom: 20px !important; z-index: 100; }
   #turn-ind {
-    position: fixed !important;        /* fixed → always centered on viewport */
+    position: fixed !important;        /* fixed â†’ always centered on viewport */
     left: 50% !important;
     top: 0 !important;
     transform: translateX(-50%) !important;
@@ -1136,7 +1208,7 @@ body, html {
   #turn-ind.turn-player { border-bottom-color: var(--win) !important; color: var(--win) !important; text-shadow: 0 0 15px var(--win) !important; }
   #turn-ind.turn-ai { border-bottom-color: var(--lose) !important; color: var(--lose) !important; text-shadow: 0 0 15px var(--lose) !important; }
 
-  /* 3. GAME ARENA — 3-column grid */
+  /* 3. GAME ARENA â€” 3-column grid */
   .game-arena {
     display: grid !important;
     grid-template-columns: minmax(180px, 240px) 1fr minmax(180px, 240px) !important;
@@ -1151,7 +1223,7 @@ body, html {
   .arena-center { grid-area: center !important; }
   .arena-right { grid-area: right !important; }
 
-  /* 4. SIDE PANELS — stat pods */
+  /* 4. SIDE PANELS â€” stat pods */
   .arena-left,
   .arena-right {
     display: flex !important;
@@ -1189,11 +1261,11 @@ body, html {
 
   /* 6. HAND CARDS */
   .hand-hub { margin-top: 0 !important; margin-bottom: 0 !important; }
-  /* Clash overlay — zoom shrinks both visual AND layout → no scrollbar (fix for 1080p) */
+  /* Clash overlay â€” zoom shrinks both visual AND layout â†’ no scrollbar (fix for 1080p) */
   .clash-scale-wrapper {
     zoom: 0.72 !important;
   }
-  /* 6b. DRAW PILE — desktop sizing */
+  /* 6b. DRAW PILE â€” desktop sizing */
   .cockpit-draw-column {
     width: 320px !important;
     display: flex !important;
@@ -1215,7 +1287,7 @@ body, html {
   }
   .empty-tactic-slot span { font-size: 1rem !important; }
 
-  /* 7. ACTION ROW — horizontal buttons at bottom of center */
+  /* 7. ACTION ROW â€” horizontal buttons at bottom of center */
   .action-row {
     display: flex !important;
     flex-direction: row !important;
@@ -1251,7 +1323,7 @@ body, html {
 } 
 
 /* ================================================================== */
-/* AVATAR CARD — Vivid Purple Identity                                */
+/* AVATAR CARD â€” Vivid Purple Identity                                */
 /* ================================================================== */
 .edge-avatar {
   background: linear-gradient(160deg, #bc13fe 0%, #7a08b0 40%, #bc13fe 100%);
@@ -1282,7 +1354,7 @@ body, html {
 .card-back.edge-avatar .cb-datapad { border-left-color: #bc13fe; }
 
 /* ================================================================== */
-/*  NEURAL NETWORK — Hex Layout Flash                                  */
+/*  NEURAL NETWORK â€” Hex Layout Flash                                  */
 /* ================================================================== */
 .neural-hex-container {
   position: relative;
@@ -1312,7 +1384,7 @@ body, html {
 .neural-svg-lines { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
 
 /* ================================================================== */
-/*  ROGUELIKE MAP — Atmosphere                                         */
+/*  ROGUELIKE MAP â€” Atmosphere                                         */
 /* ================================================================== */
 .rl-scanline-overlay {
   position: fixed !important; inset: 0 !important; z-index: 5 !important; pointer-events: none !important;
@@ -1384,7 +1456,7 @@ body, html {
 }
 
 /* ================================================================== */
-/* ROGUELIKE MAP — "THE GRID" (DYNAMIC GLOBAL)                        */
+/* ROGUELIKE MAP â€” "THE GRID" (DYNAMIC GLOBAL)                        */
 /* ================================================================== */
 /* rl-bg-layer-1 / rl-bg-layer-2 / rl-scanline-overlay are replaced by CyberBackground.jsx */
 .rl-bg-layer-1 { display: none !important; }
@@ -1457,7 +1529,7 @@ body, html {
   position: absolute; top: 0;
   font-family: 'Roboto Mono', monospace;
   font-size: 0.62rem; line-height: 1.5;
-  color: var(--matrix-col, #bc13fe) !important; /* Nimmt jetzt auch die Menü-Farbe an! */
+  color: var(--matrix-col, #bc13fe) !important; /* Nimmt jetzt auch die MenÃ¼-Farbe an! */
   opacity: 0; /* WICHTIG: Verhindert, dass die Zahlen beim Laden oben festkleben! */
   white-space: pre; pointer-events: none;
   animation: binFall var(--dur,10s) var(--delay,0s) linear infinite;
@@ -1523,7 +1595,7 @@ body, html {
 }
 
 /* ================================================================== */
-/* DYNAMISCHE HÖHEN-SKALIERUNG (PC / LAPTOP FIX)                      */
+/* DYNAMISCHE HÃ–HEN-SKALIERUNG (PC / LAPTOP FIX)                      */
 /* Verhindert, dass die Handkarten auf 1080p abgeschnitten werden     */
 /* ================================================================== */
 @media (min-width: 769px) and (max-height: 950px) {
@@ -1544,10 +1616,10 @@ body, html {
   html, body, #root { overflow: hidden !important; height: 100dvh !important; width: 100vw !important; }
   .screen { padding: 12px !important; height: 100dvh !important; overflow-y: auto !important; overflow-x: hidden !important; display: flex; flex-direction: column; }
   
-  /* Einheitliche Top-Bar - Radikales Redesign für Mobile */
+  /* Einheitliche Top-Bar - Radikales Redesign fÃ¼r Mobile */
   .top-bar { 
     display: flex !important; flex-direction: column !important; align-items: flex-start !important;
-    margin-bottom: 15px !important; padding: 12px 90px 12px 12px !important; /* 90px Platz rechts für den Back-Button */
+    margin-bottom: 15px !important; padding: 12px 90px 12px 12px !important; /* 90px Platz rechts fÃ¼r den Back-Button */
     position: sticky !important; top: -12px !important; 
     background: rgba(5,2,14,0.98) !important; backdrop-filter: blur(10px) !important; -webkit-backdrop-filter: blur(10px) !important;
     pointer-events: auto !important; z-index: 10000 !important; 
@@ -1556,7 +1628,7 @@ body, html {
     min-height: 60px !important; gap: 12px !important;
   }
   
-  /* Alle inneren Container der Top-Bar dürfen flüssig umbrechen */
+  /* Alle inneren Container der Top-Bar dÃ¼rfen flÃ¼ssig umbrechen */
   .top-bar > div { 
     display: flex !important; flex-wrap: wrap !important; gap: 10px !important; width: 100% !important; align-items: center !important; 
   }
@@ -1564,7 +1636,7 @@ body, html {
   .game-title-small { font-size: 1.15rem !important; white-space: normal !important; line-height: 1.2 !important; }
   .top-bar .mono { font-size: 0.6rem !important; margin-top: 0 !important; }
   
-  /* Der Zurück-Button wird absolut nach oben rechts genagelt! */
+  /* Der ZurÃ¼ck-Button wird absolut nach oben rechts genagelt! */
   .top-bar .btn-back { 
     position: absolute !important; top: 12px !important; right: 12px !important; 
     margin: 0 !important; padding: 8px 14px !important; font-size: 0.75rem !important; 
@@ -1573,29 +1645,70 @@ body, html {
   
   .btn-info { padding: 6px 12px !important; font-size: 0.75rem !important; white-space: nowrap; height: fit-content; }
   
-  /* Main Menu (Dashboard) */
-  .main-menu-top { top: 12px !important; right: 12px !important; gap: 8px !important; position: absolute !important; }
-  .main-menu-top .mono { font-size: 0.8rem !important; }
-  .main-menu-top button { padding: 6px 10px !important; font-size: 0.75rem !important; }
-  
-  /* Dashboard atmet jetzt, wenn der Bildschirm wirklich extrem klein ist */
-  .dash-container { 
-    flex-direction: column !important; gap: 20px !important; 
-    height: auto !important; min-height: calc(100dvh - 80px) !important; 
-    justify-content: center !important; padding-top: 40px !important; padding-bottom: 20px !important; 
-  }
-  .dash-left { flex: 0 1 auto !important; margin-top: 0 !important; text-align: center; }
-  .dash-title { font-size: 2.2rem !important; letter-spacing: 4px !important; margin-bottom: 4px !important; line-height: 1 !important; }
-  .dash-subtitle { font-size: 0.65rem !important; letter-spacing: 2px !important; margin-bottom: 12px !important; }
-  .dash-main-actions { gap: 8px !important; margin: 0 auto !important; width: 100% !important; max-width: 320px !important; }
-  .dash-btn-hero { padding: 12px 15px !important; font-size: 1rem !important; min-height: 48px !important; text-align: center !important; clip-path: polygon(0 0, calc(100% - 15px) 0, 100% 15px, 100% 100%, 15px 100%, 0 calc(100% - 15px)) !important; }
-  .ghost-tags { top: 50% !important; transform: translateY(-50%) !important; right: 10px !important; flex-direction: row !important; }
-  
-  .dash-right { gap: 8px !important; grid-template-columns: 1fr 1fr !important; width: 100% !important; max-width: 360px !important; margin: 0 auto !important; }
-  .dash-btn-module { padding: 10px 5px !important; gap: 4px !important; min-height: 65px !important; }
-  .mod-icon { font-size: 1.4rem !important; margin: 0 !important; }
-  .mod-text { font-size: 0.65rem !important; text-align: center; line-height: 1.1; }
+/* --- NEW COMMAND CENTER TERMINAL LAYOUT --- */
+.command-center-layout {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  padding: 60px 40px 40px;
+  gap: 40px;
+  background: radial-gradient(circle at 30% 50%, rgba(188, 19, 254, 0.05) 0%, transparent 50%);
+  position: relative;
+  z-index: 10;
+}
 
+.ops-column {
+  width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.modules-side {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.modules-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 15px;
+  flex: 1;
+}
+
+.module-item {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  padding: 0 25px;
+  gap: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+}
+
+.module-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: #fff;
+  transform: translateY(-2px);
+}
+
+.live-terminal {
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(0, 229, 255, 0.1);
+  padding: 15px;
+  font-family: 'Roboto Mono', monospace;
+  font-size: 0.7rem;
+  color: rgba(0, 229, 255, 0.6);
+  height: 140px;
+  border-left: 3px solid var(--win);
+}
   /* Ghost Node Menu (Entspanntes Stacking) */
   .gn-inner-wrapper { padding: 12px !important; }
   .gn-main-layout { flex-direction: column !important; align-items: center !important; gap: 30px !important; }
@@ -1618,9 +1731,9 @@ body, html {
     gap: 15px !important; height: auto !important; min-height: 0 !important;
   }
   .pack-icon { font-size: 2.2rem !important; margin: 0 !important; }
-  /* Container für den Text (Links) */
+  /* Container fÃ¼r den Text (Links) */
   .pack-item > div:first-child { flex: 1; display: flex; flex-direction: column; gap: 4px; }
-  /* Container für Kosten & Button (Rechts) */
+  /* Container fÃ¼r Kosten & Button (Rechts) */
   .pack-item > div:last-child { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex-shrink: 0; }
   
   .pack-item h3 { font-size: 0.95rem !important; margin: 0 !important; line-height: 1.1 !important; }
@@ -1714,7 +1827,7 @@ body, html {
 }
 .empty-tactic-slot span { color: #333; font-size: 0.8rem; }
 
-/* === FORCE ART-ONLY MODE FÜR KARTEN IN DER HAND === */
+/* === FORCE ART-ONLY MODE FÃœR KARTEN IN DER HAND === */
 .hand-card-inner .card-stats,
 .hand-card-inner .c-center-visual,
 .hand-card-inner .type-badge,
@@ -1729,7 +1842,7 @@ body, html {
 }
 .hand-card-inner .gti-core, .hand-card-inner .effect-cost-badge { opacity: 1 !important; display: flex !important; }
 .hand-card-inner .card-ui > div:first-child {
-  height: 100% !important; /* Bild füllt die ganze Karte */
+  height: 100% !important; /* Bild fÃ¼llt die ganze Karte */
   mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 70%, rgba(0,0,0,0.3) 100%) !important;
   -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 70%, rgba(0,0,0,0.3) 100%) !important;
 }
@@ -1807,7 +1920,7 @@ body, html {
 /* PREMIUM UI ANIMATIONS (GHOST NODE & MODALS)                        */
 /* ================================================================== */
 
-/* 1. Generelle Screen-Übergänge (Weicher, mit leichtem Zoom & Blur) */
+/* 1. Generelle Screen-ÃœbergÃ¤nge (Weicher, mit leichtem Zoom & Blur) */
 .screen.active { 
   display: flex; 
   animation: premiumScreenFade 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; 
@@ -1830,11 +1943,136 @@ body, html {
   100% { opacity: 1; transform: scale(1) translateY(0); }
 }
 
-/* 4. Sanfter Hover-Effekt für die Nodes auf der Map */
+/* 4. Sanfter Hover-Effekt fÃ¼r die Nodes auf der Map */
 .map-node-hover {
   transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), filter 0.25s;
 }
 .map-node-hover:hover {
   transform: translateY(-6px) scale(1.08);
   filter: brightness(1.3);
+}
+/* COMMAND CENTER LAYOUT */
+.command-center-layout {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  padding: 40px;
+  gap: 40px;
+  background: radial-gradient(circle at 30% 50%, rgba(188, 19, 254, 0.05) 0%, transparent 50%);
+}
+
+.ops-column {
+  width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.ops-header {
+  font-family: 'Share Tech Mono', monospace;
+  color: rgba(255, 255, 255, 0.3);
+  letter-spacing: 5px;
+  font-size: 0.8rem;
+  margin-bottom: 10px;
+}
+
+/* GHOST NODE BUTTON */
+.btn-main-op {
+  position: relative;
+  background: rgba(188, 19, 254, 0.1);
+  border: 2px solid #bc13fe;
+  padding: 30px;
+  text-align: left;
+  color: white;
+  cursor: pointer;
+  clip-path: polygon(0 0, 100% 0, 100% 75%, 85% 100%, 0 100%);
+  transition: all 0.3s;
+}
+
+.btn-main-op:hover {
+  background: rgba(188, 19, 254, 0.2);
+  box-shadow: 0 0 30px rgba(188, 19, 254, 0.3);
+  transform: scale(1.02);
+}
+
+.op-tag { background: #bc13fe; color: black; font-weight: bold; padding: 2px 8px; font-size: 0.7rem; border-radius: 2px; }
+.op-title { font-size: 1.6rem; font-weight: 900; margin-top: 10px; letter-spacing: 2px; }
+.op-desc { color: rgba(255, 255, 255, 0.5); font-size: 0.8rem; margin-bottom: 15px; }
+.op-status { font-family: 'Roboto Mono', monospace; color: #bc13fe; font-size: 0.7rem; }
+
+/* SCHNELLES SPIEL */
+.btn-quick-play {
+  background: rgba(0, 229, 255, 0.05);
+  border: 1px solid #00e5ff;
+  padding: 20px 30px;
+  text-align: left;
+  color: white;
+  cursor: pointer;
+  clip-path: polygon(0 0, 100% 0, 100% 80%, 92% 100%, 0 100%);
+}
+
+.op-tag-cyan { color: #00e5ff; font-size: 0.7rem; border-bottom: 1px solid #00e5ff; display: inline-block; }
+
+/* MODULES GRID */
+.modules-side { flex: 1; display: flex; flex-direction: column; gap: 40px; }
+.modules-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 15px;
+  height: 70%;
+}
+
+.module-item {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  padding: 0 25px;
+  gap: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.module-item:hover { background: rgba(255, 255, 255, 0.08); border-color: white; }
+.module-item::before { content: ''; position: absolute; left: 0; top: 0; width: 4px; height: 100%; }
+
+.mod-blue::before { background: #00e5ff; }
+.mod-gold::before { background: #ffd700; }
+.mod-green::before { background: #00ff44; }
+.mod-orange::before { background: #ff8800; }
+.mod-pink::before { background: #ff007f; }
+
+.mod-icon { font-size: 1.5rem; opacity: 0.7; }
+.mod-label { font-weight: bold; letter-spacing: 2px; font-size: 0.9rem; }
+
+/* TERMINAL */
+.live-terminal {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 15px;
+  font-family: 'Roboto Mono', monospace;
+  font-size: 0.65rem;
+  color: rgba(0, 229, 255, 0.4);
+  flex: 1;
+}
+
+.terminal-header { border-bottom: 1px solid rgba(0, 229, 255, 0.1); margin-bottom: 8px; padding-bottom: 4px; }
+
+/* SETTINGS */
+.btn-settings-trigger {
+  background: transparent; border: none; color: rgba(255, 255, 255, 0.2);
+  font-family: 'Roboto Mono', monospace; font-size: 0.8rem; cursor: pointer; text-align: left;
+}
+
+.settings-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+  display: flex; align-items: center; justify-content: center; z-index: 2000;
+  backdrop-filter: blur(10px);
+}
+
+.settings-box {
+  width: 400px; background: #0c0c14; border: 1px solid #bc13fe; padding: 30px;
 }

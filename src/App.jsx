@@ -175,7 +175,7 @@ function RoguelikeEventScreen({ nodeObj, roguelikeRun, avatarCard, cardsData, on
 
   if (step === 'market_select') {
      return (
-       <div className="screen active" style={{ display: 'block', padding: '30px', overflowY: 'auto' }}>
+       <div style={{ position: 'fixed', inset: 0, zIndex: 40000, background: 'rgba(5, 5, 8, 0.98)', display: 'block', padding: '30px', overflowY: 'auto' }}>
          <div className="top-bar" style={{ marginBottom: '30px' }}>
            <div className="game-title-small" style={{ color: 'var(--legacy-sepia)' }}>🛒 SHADOW BROKER</div>
            <button className="btn-back" onClick={() => setStep('intro')}>ZURÜCK</button>
@@ -189,7 +189,7 @@ function RoguelikeEventScreen({ nodeObj, roguelikeRun, avatarCard, cardsData, on
                return (
                  <div key={i} onClick={() => { playSound('click'); setSelectedCard(c); }} style={{ cursor: 'pointer', outline: isSelected ? '3px solid var(--lose)' : 'none', outlineOffset: '3px', transform: isSelected ? 'translateY(-10px)' : 'none', transition: '0.2s', borderRadius: '6px' }}>
                     <div style={{ width: '150px', height: '210px', overflow: 'hidden', borderRadius: '6px', border: '1px solid #333' }}>
-                      <div style={{ transform: 'scale(0.416)', transformOrigin: 'top left', width: '360px', height: '504px', pointerEvents: 'none' }}>
+                      <div style={{ position: 'relative', transform: 'scale(0.416)', transformOrigin: 'top left', width: '360px', height: '504px', pointerEvents: 'none' }}>
                          <Card card={c} context="inventory" />
                       </div>
                     </div>
@@ -311,7 +311,7 @@ export default function App() {
   const [difficulty, setDifficulty] = useState(1);
   const [showGlobalRules, setShowGlobalRules] = useState(false);
   const [floats, setFloats] = useState([]);
-  const [playMenuOpen, setPlayMenuOpen] = useState(false);
+  const [showDifficultySelect, setShowDifficultySelect] = useState(false);
 
   // --- ADMIN BALANCING STATES (NORMAL GAMES) ---
   const [normalPlayerHp, setNormalPlayerHp] = useState(200);
@@ -395,6 +395,25 @@ export default function App() {
   const [lexFaction, setLexFaction] = useState('ALL');
   
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // NEU: Ghost Network Sidebar
+  const [showSettings, setShowSettings] = useState(false);
+  const [systemLogs, setSystemLogs] = useState(["[SYSTEM] Kern-Module initialisiert...", "[NETWORK] Ghost-Verschlüsselung aktiv."]);
+
+  // Kleiner Effekt für die Live-Konsole unten rechts im Dashboard
+  useEffect(() => {
+    if (currentView !== 'menu') return;
+    const logInterval = setInterval(() => {
+      const logs = [
+        `[LOG] Agent ${session?.user?.user_metadata?.username || 'GHOST'} synchronisiert Daten...`,
+        `[GHOST] Node-Sektor ${Math.floor(Math.random()*99)} Scan läuft...`,
+        `[SYSTEM] Cache-Bereinigung abgeschlossen.`,
+        `[NET] Latenz zu Ghost-Zentrum: ${Math.floor(Math.random()*20)+5}ms`,
+        `[LOG] Neue Verschlüsselungs-Keys generiert.`,
+        `[SYNC] Cloud-Abgleich Sektor ${Math.floor(Math.random()*5)+1} erfolgreich.`
+      ];
+      setSystemLogs(prev => [...prev.slice(-4), logs[Math.floor(Math.random() * logs.length)]]);
+    }, 4500);
+    return () => clearInterval(logInterval);
+  }, [session, currentView]);
 
   // ADMIN STATE: Dynamischer HP-Faktor
   const [baseHp, setBaseHp] = useState(() => {
@@ -1416,6 +1435,44 @@ export default function App() {
     }
   }
 
+  // =================================================================
+  // PERFORMANCE BOOST: Bilder im Hintergrund vorladen (Pre-Caching)
+  // =================================================================
+  useEffect(() => {
+    if (!session || !inventory || inventory.length === 0) return;
+    
+    // Warte 3 Sekunden, damit das UI erst flüssig laden kann
+    const timer = setTimeout(() => {
+      // Filtere doppelte Karten heraus
+      const uniqueCards = [...new Map(inventory.map(c => [c.name, c])).values()];
+      
+      uniqueCards.forEach(card => {
+        if (!card.name) return;
+        const isEffect = card.type === 'effect' || card.buff !== undefined;
+        let fileName = 'unknown';
+        
+        if (isEffect) {
+          fileName = card.name.toLowerCase().replace(/ö/g, 'oe').replace(/ä/g, 'ae').replace(/ü/g, 'ue').replace(/ß/g, 'ss').replace(/[^a-z0-9]/g, '');
+        } else {
+          const parts = card.name.trim().split(/\s+/);
+          let lastName = parts[parts.length - 1];
+          if (parts.length > 1 && ['i', 'ii', 'iii', 'iv', 'v', 'jr', 'sr'].includes(lastName.toLowerCase().replace(/[^a-z]/g, ''))) {
+            lastName = parts[parts.length - 2];
+          }
+          fileName = lastName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '') || 'unknown';
+        }
+
+        // Wir feuern alle 3 möglichen Endungen ab, der Browser cacht den Treffer und verwirft den Rest
+        const img1 = new Image(); img1.src = `/photos/${isEffect ? 'effects/' : ''}${fileName}.png`;
+        const img2 = new Image(); img2.src = `/photos/${isEffect ? 'effects/' : ''}${fileName}.jpg`;
+        const img3 = new Image(); img3.src = `/photos/${isEffect ? 'effects/' : ''}${fileName}.jpeg`;
+      });
+      console.log("🔥 Asset Preloading abgeschlossen: Karten sind im Cache!");
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [session, inventory]);
+
   // ── Auth Guard ────────────────────────────────────────────────────────────
   if (session === undefined) return (
     <div style={{position:'fixed',inset:0,background:'#05050a',display:'flex',alignItems:'center',justifyContent:'center'}}>
@@ -1688,30 +1745,6 @@ export default function App() {
         )
       )}
 
-      {currentView === 'difficulty' && (
-        <div className="screen active" style={{ justifyContent: 'center', alignItems: 'center' }}>
-          <div className="game-title-small" style={{ color: '#fff', fontSize: '2rem', marginBottom: '40px', letterSpacing: '8px' }}>THREAT LEVEL WÄHLEN</div>
-          
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '700px', padding: '40px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '30px' }}>
-              {[1, 2, 3, 4].map(lvl => (
-                <button key={lvl} className="btn-act" style={{ borderColor: difficulty === lvl ? DIFFICULTY_CONFIG[lvl].color : '#333', borderLeft: `4px solid ${DIFFICULTY_CONFIG[lvl].color}`, background: difficulty === lvl ? 'rgba(255,255,255,0.05)' : '#0c0c14' }} onClick={() => { playSound('click'); setDifficulty(lvl); }}>
-                  <span className="act-title" style={{ color: difficulty === lvl ? '#fff' : '#888' }}>{DIFFICULTY_CONFIG[lvl].name}</span>
-                  <span className="act-cost mono" style={{ color: DIFFICULTY_CONFIG[lvl].color }}>LVL {lvl}</span>
-                </button>
-              ))}
-            </div>
-            <div className="log-box" style={{ borderColor: DIFFICULTY_CONFIG[difficulty].color, minHeight: '80px', marginBottom: '30px' }}>
-              <div style={{ color: DIFFICULTY_CONFIG[difficulty].color, fontWeight: 'bold', marginBottom: '5px' }}>SIEGBELOHNUNG: +{DIFFICULTY_CONFIG[difficulty].reward} 💳</div>
-              <div style={{ color: '#ccc', fontSize: '0.95rem' }}>{DIFFICULTY_CONFIG[difficulty].desc}</div>
-            </div>
-            <div style={{ display: 'flex', gap: '15px', marginTop: '20px' }}>
-              <button className="menu-btn btn-play" style={{ margin: '0' }} onClick={() => setCurrentView('match')}>KAMPF STARTEN</button>
-              <button className="menu-btn" style={{ margin: '0', borderColor: '#444', color: '#888' }} onClick={() => setCurrentView('menu')}>ZURÜCK</button>
-            </div>
-          </div>
-
-          {/* --- SYSTEM ADMIN PANEL (NUR FÜR ARCHITECTS) --- */}
           {isAdmin && (
             <div style={{ 
               position: 'absolute', bottom: '20px', left: '20px', zIndex: 1000, 
@@ -1739,8 +1772,8 @@ export default function App() {
             </div>
           )}
 
-        </div>
-      )}
+        
+      )
 
       {currentView === 'multiplayer' && (
         <div className="screen active" style={{ justifyContent: 'center', alignItems: 'center' }}>
@@ -1987,122 +2020,110 @@ export default function App() {
       {currentView === 'inventory' && ( <Inventory inventory={inventory} setInventory={setInventory} decks={decks} setDecks={setDecks} allFactions={allFactions} onBack={() => setCurrentView('menu')} onShowRules={() => { playSound('click'); setShowGlobalRules(true); }} onClearNew={clearNewStatus} onCreditGain={handleCreditGain} onMissionAction={(type, amount) => { handleMissionProgress(type, amount); if (type === 'upgrade') handleStatUpdate('upgradesDone', amount); }} /> )}
 
       {currentView === 'menu' && (
-        <div className="screen active" style={{ justifyContent: 'center', alignItems: 'center', position: 'relative', padding: '20px' }}>
-          
-          {/* Top Bar (Credits & Profil-Icon) */}
+        <div className="command-center-layout">
+          {/* HEADER: CREDITS & USER */}
           <div className="main-menu-top" style={{ position: 'absolute', top: '20px', right: '30px', display: 'flex', gap: '15px', alignItems: 'center', zIndex: 100 }}>
              <div className="mono" style={{ fontSize: '1.2rem', color: '#fff', marginRight: '10px', textShadow: '0 0 10px var(--ep)' }}><span style={{color: 'var(--ep)'}}>{credits}</span> 💳</div>
-             {session ? (
-               <button className="btn-back" style={{borderColor:'var(--ep)', color:'var(--ep)', display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 14px'}} onClick={() => { playSound('click'); setIsSidebarOpen(true); }}>
-                 <span style={{ fontSize: '1.2rem' }}>👤</span> {session.user?.user_metadata?.username || 'AGENT'}
-               </button>
-             ) : (
-               <button className="btn-back" style={{borderColor: 'var(--lose)', color: 'var(--lose)'}} onClick={resetGame}>RESET DATA</button>
-             )}
+             <button className="btn-back" style={{borderColor:'var(--ep)', color:'var(--ep)', display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 14px'}} onClick={() => { playSound('click'); setIsSidebarOpen(true); }}>
+               <span style={{ fontSize: '1.2rem' }}>👤</span> {session?.user?.user_metadata?.username || 'AGENT'}
+             </button>
           </div>
 
-          {/* NEUES DASHBOARD LAYOUT */}
-          <div className="dash-container" style={{ width: '100%', height: '100%', maxWidth: '1400px', maxHeight: '900px', margin: '0 auto', overflow: 'hidden' }}>
+          {/* LEFT COLUMN: OPERATIONS */}
+          <div className="ops-column">
+            <div className="ops-header">OPERATION COMMAND</div>
             
-            {/* LINKE SEITE: Core Actions & Titel */}
-            <div className="dash-left">
-              <div className="dash-title">ARCHITECTS<br/>OF CHAOS</div>
-              <div className="dash-subtitle">TCG EDITION V1.0 // THE BOARD IS SET</div>
-              
-              {!playMenuOpen ? (
-                <div className="dash-main-actions">
-                  <button className="dash-btn-hero" onClick={() => { playSound('click'); setPlayMenuOpen(true); }}>
-                    <span className="hero-bg"></span>
-                    <span className="hero-text">▶ MISSION STARTEN</span>
-                  </button>
+            <button className="btn-main-op ghost-node-pulse" onClick={() => { playSound('click'); setRunContext('solo'); setCurrentView('ghostnodemenu'); }}>
+              <div className="btn-main-glitch"></div>
+              <span className="op-tag">PRIORITÄT 1</span>
+              <div className="op-title">OPERATION: GHOST NODE</div>
+              <div className="op-desc">INFILTRATION & ROGUELIKE RUN</div>
+              <div className="op-status">STATUS: {allRuns.solo ? 'LAUFENDER RUN' : 'BEREIT'}</div>
+            </button>
 
-                  <button className="dash-btn-hero ghost-node-btn" onClick={() => { playSound('click'); setRunContext('solo'); setCurrentView('ghostnodemenu'); }}>
-                    <span className="hero-bg"></span>
-                    <span className="hero-text">⬡ OPERATION: GHOST NODE</span>
-                    <div className="ghost-tags">
-                      <span className="mono" style={{ opacity: 0.7 }}>[ROGUELIKE]</span>
-                      {!avatarCard && <span className="mono tag-new">NEU</span>}
-                      {allRuns.solo && <span className="mono tag-active">AKTIV</span>}
-                    </div>
-                  </button>
-                </div>
-              ) : (
-                <div className="dash-play-menu">
-                  <div className="mono" style={{ color: 'var(--win)', letterSpacing: '3px', marginBottom: '15px' }}>▸ MODUS WÄHLEN</div>
-                  
-                  <button className="dash-btn-hero" style={{ borderColor: 'var(--win)', '--theme': 'var(--win)' }} onClick={startMatchFlow}>
-                    <span className="hero-bg"></span>
-                    <span className="hero-text" style={{ color: 'var(--win)' }}>▶ GEGEN KI SPIELEN</span>
-                  </button>
-                  
-                  <button className="dash-btn-hero" style={{ borderColor: 'var(--ep)', '--theme': 'var(--ep)' }} onClick={() => setCurrentView('multiplayer')}>
-                    <span className="hero-bg"></span>
-                    <span className="hero-text" style={{ color: 'var(--ep)' }}>📡 MULTIPLAYER (BETA)</span>
-                  </button>
-                  
-                  <button className="dash-btn-module" style={{ borderColor: '#444', color: '#888', marginTop: '10px' }} onClick={() => { playSound('click'); setPlayMenuOpen(false); }}>
-                    ← ABBRECHEN
-                  </button>
+            <button className="btn-quick-play" onClick={() => { playSound('click'); setPlayMenuOpen(true); }}>
+              <div className="op-tag-cyan">MODUS</div>
+              <div className="op-title">SCHNELLES SPIEL</div>
+              <div className="op-desc">1V1 GEGEN KI ODER ONLINE-AGENTEN</div>
+              {playMenuOpen && (
+                <div className="quick-play-dropdown" onClick={e => e.stopPropagation()}>
+                   <div onClick={startMatchFlow}>▶ VS SYSTEM-KI</div>
+                   <div onClick={() => setCurrentView('multiplayer')}>📡 MULTIPLAYER (BETA)</div>
+                   <div onClick={() => setPlayMenuOpen(false)} style={{color:'var(--lose)', borderTop:'1px solid #333', marginTop:'5px'}}>✕ ABBRECHEN</div>
                 </div>
               )}
-            </div>
+            </button>
 
-            {/* RECHTE SEITE: System Module (Grid) */}
-            <div className="dash-right" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-               <button className="dash-btn-module" onClick={() => { setPlayMenuOpen(false); setCurrentView('inventory'); }}>
-                  <div className="mod-icon">🗄️</div>
-                  <div className="mod-text">INVENTAR & DECK</div>
-                  {(hasNewCards || hasUpgrades) && <div className="notif-dot" style={{ background: hasNewCards ? 'var(--win)' : 'var(--ep)' }}></div>}
-               </button>
-               
-               <button className="dash-btn-module" onClick={() => { setPlayMenuOpen(false); setCurrentView('market'); }}>
-                  <div className="mod-icon">🛒</div>
-                  <div className="mod-text">SHOP</div>
-                  {rewardPacks && rewardPacks.length > 0 && <div className="notif-dot" style={{ background: '#bc13fe', boxShadow: '0 0 10px #bc13fe' }}></div>}
-               </button>
-               
-               <button className="dash-btn-module" onClick={() => { setPlayMenuOpen(false); setCurrentView('missions'); }}>
-                  <div className="mod-icon">📜</div>
-                  <div className="mod-text">MISSIONEN</div>
-                  {hasClaimableMissions && <div className="notif-dot" style={{ background: 'var(--win)' }}></div>}
-               </button>
-               
-               <button className="dash-btn-module" onClick={() => { setPlayMenuOpen(false); setCurrentView('lexicon'); }}>
-                  <div className="mod-icon">📖</div>
-                  <div className="mod-text">LEXIKON</div>
-               </button>
+            <div style={{ flex: 1 }}></div>
 
-               <button className="dash-btn-module" onClick={() => { playSound('click'); setPlayMenuOpen(false); setCurrentView('overrides'); }}>
-                  <div className="mod-icon">⭐</div>
-                  <div className="mod-text">OVERRIDES</div>
-                  {hasClaimableOverrides && <div className="notif-dot" style={{ background: 'var(--ep)' }}></div>}
-               </button>
-
-               <button className="dash-btn-module highlight-module" onClick={() => { playSound('click'); setPlayMenuOpen(false); setCurrentView('leaderboard'); }}>
-                  <div className="mod-icon">🏆</div>
-                  <div className="mod-text">LEADERBOARD</div>
-               </button>
-               
-               {/* GHOST NETWORK WIDE BANNER (Span 2) */}
-               <button 
-                  className="dash-btn-module" 
-                  style={{ 
-                     gridColumn: '1 / -1', 
-                     borderColor: 'var(--ep)', 
-                     background: 'linear-gradient(90deg, rgba(0,229,255,0.05) 0%, rgba(188,19,254,0.08) 100%)',
-                     display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: '20px', padding: '15px'
-                  }} 
-                  onClick={() => { playSound('click'); setPlayMenuOpen(false); setIsSidebarOpen(true); }}
-               >
-                  <div className="mod-icon" style={{ fontSize: '2.2rem', margin: 0, animation: 'pulse 2s infinite', filter: 'drop-shadow(0 0 10px var(--ep))' }}>📡</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                     <div className="mod-text" style={{ color: 'var(--ep)', fontSize: '1.2rem', textShadow: '0 0 10px var(--ep)', margin: 0 }}>GHOST NETWORK</div>
-                     <div className="mono" style={{ fontSize: '0.65rem', color: '#aaa', letterSpacing: '2px', marginTop: '4px' }}>SOCIAL HUB & CO-OP INVITES</div>
-                  </div>
-               </button>
-            </div>
-            
+            <button className="btn-settings-trigger" onClick={() => { playSound('click'); setShowSettings(true); }}>
+              [ SYSTEM_CONFIG ]
+            </button>
           </div>
+
+          {/* RIGHT COLUMN: MODULES GRID & TERMINAL */}
+          <div className="modules-side">
+            <div className="modules-grid">
+              <div className="module-item mod-blue" onClick={() => setCurrentView('inventory')}>
+                <div className="mod-icon">🗃️</div>
+                <div className="mod-label">INVENTAR & DECK</div>
+                {(hasNewCards || hasUpgrades) && <div className="notif-dot" style={{ background: hasNewCards ? 'var(--win)' : 'var(--ep)' }}></div>}
+              </div>
+              <div className="module-item mod-gold" onClick={() => setCurrentView('market')}>
+                <div className="mod-icon">🛒</div>
+                <div className="mod-label">MARKTPLATZ</div>
+                {rewardPacks?.length > 0 && <div className="notif-dot" style={{ background: '#bc13fe' }}></div>}
+              </div>
+              <div className="module-item mod-green" onClick={() => setCurrentView('missions')}>
+                <div className="mod-icon">📜</div>
+                <div className="mod-label">PROTOKOLLE</div>
+                {hasClaimableMissions && <div className="notif-dot" style={{ background: 'var(--win)' }}></div>}
+              </div>
+              <div className="module-item mod-white" onClick={() => setCurrentView('lexicon')}>
+                <div className="mod-icon">📚</div>
+                <div className="mod-label">ARCHIV</div>
+              </div>
+              <div className="module-item mod-orange" onClick={() => setCurrentView('overrides')}>
+                <div className="mod-icon">⚙️</div>
+                <div className="mod-label">OVERRIDES</div>
+                {hasClaimableOverrides && <div className="notif-dot" style={{ background: 'var(--ep)' }}></div>}
+              </div>
+              <div className="module-item mod-pink" onClick={() => setCurrentView('leaderboard')}>
+                <div className="mod-icon">🏆</div>
+                <div className="mod-label">RANGLISTE</div>
+              </div>
+            </div>
+
+            <div className="live-terminal">
+              <div className="terminal-header">GHOST_NET_TRAFFIC</div>
+              {systemLogs.map((log, i) => (
+                <div key={i} className="terminal-line">{log}</div>
+              ))}
+            </div>
+          </div>
+
+          {/* SETTINGS MODAL */}
+          {showSettings && (
+            <div className="settings-overlay" onClick={() => setShowSettings(false)}>
+              <div className="settings-box" onClick={e => e.stopPropagation()}>
+                <div className="settings-header">
+                  <span>SYSTEM KONFIGURATION</span>
+                  <button onClick={() => setShowSettings(false)}>✕</button>
+                </div>
+                <div className="settings-content">
+                  <div className="setting-row">
+                    <label>MASTER VOLUME</label>
+                    <input type="range" min="0" max="100" defaultValue="70" style={{accentColor:'var(--win)'}} />
+                  </div>
+                  <div className="setting-row">
+                    <label>INTERFACE ANIMATIONEN</label>
+                    <div className="mono" style={{color:'var(--win)'}}>HOCHLEISTUNG</div>
+                  </div>
+                  <button className="logout-btn" style={{width:'100%', padding:'12px', background:'rgba(255,0,50,0.1)', border:'1px solid var(--lose)', color:'var(--lose)', fontFamily:'inherit', cursor:'pointer', marginTop:'20px'}} onClick={resetGame}>ACCOUNT DATEN LÖSCHEN</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

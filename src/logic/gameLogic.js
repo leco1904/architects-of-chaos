@@ -97,6 +97,7 @@ function calcClashDamage(atkVal, defVal, atkAction, defAction) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function getAIDefenseAction({ aVal, pVal, aEP, difficulty = 1 }) {
+  if (aEP < 6) return 'block'; // FIX: Zwingt zum Blocken, wenn Konter zu teuer ist
   if (difficulty >= 2) {
     if (pVal > aVal + 20) return 'block';
   }
@@ -104,9 +105,10 @@ export function getAIDefenseAction({ aVal, pVal, aEP, difficulty = 1 }) {
 }
 
 export function getAIAttackAction({ aEP, difficulty = 1, pEP = 10 }) {
+  if (aEP < 2) return 'erholen'; // FIX: KI MUSS sich erholen, wenn sie völlig pleite ist!
   if (difficulty >= 3) {
+    if (pEP < 2 && aEP >= 8) return 'allin'; // FIX: KI nutzt deine Schwäche nur aus, wenn sie es sich leisten kann
     if (aEP < 10) return 'std';
-    if (pEP < 2)  return 'allin';
   }
   return aEP >= 8 && Math.random() > 0.5 ? 'allin' : 'std';
 }

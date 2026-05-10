@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import Card from './Card';
 
-// ── Type colour helper ─────────────────────────────────────────────────────
+// â”€â”€ Type colour helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const typeColor = (card) => {
   if (!card) return '#2a3a4a';
   if (card.id === 'avatar' || card.sp !== undefined) return '#bc13fe';
@@ -12,13 +12,13 @@ const typeColor = (card) => {
 };
 
 const typeIcon = (card) => {
-  if (!card)                   return '○';
-  if (card.id === 'avatar' || card.sp !== undefined) return '★';
-  if (card.type === 'effect')  return '◈';
-  return '⬡';
+  if (!card)                   return 'â—‹';
+  if (card.id === 'avatar' || card.sp !== undefined) return 'â˜…';
+  if (card.type === 'effect')  return 'â—ˆ';
+  return 'â¬¡';
 };
 
-// ── Empty slot placeholder (BIG) ──────────────────────────────────────────
+// â”€â”€ Empty slot placeholder (BIG) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function EmptySlot({ label, onClick }) {
   return (
     <div onClick={onClick} style={{
@@ -32,7 +32,7 @@ function EmptySlot({ label, onClick }) {
   );
 }
 
-// ── Filled slot (BIG) ─────────────────────────────────────────────────────
+// â”€â”€ Filled slot (BIG) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function FilledSlot({ card, locked, onRemove }) {
   const tc = typeColor(card);
   return (
@@ -49,35 +49,35 @@ function FilledSlot({ card, locked, onRemove }) {
           {card.name}
         </div>
         <div className="mono" style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', letterSpacing: '2px', marginTop: '2px' }}>
-          GTI {card.gti || '—'} // LVL {card.level || 1}
+          GTI {card.gti || 'â€”'} // LVL {card.level || 1}
         </div>
       </div>
       {locked
         ? <div className="mono" style={{ fontSize: '0.6rem', color: 'rgba(188,19,254,0.6)', flexShrink: 0, letterSpacing: '2px' }}>GESPERRT</div>
-        : <button onClick={onRemove} style={{ background: 'none', border: 'none', color: 'var(--lose)', cursor: 'pointer', fontSize: '1.5rem', padding: '0 5px', lineHeight: 1, transition: '0.2s' }}>✕</button>
+        : <button onClick={onRemove} style={{ background: 'none', border: 'none', color: 'var(--lose)', cursor: 'pointer', fontSize: '1.5rem', padding: '0 5px', lineHeight: 1, transition: '0.2s' }}>âœ•</button>
       }
     </div>
   );
 }
 
-// ── New Visual Draft Card ─────────────────────────────────────────────────
+// â”€â”€ New Visual Draft Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function DraftCard({ card, selected, disabled, onToggle, isFactionSynergyActive = false, isSynergyHint = false, isEffectSynergyHint = false }) {
   const tc = typeColor(card);
   return (
     <div
       onClick={disabled ? undefined : onToggle}
       style={{
-        width: '100%', aspectRatio: '5/7', height: 'auto', position: 'relative',
+        width: '100%', position: 'relative',
         cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.3 : 1,
-        transform: selected ? 'translateY(-8px) scale(1.02)' : 'none',
+        transform: selected ? 'translateY(-8px)' : 'none',
         boxShadow: isSynergyHint 
           ? '0 0 25px #abce21, inset 0 0 20px #abce21, 0 0 40px rgba(171, 206, 33, 0.3)' 
           : isEffectSynergyHint
           ? '0 0 25px #00e5ff, inset 0 0 20px #00e5ff, 0 0 40px rgba(0, 229, 255, 0.3)'
           : (selected ? `0 0 30px ${tc}66` : 'none'),
-        animation: ((isSynergyHint || isEffectSynergyHint) && !selected) ? 'pulse 1.5s infinite' : 'none',
-        borderRadius: '8px', overflow: 'hidden',
+        animation: ((isSynergyHint || isEffectSynergyHint) && !selected) ? 'glowPulse 1.5s infinite' : 'none',
+        borderRadius: '8px', overflow: 'visible',
         transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
       }}
     >
@@ -93,14 +93,14 @@ function DraftCard({ card, selected, disabled, onToggle, isFactionSynergyActive 
           background: tc, color: '#000', padding: '6px 16px', fontSize: '0.85rem', 
           fontWeight: 900, borderRadius: '4px', zIndex: 10, boxShadow: '0 4px 10px rgba(0,0,0,0.5)' 
         }}>
-          ✓ IM SQUAD
+          âœ“ IM SQUAD
         </div>
       )}
     </div>
   );
 }
 
-// ── Main Component ────────────────────────────────────────────────────────
+// â”€â”€ Main Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export default function RoguelikeSquad({ avatarCard, inventory = [], onConfirm, onBack, isCoop, isHost, partnerReady, mySquadReady }) {
   const [selChars, setSelChars] = useState([]);  // max 4 im Co-Op, 5 im Singleplayer
   const [teamChar, setTeamChar] = useState(null); // NEU: Der Team-Slot!
@@ -108,7 +108,7 @@ export default function RoguelikeSquad({ avatarCard, inventory = [], onConfirm, 
   const [search,   setSearch]   = useState('');
   const [tab,      setTab]      = useState('chars'); // 'chars' | 'effs'
 
-  // NEU: Duplikate filtern (behält immer die Karte mit dem höchsten Level)
+  // NEU: Duplikate filtern (behÃ¤lt immer die Karte mit dem hÃ¶chsten Level)
   const uniqueInventory = useMemo(() => {
     return Object.values((inventory || []).reduce((acc, card) => {
       if (!acc[card.name] || (card.level || 1) > (acc[card.name].level || 1)) {
@@ -174,7 +174,7 @@ export default function RoguelikeSquad({ avatarCard, inventory = [], onConfirm, 
     });
   };
 
-  // NEU: Fraktions-Synergie Check für Squad Draft (inkl. Avatar)
+  // NEU: Fraktions-Synergie Check fÃ¼r Squad Draft (inkl. Avatar)
   const activeFactions = useMemo(() => {
     const counts = {};
     const allSquadChars = [...selChars, ...(avatarCard ? [avatarCard] : [])];
@@ -196,7 +196,7 @@ export default function RoguelikeSquad({ avatarCard, inventory = [], onConfirm, 
 
   const handleConfirm = () => {
     if (!ready) return;
-    onConfirm(selChars, selEffs, teamChar); // NEU: teamChar wird an App.jsx übergeben
+    onConfirm(selChars, selEffs, teamChar); // NEU: teamChar wird an App.jsx Ã¼bergeben
   };
 
   return (
@@ -204,12 +204,12 @@ export default function RoguelikeSquad({ avatarCard, inventory = [], onConfirm, 
       {/* Header */}
       <div className="top-bar" style={{ marginBottom: '14px' }}>
         <div>
-          <div className="game-title-small" style={{ color: 'var(--apex-pink)' }}>⬡ SQUAD-REKRUTIERUNG</div>
+          <div className="game-title-small" style={{ color: 'var(--apex-pink)' }}>â¬¡ SQUAD-REKRUTIERUNG</div>
           <div className="mono" style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', letterSpacing: '3px', marginTop: '4px' }}>
-            {selChars.length}/5 CHARS · {selEffs.length}/2 EFFEKTE
+            {selChars.length}/5 CHARS Â· {selEffs.length}/2 EFFEKTE
           </div>
         </div>
-        <button className="btn-back" onClick={onBack}>ZURÜCK</button>
+        <button className="btn-back" onClick={onBack}>ZURÃœCK</button>
       </div>
 
       {/* Progress bar */}
@@ -219,11 +219,11 @@ export default function RoguelikeSquad({ avatarCard, inventory = [], onConfirm, 
 
       <div className="rl-squad-layout" style={{ display: 'flex', gap: '24px', height: 'calc(100vh - 165px)', overflow: 'hidden' }}>
 
-        {/* ── Left: Squad preview (WIDER & BIGGER) ──────────────────── */}
+        {/* â”€â”€ Left: Squad preview (WIDER & BIGGER) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="rl-squad-sidebar" style={{ width: '340px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', paddingRight: '10px' }}>
           
           {/* Avatar locked */}
-          <div className="mono" style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', padding: '4px 0' }}>▸ GHOST AGENT</div>
+          <div className="mono" style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', padding: '4px 0' }}>â–¸ GHOST AGENT</div>
           {avatarCard
             ? <FilledSlot card={avatarCard} locked/>
             : <EmptySlot label="KEIN AVATAR"/>
@@ -231,7 +231,7 @@ export default function RoguelikeSquad({ avatarCard, inventory = [], onConfirm, 
 
           {/* Char slots */}
           <div className="mono" style={{ fontSize: '0.6rem', color: charsDone ? 'var(--win)' : 'rgba(255,255,255,0.3)', letterSpacing: '2px', padding: '10px 0 2px' }}>
-            ▸ CHARS {selChars.length}/{isCoop ? 4 : 5} {charsDone ? '✓' : ''}
+            â–¸ CHARS {selChars.length}/{isCoop ? 4 : 5} {charsDone ? 'âœ“' : ''}
           </div>
           {Array.from({ length: isCoop ? 4 : 5 }).map((_, i) => (
             selChars[i]
@@ -243,18 +243,18 @@ export default function RoguelikeSquad({ avatarCard, inventory = [], onConfirm, 
           {isCoop && (
             <>
               <div className="mono" style={{ fontSize: '0.6rem', color: teamDone ? '#bc13fe' : 'rgba(255,255,255,0.3)', letterSpacing: '2px', padding: '10px 0 2px', textShadow: teamDone ? '0 0 8px #bc13fe' : 'none' }}>
-                ▸ TEAM ASSET SLOT {teamDone ? '✓' : ''}
+                â–¸ TEAM ASSET SLOT {teamDone ? 'âœ“' : ''}
               </div>
               {teamChar 
                 ? <div style={{ border: '2px solid #bc13fe', borderRadius: '4px', boxShadow: '0 0 15px rgba(188,19,254,0.2)' }}><FilledSlot card={teamChar} locked={false} onRemove={() => setTeamChar(null)} /></div>
-                : <EmptySlot label="TEAM KARTE WÄHLEN" onClick={() => setTab('chars')} />
+                : <EmptySlot label="TEAM KARTE WÃ„HLEN" onClick={() => setTab('chars')} />
               }
             </>
           )}
 
           {/* Effect slots */}
           <div className="mono" style={{ fontSize: '0.6rem', color: effsDone ? 'var(--win)' : 'rgba(255,255,255,0.3)', letterSpacing: '2px', padding: '10px 0 2px' }}>
-            ▸ EFFEKTE {selEffs.length}/2 {effsDone ? '✓' : ''}
+            â–¸ EFFEKTE {selEffs.length}/2 {effsDone ? 'âœ“' : ''}
           </div>
           {Array.from({ length: 2 }).map((_, i) => (
             selEffs[i]
@@ -265,9 +265,9 @@ export default function RoguelikeSquad({ avatarCard, inventory = [], onConfirm, 
           {/* GTI Cap indicator (#005) */}
           {selChars.length > 0 && (
             <div style={{padding:'7px 10px',background:overCap?'rgba(255,215,0,0.07)':'rgba(0,0,0,0.2)',border:`1px solid ${overCap?'var(--ep)':'rgba(255,255,255,0.05)'}`,borderLeft:`3px solid ${overCap?'var(--ep)':'transparent'}`}}>
-              <div className="mono" style={{fontSize:'0.48rem',color:'rgba(255,255,255,0.22)',letterSpacing:'2px',marginBottom:'2px'}}>▸ GESAMT-GTI</div>
-              <div className="mono" style={{fontSize:'0.8rem',fontWeight:700,color:overCap?'var(--ep)':'rgba(255,255,255,0.5)'}}>{totalGTI}/{GTI_CAP} {overCap?'⚠ LIMIT':''}</div>
-              {overCap && <div className="mono" style={{fontSize:'0.46rem',color:'var(--ep)',marginTop:'2px',letterSpacing:'1px'}}>Squad zu stark — BALANCING</div>}
+              <div className="mono" style={{fontSize:'0.48rem',color:'rgba(255,255,255,0.22)',letterSpacing:'2px',marginBottom:'2px'}}>â–¸ GESAMT-GTI</div>
+              <div className="mono" style={{fontSize:'0.8rem',fontWeight:700,color:overCap?'var(--ep)':'rgba(255,255,255,0.5)'}}>{totalGTI}/{GTI_CAP} {overCap?'âš  LIMIT':''}</div>
+              {overCap && <div className="mono" style={{fontSize:'0.46rem',color:'var(--ep)',marginTop:'2px',letterSpacing:'1px'}}>Squad zu stark â€” BALANCING</div>}
             </div>
           )}
 
@@ -288,16 +288,16 @@ export default function RoguelikeSquad({ avatarCard, inventory = [], onConfirm, 
               transition: 'all 0.2s',
           }}>
             {mySquadReady 
-              ? '✓ SQUAD BEREIT. WARTE AUF HOST...' 
+              ? 'âœ“ SQUAD BEREIT. WARTE AUF HOST...' 
               : (isCoop && !isHost 
-                  ? (ready ? '▸ SQUAD BEREIT MELDEN' : 'KARTEN FEHLEN') 
+                  ? (ready ? 'â–¸ SQUAD BEREIT MELDEN' : 'KARTEN FEHLEN') 
                   : (isCoop && isHost 
-                      ? (!ready ? 'KARTEN FEHLEN' : (!partnerReady ? 'WARTE AUF PARTNER SQUAD...' : '▸ RUN INITIALISIEREN')) 
-                      : (ready ? '▸ RUN INITIALISIEREN' : overCap ? `⚠ GTI ${totalGTI}/${GTI_CAP}` : `${((isCoop ? 4 : 5) - selChars.length) + (2 - selEffs.length)} KARTEN FEHLEN`)))}
+                      ? (!ready ? 'KARTEN FEHLEN' : (!partnerReady ? 'WARTE AUF PARTNER SQUAD...' : 'â–¸ RUN INITIALISIEREN')) 
+                      : (ready ? 'â–¸ RUN INITIALISIEREN' : overCap ? `âš  GTI ${totalGTI}/${GTI_CAP}` : `${((isCoop ? 4 : 5) - selChars.length) + (2 - selEffs.length)} KARTEN FEHLEN`)))}
           </button>
         </div>
 
-        {/* ── Right: Inventory (GRID LAYOUT) ────────────────────────── */}
+        {/* â”€â”€ Right: Inventory (GRID LAYOUT) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '16px', minWidth: 0 }}>
           
           {/* Search + Tab */}
@@ -307,25 +307,26 @@ export default function RoguelikeSquad({ avatarCard, inventory = [], onConfirm, 
             
             <button onClick={() => setTab('chars')}
               style={{ padding: '12px 24px', background: tab === 'chars' ? 'rgba(0,229,255,0.12)' : 'transparent', border: `1px solid ${tab === 'chars' ? 'var(--win)' : '#333'}`, color: tab === 'chars' ? 'var(--win)' : '#555', fontFamily: "'Roboto Mono',monospace", fontSize: '0.85rem', letterSpacing: '3px', cursor: 'pointer', transition: 'all 0.2s' }}>
-              ⬡ CHARS
+              â¬¡ CHARS
             </button>
             <button onClick={() => setTab('effs')}
               style={{ padding: '12px 24px', background: tab === 'effs' ? 'rgba(188,19,254,0.12)' : 'transparent', border: `1px solid ${tab === 'effs' ? 'var(--eff-col)' : '#333'}`, color: tab === 'effs' ? 'var(--eff-col)' : '#555', fontFamily: "'Roboto Mono',monospace", fontSize: '0.85rem', letterSpacing: '3px', cursor: 'pointer', transition: 'all 0.2s' }}>
-              ◈ EFFEKTE
+              â—ˆ EFFEKTE
             </button>
           </div>
 
           {/* Cyberpunk Grid */}
           <div style={{ 
-            flex: 1, overflowY: 'auto', paddingRight: '10px',
-            display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', 
-            gap: '20px', justifyItems: 'center', alignContent: 'start'
+            flex: 1, overflowY: 'auto', paddingRight: '10px', minHeight: 0, 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fill, minmax(clamp(160px, 16vw, 260px), 1fr))', 
+            gridAutoRows: 'auto', gap: '20px', justifyItems: 'center', alignContent: 'start'
           }}>
             {tab === 'chars' ? (
               invChars.length === 0
                 ? <div className="mono" style={{ gridColumn: '1/-1', color: '#3a4a5a', padding: '40px', textAlign: 'center', fontSize: '0.9rem', letterSpacing: '2px' }}>KEINE CHARAKTERE GEFUNDEN</div>
                 : (() => {
-                    // NEU: Fraktionen zählen (inkl. Team Char)
+                    // NEU: Fraktionen zÃ¤hlen (inkl. Team Char)
                     const allSelected = [...selChars];
                     if (teamChar) allSelected.push(teamChar);
                     
@@ -343,7 +344,7 @@ export default function RoguelikeSquad({ avatarCard, inventory = [], onConfirm, 
                       const isFull = charsDone && teamDone;
                       
                       const isDisabled = !isSelected && (isFull || wouldExceedGTI);
-                      // NEU: isHint ist nun auch für bereits selektierte Karten aktiv
+                      // NEU: isHint ist nun auch fÃ¼r bereits selektierte Karten aktiv
                       const isHint = !isDisabled && factionsWithHint.includes(c.faction);
                       
                       return (
@@ -374,7 +375,7 @@ export default function RoguelikeSquad({ avatarCard, inventory = [], onConfirm, 
                       const isFull = effsDone;
                       const isDisabled = !isSelected && isFull;
 
-                      // Prüfen, ob eine Synergie besteht
+                      // PrÃ¼fen, ob eine Synergie besteht
                       const synStr = Array.isArray(c.syn) ? c.syn.join(' ') : (c.syn || '');
                       const hasSynergyData = synStr.trim().length > 0;
                       const isEffectHint = !isDisabled && hasSynergyData && activeKeywords.some(kw => synStr.toLowerCase().includes(kw));

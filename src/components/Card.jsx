@@ -21,7 +21,7 @@ export const CAT_CONFIG = {
 
 export const STAT_ICONS = {
   tech: '⎔', finance: '🔗', manipulation: '👁', erosion: '≈',
-  kingmaking: '♔', system: '⚠', arsenal: '✇', legitimacy: '🛡',
+  kingmaking: '♔', system: '⚠', arsenal: '☢', legitimacy: '🛡',
 };
 
 const STAT_KEYS = ['tech', 'finance', 'manipulation', 'erosion', 'kingmaking', 'system', 'arsenal', 'legitimacy'];
@@ -59,7 +59,7 @@ export function getFactionBuffs(faction) {
 const globalImgExts  = {};
 const globalImgFails = {};
 
-// Extrahiert den Nachnamen, ignoriert Zusätze wie I., II., Jr.
+// Extrahiert den Nachnamen, ignoriert ZusÃ¤tze wie I., II., Jr.
 const getSmartFileName = (name) => {
   if (!name) return 'unknown';
   const ignoreList = ['i', 'ii', 'iii', 'iv', 'v', 'jr', 'sr'];
@@ -84,9 +84,9 @@ const getSafeImageName = (name) => {
     .replace(/[^a-z0-9]/g, '');
 };
 
-// ══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // CARD COMPONENT
-// ══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 const Card = memo(function Card({
   card,
   context             = 'deck',
@@ -102,7 +102,7 @@ const Card = memo(function Card({
   lockedStat          = null,
   isFactionSynergyActive = false,
   isEffectSynergyHint = false,
-  isSynergyHint       = false,  // NEU: Signal für Fraktions-Glow
+  isSynergyHint       = false,  // NEU: Signal fÃ¼r Fraktions-Glow
   forceArtOnly        = false,  
   customColor         = null,   
   customArt           = null,   
@@ -113,7 +113,7 @@ const Card = memo(function Card({
   const [, setRenderTrigger] = useState(0);
   const [hoveredStat, setHoveredStat] = useState(null);
 
-  // ── Flip-Feature (Lexikon & Pack-Opening) ──────────────────────────────────
+  // â”€â”€ Flip-Feature (Lexikon & Pack-Opening) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const isFlipContext = context === 'lexicon' || context === 'reveal';
   const [flipState,  setFlipState]  = useState(isFlipContext ? 0 : 1);
   const [isFlipping, setIsFlipping] = useState(false);
@@ -153,7 +153,7 @@ const Card = memo(function Card({
   const currentExt = globalImgExts[card?.name] || '.png';
   const isFailed   = globalImgFails[card?.name] || false;
 
-  // ── Gyro-Effekt (Mobile) ───────────────────────────────────────────────────
+  // â”€â”€ Gyro-Effekt (Mobile) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   useEffect(() => {
     if (!wrapperRef.current || !cardRef.current) return;
     if (!isInspecting && !lightGyro) {
@@ -186,7 +186,7 @@ const Card = memo(function Card({
 
   if (!card) return null;
 
-  // ── Maus-Hover (Desktop 3D-Tilt) ──────────────────────────────────────────
+  // â”€â”€ Maus-Hover (Desktop 3D-Tilt) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const handleMouseMove = (e) => {
     if (flipState === 0 || isFlipping) return;
     if (window.matchMedia('(hover: none)').matches || isInspecting || !wrapperRef.current || !cardRef.current) return;
@@ -213,7 +213,7 @@ const Card = memo(function Card({
     wrapperRef.current.style.transform = `rotateX(0deg) rotateY(0deg) scale(1)`;
   };
 
-  // ── Karten-Typ ────────────────────────────────────────────────────────────
+  // â”€â”€ Karten-Typ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const isApex    = card.type === 'apex';
   const isLegacy  = card.type === 'legacy';
   const isAnomaly = card.type === 'anomaly';
@@ -224,11 +224,11 @@ const Card = memo(function Card({
   const currentLevel = card.level || 1;
   const dynamicGti   = (card.gti || 0) + (currentLevel > 1 ? currentLevel - 1 : 0);
 
-  // ── Rarity & Farben ───────────────────────────────────────────────────────
+  // â”€â”€ Rarity & Farben â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const rarityClass = getRarityClass(dynamicGti);
 
-  // customColor überschreibt die Avatar-Standardfarbe (lila) sowie alle anderen
-  // Karten-Typen wenn explizit gesetzt — alle anderen Typen bleiben unberührt.
+  // customColor Ã¼berschreibt die Avatar-Standardfarbe (lila) sowie alle anderen
+  // Karten-Typen wenn explizit gesetzt — alle anderen Typen bleiben unberÃ¼hrt.
   const themeColor =
     (isAvatar && (customColor || card.customColor)) ? (customColor || card.customColor)
     : isAvatar   ? '#bc13fe'
@@ -257,8 +257,8 @@ const Card = memo(function Card({
     ? <div className={`level-badge mono lvl-${Math.min(currentLevel, 3)}`}>LVL {currentLevel}</div>
     : null;
 
-  // ── Foto-Quelle ────────────────────────────────────────────────────────────
-  // customArt überschreibt den automatisch ermittelten Pfad für Avatar-Karten.
+  // â”€â”€ Foto-Quelle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // customArt Ã¼berschreibt den automatisch ermittelten Pfad fÃ¼r Avatar-Karten.
   const fileName  = isEffect ? getSafeImageName(card.name) : getSmartFileName(card.name);
   const base      = (typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL)
     ? import.meta.env.BASE_URL : '/';
@@ -277,16 +277,16 @@ const Card = memo(function Card({
     setRenderTrigger(prev => prev + 1);
   };
 
-  // ── Titel ─────────────────────────────────────────────────────────────────
+  // â”€â”€ Titel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   let displayTitle = card.title;
   if (isApex)        displayTitle = `${card.year || ''} // ${card.event || card.title || ''}`.toUpperCase();
   else if (isLegacy) displayTitle = card.year || card.date || card.title;
 
-  // ── Rückseiten-Inhalt ──────────────────────────────────────────────────────
-  const typeLabel  = isAnomaly ? '⚠ SYSTEM ANOMALY ⚠'
-    : isApex    ? '◈ APEX UNIT ◈'
-    : isLegacy  ? '⌬ LEGACY ASSET ⌬'
-    : isEffect  ? '◈ TAKTIK KARTE ◈'
+  // â”€â”€ RÃ¼ckseiten-Inhalt â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  const typeLabel  = isAnomaly ? 'âš  SYSTEM ANOMALY âš '
+    : isApex    ? '◈ˆ APEX UNIT ◈ˆ'
+    : isLegacy  ? '✓¬ LEGACY ASSET ✓¬'
+    : isEffect  ? '◈ˆ TAKTIK KARTE ◈ˆ'
     : '⬡ SYSTEM AGENT ⬡';
   const rarityLabel = (
     isApex ? 'APEX' : isLegacy ? 'LEGACY' : isAnomaly ? 'ANOMALY'
@@ -318,7 +318,7 @@ const Card = memo(function Card({
           <div className="cb-datapad-text">
             {isEffect ? (
               <><span className="cb-hl">EFFEKT:</span>{' '}
-              +{(card.buff || 0) + ((card.level || 1) - 1) * 2} {CAT_CONFIG[card.stat]?.name} — Kosten: {card.cost}⚡
+              +{(card.buff || 0) + ((card.level || 1) - 1) * 2} {CAT_CONFIG[card.stat]?.name} — Kosten: {card.cost}âš¡
               {card.syn && <><br/><span className="cb-muted">SYN +{(card.synBuff || 0) + ((card.level || 1) - 1) * 4}: {Array.isArray(card.syn) ? card.syn.join(', ') : card.syn}</span></>}</>
             ) : (isApex || isAnomaly) && card.passiveBuff ? (
               <><span className="cb-hl-gold">{isAnomaly ? 'ANOMALY-KOMPETENZ:' : 'PASSIV-KOMPETENZ:'}</span>{' '}
@@ -327,7 +327,7 @@ const Card = memo(function Card({
             ) : (card.backText || card.bio || '— Keine weiteren Informationen verfügbar —')}
           </div>
           <div className="cb-datapad-footer mono">
-            <span>NODE_SYS</span><span>▸▸▸</span><span>AUTH: GRANTED</span>
+            <span>NODE_SYS</span><span>▸¸▸¸▸¸</span><span>AUTH: GRANTED</span>
           </div>
         </div>
         <div className="cb-footer mono">
@@ -339,25 +339,21 @@ const Card = memo(function Card({
     </div>
   );
 
-  // FIX: fBuffs einmal berechnen statt 8× pro render
+  // FIX: fBuffs einmal berechnen statt 8Ã— pro render
   const fBuffs = isFactionSynergyActive ? getFactionBuffs(card.faction) : {};
 
+  // â”€â”€ JSX 
   // ── JSX ────────────────────────────────────────────────────────────────────
   return (
-    <div className={`synergy-aura-host${isFactionSynergyActive ? ' synergy-aura-active' : ''}`} style={{ position: 'relative', display: 'block', width: '100%', height: '100%' }}>
-      {isFactionSynergyActive && <div className="synergy-aura-glow" aria-hidden="true" />}
+    <div className={`synergy-aura-host${isFactionSynergyActive ? ' synergy-aura-active' : ''}`}>
       <div className="card-drop-shadow magic-scaler-host">
-        {/* MAGIC SCALER: Nutzt reine CSS Klassen, um Reacts Filter für moderne Features zu umgehen! */}
-        <div className="magic-scaler-inner" style={{ position: 'absolute', top: 0, left: 0, width: '360px', height: '504px' }}>
+        <div className="magic-scaler-inner">
+          {/* FIX: Der Glow liegt jetzt IM Scaler und schrumpft brav mit der Karte mit! */}
+          {isFactionSynergyActive && <div className="synergy-aura-glow" aria-hidden="true" />}
           <div
             className={`card-3d-wrapper ${isFlipContext ? 'is-flip-context' : ''} ${flipState === 0 ? 'flip-art-only' : ''}`}
-          ref={wrapperRef}
-          onMouseMove={handleMouseMove}
-          onMouseLeave={handleMouseLeave}
-          onClick={handleCardClick}
-          style={{ cursor: isFlipContext ? 'pointer' : 'default' }}
         >
-          {/* Rückseite */}
+          {/* RÃ¼ckseite */}
           {flipState === 2 ? (
             <>
               <div className={`card-edge ${edgeClass}`}/>
@@ -415,7 +411,7 @@ const Card = memo(function Card({
                 <div className="card-tags-container parallax-layer">
                   {card.isNew           && <div className="new-tag">NEW</div>}
                   {card.isLevelUp       && <div className="levelup-tag">LEVEL UP!</div>}
-                  {card.isMaxLevelRefund && <div className="refund-tag">MAX LVL (+{card.gti >= 90 ? 100 : 50}💳)</div>}
+                  {card.isMaxLevelRefund && <div className="refund-tag">MAX LVL (+{card.gti >= 90 ? 100 : 50}ðŸ’³)</div>}
                 </div>
 
                 {/* Alles folgende wird im art-only Modus NICHT gerendert */}
@@ -432,7 +428,7 @@ const Card = memo(function Card({
                     <div className="gti-core parallax-layer" style={{ '--gti-color': 'var(--ep)' }}>
                       <div className="gti-label" style={{ letterSpacing:'1px' }}>KOSTEN</div>
                       <div style={{ display:'flex', alignItems:'center', justifyContent:'flex-end', gap:'4px' }}>
-                        <div style={{ fontSize:'1.1rem', filter:'drop-shadow(0 0 5px var(--ep))', transform:'translateY(-1px)' }}>⚡</div>
+                        <div style={{ fontSize:'1.1rem', filter:'drop-shadow(0 0 5px var(--ep))', transform:'translateY(-1px)' }}>âš¡</div>
                         <div className="gti-value mono" style={{ color:'var(--ep)' }}>{card.cost}</div>
                       </div>
                     </div>
@@ -481,13 +477,13 @@ const Card = memo(function Card({
                     </div>
                   </div>
 
-                  {/* Stats (nur für Nicht-Effekt-Karten) */}
+                  {/* Stats (nur fÃ¼r Nicht-Effekt-Karten) */}
                   {!isEffect && (
                     <div className="card-stats parallax-layer">
                       {STAT_KEYS.map(k => {
                         let val = Math.floor(card[k] ?? card.stats?.[k] ?? 0);
 
-                        // ANOMALY RULE: Legitimität ist absolut auf 0 fixiert – kein Buff, kein Level, keine Krise
+                        // ANOMALY RULE: LegitimitÃ¤t ist absolut auf 0 fixiert â€“ kein Buff, kein Level, keine Krise
                         if (isAnomaly && k === 'legitimacy') {
                           const fillPct = 0;
                           return (

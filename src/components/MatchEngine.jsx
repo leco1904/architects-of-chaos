@@ -79,6 +79,31 @@ function DrawPile({ charCount, effCount }) {
   );
 }
 
+// ── Tooltip-Helper ────────────────────────────────────────────────────────
+// FIX (Bug #4): Außerhalb von MatchEngine definiert. Eine inline-Komponente
+// zwischen Hook-Calls erzeugt bei jedem Render eine neue Funktionsreferenz,
+// was React zu einem vollständigen unmount/remount der TT-Instanzen zwingt.
+function TT({ lines, position = 'top' }) {
+  return (
+    <div style={{
+      position: 'absolute',
+      ...(position === 'top'   ? { bottom: '110%', left: '50%', transform: 'translateX(-50%)' } : {}),
+      ...(position === 'right' ? { left: '110%', top: '50%', transform: 'translateY(-50%)' }   : {}),
+      ...(position === 'left'  ? { right: '110%', top: '50%', transform: 'translateY(-50%)' }  : {}),
+      background: 'rgba(10,10,15,0.95)',
+      backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+      border: '1px solid var(--win)', borderLeft: '2px solid var(--eff-col)',
+      padding: '5px 10px', borderRadius: '4px',
+      zIndex: 9999, whiteSpace: 'nowrap', pointerEvents: 'none',
+      boxShadow: '0 0 15px rgba(0,229,255,0.15)',
+    }}>
+      {lines.map((l, i) => (
+        <div key={i} className="mono" style={{ fontSize: '0.58rem', color: 'var(--win)', letterSpacing: '1px', lineHeight: 1.6 }}>{l}</div>
+      ))}
+    </div>
+  );
+}
+
 export default function MatchEngine({ playerChars, playerEffs, partnerChars, partnerEffs, aiChars, aiEffs, difficulty = 1, isOnline = false, isCoop = false, isHost = false, conn = null, onEndGame, onShowRules, initialPHP = 100, initialAHP = 100, isRoguelike = false, contextLabel = '', onTrade }) {
   // Shuffle ONCE, then split — avoids duplicates across hand/deck (Bug #011)
   const _sc = React.useRef(shuffle([...playerChars])).current;
@@ -90,6 +115,12 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
   // FIX: Im Co-Op teilen sich die KI-Gegner eine gigantische HP-Leiste (doppelte HP)
   const [aHP, setAHP] = useState(isCoop ? initialAHP * 2 : initialAHP);
   
+  // FIX (Bug #2 & #3): "Latest Ref"-Pattern – verhindert TDZ durch Forward-Reference
+  // UND Stale-Closure, wenn der Effect vor der Funktionsdefinition feuert.
+  // Die Refs werden synchron nach jeder Funktionsdefinition aktualisiert (sicher für Refs).
+  const resolveClashRef   = React.useRef(null);
+  const applyClashAckRef  = React.useRef(null);
+
   // FIX: Verhindert Stale-Closures während der 500ms Pause
   const hpRefs = React.useRef({ p: initialPHP, a: isCoop ? initialAHP * 2 : initialAHP });
   useEffect(() => { hpRefs.current = { p: pHP, a: aHP }; }, [pHP, aHP]);
@@ -111,25 +142,6 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
   const [crisisLevel, setCrisisLevel] = useState(0);
   const [hoveredEl, setHoveredEl] = useState(null);
 
-  // ── Tooltip-Helper ────────────────────────────────────────────────────────
-  const TT = ({ lines, position = 'top' }) => (
-    <div style={{
-      position: 'absolute',
-      ...(position === 'top'   ? { bottom: '110%', left: '50%', transform: 'translateX(-50%)' } : {}),
-      ...(position === 'right' ? { left: '110%', top: '50%', transform: 'translateY(-50%)' }   : {}),
-      ...(position === 'left'  ? { right: '110%', top: '50%', transform: 'translateY(-50%)' }  : {}),
-      background: 'rgba(10,10,15,0.95)',
-      backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
-      border: '1px solid var(--win)', borderLeft: '2px solid var(--eff-col)',
-      padding: '5px 10px', borderRadius: '4px',
-      zIndex: 9999, whiteSpace: 'nowrap', pointerEvents: 'none',
-      boxShadow: '0 0 15px rgba(0,229,255,0.15)',
-    }}>
-      {lines.map((l, i) => (
-        <div key={i} className="mono" style={{ fontSize: '0.58rem', color: 'var(--win)', letterSpacing: '1px', lineHeight: 1.6 }}>{l}</div>
-      ))}
-    </div>
-  );
   const [activeCrisis, setActiveCrisis] = useState(null);
   
   // FIX: Wenn es Co-Op ist, starten BEIDE Spieler in ihrem eigenen "Turn" gegen die KI!
@@ -165,10 +177,6 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
   const [showCrisisIntro, setShowCrisisIntro] = useState(null);
   const [justDrawnIdx, setJustDrawnIdx] = useState(null);
 
-  const activeCard = pHand[activeIdx];
-  // FIX: Im Co-Op ist der Gegner IMMER die KI deines Nodes, im PvP der Partner
-  const aiCard = (isOnline && !isCoop && !pTurn && remoteActionData) ? remoteActionData.card : aDeck[0];
-  
   // --- MISSING STATES RESTORED ---
   const [waiting, setWaiting] = useState(false);
   const [myLockedAction, setMyLockedAction] = useState(null);
@@ -182,6 +190,10 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
   const [cannonAnimData, setCannonAnimData] = useState(null);         // Sender: Karte fliegt raus
   const [incomingCannonData, setIncomingCannonData] = useState(null); // Empfänger: Karte fliegt rein
   const [inspectedPartnerCard, setInspectedPartnerCard] = useState(null); // War Room Inspektor
+
+  const activeCard = pHand[activeIdx];
+  // FIX: Im Co-Op ist der Gegner IMMER die KI deines Nodes, im PvP der Partner
+  const aiCard = (isOnline && !isCoop && !pTurn && remoteActionData) ? remoteActionData.card : aDeck[0];
 
    useEffect(() => {
     playSound('matchIntro');
@@ -318,7 +330,10 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
       // FIX: Im Co-Op warten wir jetzt auf BEIDES: Den lokalen Boss UND die Bestätigung, dass der Partner auch gelockt ist!
       const enemyReady = isCoop ? (!!localAIActionData && !!remoteActionData) : !!remoteActionData;
       if (myLockedAction && enemyReady) {
-          setTimeout(resolveClash, 500); // Kurze Pause für mehr "Wumms" beim synchronen Start
+          // FIX (Bug #2): Via Ref aufrufen – resolveClash ist ein const, das erst NACH diesem
+          // useEffect im Scope definiert wird. Direkter Zugriff landet in der TDZ des Renderers.
+          // Der Ref wird nach jeder Funktionsdefinition synchron aktualisiert (immer aktuell).
+          setTimeout(() => resolveClashRef.current?.(), 500);
       }
   }, [myLockedAction, remoteActionData, localAIActionData, isCoop]);
 
@@ -332,13 +347,15 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
               
               conn.send(ackData); // Schickt dem Client das GO zum Schließen
               
-              applyClashAck(ackData, clashData.ac.name);
+              // FIX (Bug #3): Via Ref – applyClashAck ist erst auf Zeile ~708 definiert,
+              // liegt also in der TDZ wenn dieser Effect das erste Mal registriert wird.
+              applyClashAckRef.current?.(ackData, clashData.ac.name);
               setClashData(null);
               setMyClashConfirmed(false);
               setRemoteClashAck(null);
           } else if (!isHost && remoteClashAck?.type === 'CLASH_ACK') {
               // Client hat das GO (inkl. Krisen-Rolls) vom Host erhalten
-              applyClashAck(remoteClashAck, clashData.ac.name);
+              applyClashAckRef.current?.(remoteClashAck, clashData.ac.name);
               setClashData(null);
               setMyClashConfirmed(false);
               setRemoteClashAck(null);
@@ -619,7 +636,9 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
               oldAHP: oldA,
               newPHP: Math.max(0, oldP - totalMyDmg - prevBuffer.p),
               newAHP: Math.max(0, oldA - totalAiDmg - prevBuffer.a),
-              newPEP: Math.min(25, pEP + 2), newAEP: Math.min(15, aEP + 2),
+              newPEP: Math.min(25, pEP + 2), 
+              // FIX: KI-Kosten endlich korrekt abziehen, bevor die +2 Rundenregeneration draufgeschlagen wird!
+              newAEP: Math.max(0, Math.min(15, aEP - (enemyAction.action === 'allin' ? 8 : enemyAction.action === 'konter' ? 6 : enemyAction.action === 'std' ? 2 : 0) - (enemyAction.effObj ? enemyAction.effObj.cost : 0) + 2)),
               dmgP: totalMyDmg, dmgA: totalAiDmg,
               // FIX Ghost Damage: Immer explizit auf den aktuellen Buffer-Stand setzen,
               // nie auf kumulierte Werte aus einem alten clashData-Spread vertrauen.
@@ -634,6 +653,9 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
       setLocalAIActionData(null); 
       setActiveEffObj(null);
   };
+  // FIX (Bug #2): Ref nach jeder Definition synchron aktualisieren (Latest-Ref-Pattern).
+  // Refs sind von Reacts "No side effects during render"-Regel ausgenommen.
+  resolveClashRef.current = resolveClash;
 
   const executeAction = (actionType) => {
     const k = actionType === 'erholen' ? (curK || 'tech') : curK;
@@ -672,13 +694,6 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
     // Auch offline sofort abziehen für ein noch direkteres UI-Feedback
     setPEP(prev => prev - totalCost);
 
-    let aiActiveEffObj = null;
-    if (aEffHand[0] && aEffHand[0].stat === k) {
-        if (aEP >= (aEffHand[0].cost + 2) && Math.random() > 0.3) {
-            aiActiveEffObj = aEffHand[0];
-        }
-    }
-    
     // NEU: Echte KI Entscheidungen basierend auf gameLogic anstatt hardcoded "std"/"block"!
     let aiAction = 'std';
     if (pTurn) {
@@ -690,9 +705,18 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
         // KI greift an — The Architect Bait!
         if (difficulty === 4 && activeCrisis && aEP < 6 && ((activeCrisis.id === 'HYPERINFLATION' && k === 'finance') || (activeCrisis.id === 'BLACKOUT' && k === 'tech'))) {
             aiAction = 'erholen';
-            aiActiveEffObj = null; // Taktikkarte wird für den Bait gespart!
         } else {
             aiAction = getAIAttackAction({ aEP: aEP, difficulty, pEP });
+        }
+    }
+
+    // FIX: Taktik-Karten Nutzung dynamisch an die Kosten der gewählten Aktion binden!
+    let aiActiveEffObj = null;
+    const aiBaseCost = aiAction === 'allin' ? 8 : (aiAction === 'konter' ? 6 : (aiAction === 'std' ? 2 : 0));
+    
+    if (aEffHand[0] && aEffHand[0].stat === k && aiAction !== 'erholen') {
+        if (aEP >= (aEffHand[0].cost + aiBaseCost) && Math.random() > 0.3) {
+            aiActiveEffObj = aEffHand[0];
         }
     }
     
@@ -767,8 +791,7 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
       
       setTradeCooldown(prev => Math.max(0, prev - 1)); // NEU: Cooldown reduzieren
 
-      let nextActiveCrisis = activeCrisis ? { ...activeCrisis } : null;
-      if (nextActiveCrisis) {
+      let nextActiveCrisis = activeCrisis ? { ...activeCrisis } : null;      if (nextActiveCrisis) {
           nextActiveCrisis.turnsLeft -= 1;
           if (nextActiveCrisis.turnsLeft <= 0) nextActiveCrisis = null;
           setActiveCrisis(nextActiveCrisis);
@@ -792,6 +815,8 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
           }
       }
   };
+  // FIX (Bug #3): Ref nach Definition aktualisieren (Latest-Ref-Pattern).
+  applyClashAckRef.current = applyClashAck;
 
   const confirmClash = () => {
     playSound('click');
