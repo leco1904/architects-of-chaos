@@ -5,6 +5,7 @@ import { playSound } from '../logic/audio';
 
 export default function Market({ 
   credits, 
+  username,
   setCredits, 
   inventory, 
   setInventory, 
@@ -123,24 +124,30 @@ export default function Market({
       <div className="hud-bracket bl"></div>
       <div className="hud-bracket br"></div>
 
-      {/* HEADER: HUD STATUS BAR */}
-      <div className="hud-status-container" style={{ top: '15px', right: '35px' }}>
-        <div className="hud-status-module funds">
+      {/* HEADER: HUD STATUS BAR (Standard) */}
+      <div style={{ position: 'absolute', top: '15px', right: '35px', display: 'flex', filter: 'drop-shadow(0 0 10px rgba(0,0,0,0.5))', zIndex: 1000 }}>
+        <div className="hud-status-module funds" style={{ cursor: 'default' }}>
           <span className="hud-label">CREDITS</span>
-          <span className="hud-value">{credits}</span>
+          <span className="hud-value">{credits ?? 0}</span>
         </div>
-        <div className="hud-status-module agent" onClick={() => { playSound('click'); setShowOdds(true); }} style={{ borderColor: 'rgba(0, 229, 255, 0.4)', color: '#00e5ff' }}>
-          <span className="hud-label" style={{ color: '#00e5ff' }}>SYS.LOG</span>
-          <span className="hud-value" style={{ fontSize: '0.9rem' }}>DROP RATES</span>
+        <div className="hud-status-module agent" style={{ borderColor: 'rgba(0, 229, 255, 0.2)', color: 'var(--win)', marginLeft: '-5px', clipPath: 'none' }}>
+          <span className="hud-label" style={{ color: 'var(--win)' }}>SYS.ID</span>
+          <span className="hud-value" style={{ fontSize: '1.1rem', textTransform: 'uppercase' }}>{username || 'UNKNOWN'}</span>
         </div>
-        <div className="hud-status-module agent" onClick={onBack} style={{ borderColor: 'var(--lose)', color: 'var(--lose)', borderRight: 'none', clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)', paddingRight: '20px' }}>
-          <span className="hud-label" style={{ color: 'var(--lose)' }}>ACTION</span>
+        <div className="hud-status-module agent" onClick={onBack} style={{ borderColor: 'var(--lose)', color: 'var(--lose)', borderRight: 'none', clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)', paddingRight: '20px', marginLeft: '-5px', cursor: 'pointer' }}>
+          <span className="hud-label" style={{ color: 'var(--lose)' }}>STATUS</span>
           <span className="hud-value" style={{ fontSize: '0.9rem' }}>EXIT</span>
         </div>
       </div>
 
-      <div className="ops-header" style={{ fontSize: '1.4rem', color: 'var(--ep)', textShadow: '0 0 10px var(--ep)', marginBottom: '10px' }}>
-        [ BLACK MARKET UPLINK ]
+      {/* SHOP HEADER & DROP RATES BUTTON */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', marginTop: '10px' }}>
+        <div className="ops-header" style={{ fontSize: '1.4rem', color: 'var(--ep)', textShadow: '0 0 10px var(--ep)', margin: 0 }}>
+          [ BLACK MARKET UPLINK ]
+        </div>
+        <button className="btn-info" onClick={() => { playSound('click'); setShowOdds(true); }} style={{ borderColor: 'rgba(0, 229, 255, 0.4)', color: '#00e5ff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '1.1rem' }}>📊</span> SYS.LOG: DROP RATES
+        </button>
       </div>
 
       {/* --- SEKTOR BELOHNUNGEN --- */}

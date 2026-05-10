@@ -1907,7 +1907,24 @@ export default function App() {
         </div>
       )}
       {currentView === 'lexicon' && (
-        <div className="screen active lex-screen" style={{ display: 'block', padding: '0 30px 30px 30px', overflowY: 'auto' }}>
+        <div className="screen active lex-screen" style={{ display: 'block', padding: '60px 30px 30px 30px', overflowY: 'auto' }}>
+          
+          {/* HUD STATUS BAR (Standard) */}
+          <div style={{ position: 'absolute', top: '15px', right: '35px', display: 'flex', filter: 'drop-shadow(0 0 10px rgba(0,0,0,0.5))', zIndex: 1000 }}>
+            <div className="hud-status-module funds" onClick={() => { playSound('click'); setCurrentView('market'); }} title="Shop öffnen" style={{ cursor: 'pointer', transition: '0.3s' }}>
+              <span className="hud-label">CREDITS</span>
+              <span className="hud-value">{credits ?? 0}</span>
+            </div>
+            <div className="hud-status-module agent" style={{ borderColor: 'rgba(0, 229, 255, 0.2)', color: 'var(--win)', marginLeft: '-5px', clipPath: 'none' }}>
+              <span className="hud-label" style={{ color: 'var(--win)' }}>SYS.ID</span>
+              <span className="hud-value" style={{ fontSize: '1.1rem', textTransform: 'uppercase' }}>{session?.user?.user_metadata?.username || 'UNKNOWN'}</span>
+            </div>
+            <div className="hud-status-module agent" onClick={() => { playSound('click'); setCurrentView('menu'); }} style={{ borderColor: 'var(--lose)', color: 'var(--lose)', borderRight: 'none', clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)', paddingRight: '20px', marginLeft: '-5px', cursor: 'pointer' }}>
+              <span className="hud-label" style={{ color: 'var(--lose)' }}>STATUS</span>
+              <span className="hud-value" style={{ fontSize: '0.9rem' }}>EXIT</span>
+            </div>
+          </div>
+
           {/* Sticky Top-Bar */}
           <div className="top-bar" style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(5, 5, 8, 0.95)', padding: '30px 0 20px 0', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
             
@@ -1943,7 +1960,6 @@ export default function App() {
                 </select>
               )}
               
-              <button className="btn-back" onClick={() => setCurrentView('menu')}>ZURÜCK</button>
             </div>
           </div>
           <div className="card-grid">
@@ -1981,6 +1997,7 @@ export default function App() {
       {currentView === 'market' && ( 
         <Market 
           credits={credits} 
+          username={session?.user?.user_metadata?.username}
           setCredits={setCredits} 
           inventory={inventory} 
           setInventory={setInventory} 
