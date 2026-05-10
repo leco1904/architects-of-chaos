@@ -118,7 +118,8 @@ const Card = memo(function Card({
   const [flipState,  setFlipState]  = useState(isFlipContext ? 0 : 1);
   const [isFlipping, setIsFlipping] = useState(false);
 
-  const handleCardClick = () => {
+  const handleCardClick = (e) => {
+    if (e) e.stopPropagation();
     if (!isFlipContext || isFlipping || !wrapperRef.current) return;
     const el = wrapperRef.current;
 
@@ -351,7 +352,12 @@ const Card = memo(function Card({
           {/* FIX: Der Glow liegt jetzt IM Scaler und schrumpft brav mit der Karte mit! */}
           {isFactionSynergyActive && <div className="synergy-aura-glow" aria-hidden="true" />}
           <div
+            ref={wrapperRef}
             className={`card-3d-wrapper ${isFlipContext ? 'is-flip-context' : ''} ${flipState === 0 ? 'flip-art-only' : ''}`}
+            onClick={isFlipContext ? handleCardClick : undefined}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
+            style={{ cursor: isFlipContext ? 'pointer' : 'default' }}
         >
           {/* RÃ¼ckseite */}
           {flipState === 2 ? (
@@ -556,7 +562,9 @@ const Card = memo(function Card({
                             style={{
                               cursor:     isLocked ? 'not-allowed' : (onStatClick ? 'pointer' : 'default'),
                               background: isLocked ? 'rgba(255,0,50,0.15)' : '',
-                              border:     isLocked ? '1px solid rgba(255,0,50,0.3)' : '1px solid transparent',
+                              // FIX: Wenn der Stat selektiert ist (selected-player / selected-ai),
+                              // darf kein transparenter Inline-Border den CSS-Klassen-Border überschreiben.
+                              border:     isLocked ? '1px solid rgba(255,0,50,0.3)' : (isSelected ? '' : '1px solid transparent'),
                               position:   'relative',
                             }}
                           >

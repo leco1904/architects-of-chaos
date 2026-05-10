@@ -1903,64 +1903,65 @@ export default function App() {
       )}
       {currentView === 'leaderboard' && (
         <div style={{ width: '100%', height: '100%' }}>
-           <Leaderboard onBack={() => setCurrentView('menu')} />
+           <Leaderboard credits={credits} username={session?.user?.user_metadata?.username} onOpenShop={() => setCurrentView('market')} onBack={() => setCurrentView('menu')} />
         </div>
       )}
       {currentView === 'lexicon' && (
-        <div className="screen active lex-screen" style={{ display: 'block', padding: '60px 30px 30px 30px', overflowY: 'auto' }}>
-          
-          {/* HUD STATUS BAR (Standard) */}
-          <div style={{ position: 'absolute', top: '15px', right: '35px', display: 'flex', filter: 'drop-shadow(0 0 10px rgba(0,0,0,0.5))', zIndex: 1000 }}>
-            <div className="hud-status-module funds" onClick={() => { playSound('click'); setCurrentView('market'); }} title="Shop öffnen" style={{ cursor: 'pointer', transition: '0.3s' }}>
-              <span className="hud-label">CREDITS</span>
-              <span className="hud-value">{credits ?? 0}</span>
-            </div>
-            <div className="hud-status-module agent" style={{ borderColor: 'rgba(0, 229, 255, 0.2)', color: 'var(--win)', marginLeft: '-5px', clipPath: 'none' }}>
-              <span className="hud-label" style={{ color: 'var(--win)' }}>SYS.ID</span>
-              <span className="hud-value" style={{ fontSize: '1.1rem', textTransform: 'uppercase' }}>{session?.user?.user_metadata?.username || 'UNKNOWN'}</span>
-            </div>
-            <div className="hud-status-module agent" onClick={() => { playSound('click'); setCurrentView('menu'); }} style={{ borderColor: 'var(--lose)', color: 'var(--lose)', borderRight: 'none', clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)', paddingRight: '20px', marginLeft: '-5px', cursor: 'pointer' }}>
-              <span className="hud-label" style={{ color: 'var(--lose)' }}>STATUS</span>
-              <span className="hud-value" style={{ fontSize: '0.9rem' }}>EXIT</span>
-            </div>
-          </div>
+        <div className="screen active lex-screen" style={{ display: 'block', padding: '0 30px 30px 30px', overflowY: 'auto' }}>
 
-          {/* Sticky Top-Bar */}
-          <div className="top-bar" style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(5, 5, 8, 0.95)', padding: '30px 0 20px 0', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+          {/* Sticky Top-Bar mit integriertem HUD */}
+          <div className="top-bar" style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(5, 5, 8, 0.95)', padding: '20px 0 20px 0', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             
-            {/* NEU: Anklickbare Tabs statt statischem Titel */}
-            <div style={{ display: 'flex', gap: '30px', alignItems: 'center' }}>
-              <div 
-                className="game-title-small" 
-                style={{ cursor: 'pointer', opacity: lexFaction !== 'EFFECTS' ? 1 : 0.4, transition: '0.2s' }}
-                onClick={(e) => { e.nativeEvent.stopImmediatePropagation(); playSound('click'); setLexFaction('ALL'); }}
-              >
-                AGENTEN
+            {/* LINKE SEITE: Archiv-Tabs & Suche */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ display: 'flex', gap: '30px', alignItems: 'center' }}>
+                <div 
+                  className="game-title-small" 
+                  style={{ cursor: 'pointer', opacity: lexFaction !== 'EFFECTS' ? 1 : 0.4, transition: '0.2s', margin: 0 }}
+                  onClick={(e) => { e.nativeEvent.stopImmediatePropagation(); playSound('click'); setLexFaction('ALL'); }}
+                >
+                  AGENTEN
+                </div>
+                <div 
+                  className="game-title-small" 
+                  style={{ cursor: 'pointer', opacity: lexFaction === 'EFFECTS' ? 1 : 0.4, transition: '0.2s', color: 'var(--eff-col)', textShadow: lexFaction === 'EFFECTS' ? '0 0 10px var(--eff-col)' : 'none', margin: 0 }}
+                  onClick={(e) => { e.nativeEvent.stopImmediatePropagation(); playSound('click'); setLexFaction('EFFECTS'); }}
+                >
+                  TAKTIKEN
+                </div>
               </div>
-              <div 
-                className="game-title-small" 
-                style={{ cursor: 'pointer', opacity: lexFaction === 'EFFECTS' ? 1 : 0.4, transition: '0.2s', color: 'var(--eff-col)', textShadow: lexFaction === 'EFFECTS' ? '0 0 10px var(--eff-col)' : 'none' }}
-                onClick={(e) => { e.nativeEvent.stopImmediatePropagation(); playSound('click'); setLexFaction('EFFECTS'); }}
-              >
-                TAKTIKEN
+              
+              <div className="lex-top-controls" style={{ display: 'flex', gap: '15px' }}>
+                <input type="text" placeholder="Suche..." value={lexSearch} onChange={e => setLexSearch(e.target.value)} className="mono" style={{ padding: '8px', background: '#000', border: '1px solid #444', color: '#fff' }} />
+                
+                {lexFaction !== 'EFFECTS' && (
+                  <select value={lexFaction} onChange={e => setLexFaction(e.target.value)} className="mono" style={{ padding: '8px', background: '#000', border: '1px solid #444', color: '#fff' }}>
+                    <option value="ALL">ALLE</option>
+                    <option value="OWNED">IN BESITZ</option>
+                    <option value="UNOWNED">NICHT IN BESITZ</option>
+                    <option disabled>──────────────</option>
+                    {allFactions.map(f => <option key={f} value={f}>{f}</option>)}
+                  </select>
+                )}
               </div>
             </div>
-            
-            <div className="lex-top-controls" style={{ display: 'flex', gap: '15px' }}>
-              <input type="text" placeholder="Suche..." value={lexSearch} onChange={e => setLexSearch(e.target.value)} className="mono" style={{ padding: '8px', background: '#000', border: '1px solid #444', color: '#fff' }} />
-              
-              {/* Dropdown nur einblenden, wenn wir bei den Agenten sind */}
-              {lexFaction !== 'EFFECTS' && (
-                <select value={lexFaction} onChange={e => setLexFaction(e.target.value)} className="mono" style={{ padding: '8px', background: '#000', border: '1px solid #444', color: '#fff' }}>
-                  <option value="ALL">ALLE</option>
-                  <option value="OWNED">IN BESITZ</option>
-                  <option value="UNOWNED">NICHT IN BESITZ</option>
-                  <option disabled>──────────────</option>
-                  {allFactions.map(f => <option key={f} value={f}>{f}</option>)}
-                </select>
-              )}
-              
+
+            {/* RECHTE SEITE: Das globale HUD */}
+            <div style={{ display: 'flex', filter: 'drop-shadow(0 0 10px rgba(0,0,0,0.5))', marginTop: '5px' }}>
+              <div className="hud-status-module funds" onClick={() => { playSound('click'); setCurrentView('market'); }} title="Shop öffnen" style={{ cursor: 'pointer', transition: '0.3s' }}>
+                <span className="hud-label">CREDITS</span>
+                <span className="hud-value">{credits ?? 0}</span>
+              </div>
+              <div className="hud-status-module agent" style={{ borderColor: 'rgba(0, 229, 255, 0.2)', color: 'var(--win)', marginLeft: '-5px', clipPath: 'none' }}>
+                <span className="hud-label" style={{ color: 'var(--win)' }}>SYS.ID</span>
+                <span className="hud-value" style={{ fontSize: '1.1rem', textTransform: 'uppercase' }}>{session?.user?.user_metadata?.username || 'UNKNOWN'}</span>
+              </div>
+              <div className="hud-status-module agent" onClick={() => { playSound('click'); setCurrentView('menu'); }} style={{ borderColor: 'var(--lose)', color: 'var(--lose)', borderRight: 'none', clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)', paddingRight: '20px', marginLeft: '-5px', cursor: 'pointer' }}>
+                <span className="hud-label" style={{ color: 'var(--lose)' }}>STATUS</span>
+                <span className="hud-value" style={{ fontSize: '0.9rem' }}>EXIT</span>
+              </div>
             </div>
+
           </div>
           <div className="card-grid">
             {[...cardsData.characters, ...(cardsData.effects || [])]
@@ -1983,7 +1984,7 @@ export default function App() {
               .map((c, i) => {
                 const isOwned = inventory.some(inv => inv.name === c.name);
                 return (
-                  <div key={i} className={`card-grid-cell ${!isOwned ? 'card-unowned' : ''}`} onClick={() => { playSound('click'); setLexiconInspectCard(c); }}>
+                  <div key={i} className={`card-grid-cell ${!isOwned ? 'card-unowned' : ''}`}>
                     <Card card={c} context="lexicon" />
                   </div>
                 );
@@ -2318,7 +2319,7 @@ export default function App() {
       {/* SYSTEM OVERRIDES SCREEN */}
       {currentView === 'overrides' && (
          <div style={{ width: '100%', height: '100%' }}>
-            <SystemOverrides metaStats={metaStats} onBack={() => setCurrentView('menu')} onClaim={claimOverride} />
+            <SystemOverrides credits={credits} username={session?.user?.user_metadata?.username} onOpenShop={() => setCurrentView('market')} metaStats={metaStats} onBack={() => setCurrentView('menu')} onClaim={claimOverride} />
          </div>
       )}
 

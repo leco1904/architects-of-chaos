@@ -146,7 +146,11 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
   
   // FIX: Wenn es Co-Op ist, starten BEIDE Spieler in ihrem eigenen "Turn" gegen die KI!
   const [pTurn, setPTurn] = useState((isOnline && !isCoop) ? isHost : true);
-  
+  // FIX (Stale-Closure): pTurnRef spiegelt immer den aktuellen pTurn-Wert wider,
+  // ohne dass der Online-Handler bei jedem Turn neu registriert werden muss.
+  const pTurnRef = React.useRef((isOnline && !isCoop) ? isHost : true);
+  useEffect(() => { pTurnRef.current = pTurn; }, [pTurn]);
+    
   const [pHand, setPHand] = useState(_sc.slice(0, 3));
   const [pDeck, setPDeck] = useState(_sc.slice(3));
   const [aDeck, setADeck] = useState([...(aiChars || [])]);
@@ -207,13 +211,17 @@ export default function MatchEngine({ playerChars, playerEffs, partnerChars, par
       if (!isOnline || !conn) return;
       const handleData = (data) => {
           if (data.type === 'ACTION') {
-              if (!pTurn) setCurK(data.category); 
+              // FIX Bug 1: pTurnRef.current statt pTurn — verhindert Stale-Closure
+              //   wenn ACTION in der Lücke zwischen Effect-Cleanup und Effect-Setup ankommt.
+              // FIX Bug 2: !isCoop Guard — im Co-Op setzt der KI-Effekt (Z. ~378) curK;
+              //   der Partner-Action-Category darf das nicht überschreiben.
+              if (!pTurnRef.current && !isCoop) setCurK(data.category);
               setRemoteActionData(data);
           } else if (data.type === 'ACTION_CANCEL') {
               // NEU: Partner hat seine Aktion zurückgezogen
               setRemoteActionData(null);
               // FIX: Im Co-Op setzt die KI curK — das darf der Partner-Cancel nicht überschreiben
-              if (!pTurn && !isCoop) setCurK('');
+              if (!pTurnRef.current && !isCoop) setCurK('');
           } else if (data.type === 'CLASH_ACK') {
               // Client empfängt die echten Krisen-Daten vom Host
               setRemoteClashAck(data);

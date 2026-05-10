@@ -1,4 +1,5 @@
 import React from 'react';
+import { playSound } from '../logic/audio';
 
 // ── DIE ACHIEVEMENT DATENBANK (50+ Overrides) ───────────────────────────────────────────
 export const ACHIEVEMENTS = [
@@ -58,7 +59,7 @@ export const ACHIEVEMENTS = [
   { id: 'boss_50', title: 'SYSTEM CLEANER', desc: 'Besiege 50 Bosse. Du bist die wahre Gefahr.', category: 'ghost', reward: 20000, target: 50, type: 'bosses_defeated', icon: '☣️' }
 ];
 
-export default function SystemOverrides({ metaStats, onBack, onClaim }) {
+export default function SystemOverrides({ metaStats, credits, username, onOpenShop, onBack, onClaim }) {
   const claimed = metaStats?.claimed_achievements || [];
 
   const getCategoryColor = (cat) => {
@@ -73,15 +74,31 @@ export default function SystemOverrides({ metaStats, onBack, onClaim }) {
   };
 
   return (
-    <div className="screen active" style={{ display: 'block', padding: '30px', overflowY: 'auto' }}>
-      <div className="top-bar" style={{ marginBottom: '30px' }}>
+    <div className="screen active" style={{ display: 'block', padding: '60px 30px 30px 30px', overflowY: 'auto' }}>
+      
+      {/* HUD STATUS BAR (Standard) */}
+      <div style={{ position: 'absolute', top: '15px', right: '35px', display: 'flex', filter: 'drop-shadow(0 0 10px rgba(0,0,0,0.5))', zIndex: 1000 }}>
+        <div className="hud-status-module funds" onClick={() => { playSound('click'); if(onOpenShop) onOpenShop(); }} title="Shop öffnen" style={{ cursor: 'pointer', transition: '0.3s' }}>
+          <span className="hud-label">CREDITS</span>
+          <span className="hud-value">{credits ?? 0}</span>
+        </div>
+        <div className="hud-status-module agent" style={{ borderColor: 'rgba(0, 229, 255, 0.2)', color: 'var(--win)', marginLeft: '-5px', clipPath: 'none' }}>
+          <span className="hud-label" style={{ color: 'var(--win)' }}>SYS.ID</span>
+          <span className="hud-value" style={{ fontSize: '1.1rem', textTransform: 'uppercase' }}>{username || 'UNKNOWN'}</span>
+        </div>
+        <div className="hud-status-module agent" onClick={() => { playSound('click'); onBack(); }} style={{ borderColor: 'var(--lose)', color: 'var(--lose)', borderRight: 'none', clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)', paddingRight: '20px', marginLeft: '-5px', cursor: 'pointer' }}>
+          <span className="hud-label" style={{ color: 'var(--lose)' }}>STATUS</span>
+          <span className="hud-value" style={{ fontSize: '0.9rem' }}>EXIT</span>
+        </div>
+      </div>
+
+      <div className="top-bar" style={{ marginBottom: '30px', borderBottom: 'none' }}>
         <div>
           <div className="game-title-small" style={{ color: 'var(--ep)' }}>ACHIEVEMENTS // OVERRIDES</div>
           <div className="mono" style={{ fontSize: '0.65rem', color: '#888', letterSpacing: '2px', marginTop: '4px' }}>
             PERMANENTE SYSTEM-HACKS: {claimed.length} / {ACHIEVEMENTS.length} ENTSPERRT
           </div>
         </div>
-        <button className="btn-back" onClick={onBack}>ZURÜCK ZUR ZENTRALE</button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '20px', maxWidth: '1400px', margin: '0 auto' }}>

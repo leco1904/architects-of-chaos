@@ -22,7 +22,7 @@ const BOARD_MODES = {
   ]
 };
 
-export default function Leaderboard({ onBack }) {
+export default function Leaderboard({ credits, username, onOpenShop, onBack }) {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [boardMode, setBoardMode] = useState('GHOST_NODE');
@@ -68,7 +68,24 @@ export default function Leaderboard({ onBack }) {
   const activeCatObj = BOARD_MODES[boardMode].find(c => c.id === category) || BOARD_MODES[boardMode][0];
 
   return (
-    <div className="screen active" style={{ display: 'block', padding: '30px', overflowY: 'auto' }}>
+    <div className="screen active" style={{ display: 'block', padding: '60px 30px 30px 30px', overflowY: 'auto' }}>
+      
+      {/* HUD STATUS BAR (Standard) */}
+      <div style={{ position: 'absolute', top: '15px', right: '35px', display: 'flex', filter: 'drop-shadow(0 0 10px rgba(0,0,0,0.5))', zIndex: 1000 }}>
+        <div className="hud-status-module funds" onClick={() => { playSound('click'); if(onOpenShop) onOpenShop(); }} title="Shop öffnen" style={{ cursor: 'pointer', transition: '0.3s' }}>
+          <span className="hud-label">CREDITS</span>
+          <span className="hud-value">{credits ?? 0}</span>
+        </div>
+        <div className="hud-status-module agent" style={{ borderColor: 'rgba(0, 229, 255, 0.2)', color: 'var(--win)', marginLeft: '-5px', clipPath: 'none' }}>
+          <span className="hud-label" style={{ color: 'var(--win)' }}>SYS.ID</span>
+          <span className="hud-value" style={{ fontSize: '1.1rem', textTransform: 'uppercase' }}>{username || 'UNKNOWN'}</span>
+        </div>
+        <div className="hud-status-module agent" onClick={() => { playSound('click'); onBack(); }} style={{ borderColor: 'var(--lose)', color: 'var(--lose)', borderRight: 'none', clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)', paddingRight: '20px', marginLeft: '-5px', cursor: 'pointer' }}>
+          <span className="hud-label" style={{ color: 'var(--lose)' }}>STATUS</span>
+          <span className="hud-value" style={{ fontSize: '0.9rem' }}>EXIT</span>
+        </div>
+      </div>
+
       <div className="top-bar" style={{ marginBottom: '30px' }}>
         <div>
           <div className="game-title-small" style={{ color: 'var(--ep)', textShadow: '0 0 15px var(--ep)' }}>🏆 GLOBAL LEADERBOARD</div>
@@ -76,7 +93,6 @@ export default function Leaderboard({ onBack }) {
             ARCHITECTS OF CHAOS // RANKING-SYSTEM
           </div>
         </div>
-        <button className="btn-back" onClick={() => { playSound('click'); onBack(); }}>ZURÜCK</button>
       </div>
 
       <div className="glass-panel" style={{ maxWidth: '900px', margin: '0 auto', padding: '30px' }}>
