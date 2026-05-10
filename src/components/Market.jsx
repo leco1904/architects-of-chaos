@@ -117,51 +117,65 @@ export default function Market({
   };
 
   return (
-    <div className="screen active" style={{ display: 'block', padding: '30px', overflowY: 'auto' }}>
-      {/* HEADER */}
-      <div className="top-bar">
-        <div className="game-title-small">SCHWARZMARKT</div>
-        <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-          <div className="mono" style={{ fontSize: '1.5rem', color: '#fff', textShadow: '0 0 10px var(--ep)' }}>
-            <span style={{color: 'var(--ep)'}}>{credits}</span> 💳
-          </div>
-          <button className="btn-info" style={{ pointerEvents: 'auto', zIndex: 100 }} onClick={() => setShowOdds(true)}>📊 ODDS</button>
-          <button className="btn-info" onClick={onShowRules}>RULES</button>
-          <button className="btn-back" onClick={onBack}>ZURÜCK</button>
+    <div className="command-center-layout" style={{ display: 'flex', flexDirection: 'column', overflowY: 'auto', padding: '60px 40px', gap: '20px' }}>
+      {/* VIEWPORT FRAMING */}
+      <div className="hud-bracket tl"></div>
+      <div className="hud-bracket bl"></div>
+      <div className="hud-bracket br"></div>
+
+      {/* HEADER: HUD STATUS BAR */}
+      <div className="hud-status-container" style={{ top: '15px', right: '35px' }}>
+        <div className="hud-status-module funds">
+          <span className="hud-label">CREDITS</span>
+          <span className="hud-value">{credits}</span>
         </div>
+        <div className="hud-status-module agent" onClick={() => { playSound('click'); setShowOdds(true); }} style={{ borderColor: 'rgba(0, 229, 255, 0.4)', color: '#00e5ff' }}>
+          <span className="hud-label" style={{ color: '#00e5ff' }}>SYS.LOG</span>
+          <span className="hud-value" style={{ fontSize: '0.9rem' }}>DROP RATES</span>
+        </div>
+        <div className="hud-status-module agent" onClick={onBack} style={{ borderColor: 'var(--lose)', color: 'var(--lose)', borderRight: 'none', clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)', paddingRight: '20px' }}>
+          <span className="hud-label" style={{ color: 'var(--lose)' }}>ACTION</span>
+          <span className="hud-value" style={{ fontSize: '0.9rem' }}>EXIT</span>
+        </div>
+      </div>
+
+      <div className="ops-header" style={{ fontSize: '1.4rem', color: 'var(--ep)', textShadow: '0 0 10px var(--ep)', marginBottom: '10px' }}>
+        [ BLACK MARKET UPLINK ]
       </div>
 
       {/* --- SEKTOR BELOHNUNGEN --- */}
       {rewardPacks && rewardPacks.length > 0 && (
-        <div className="reward-section" style={{ 
-          marginBottom: '40px', 
-          border: '1px solid var(--win)', 
-          padding: '20px', 
-          background: 'rgba(0,229,255,0.03)', 
-          borderRadius: '4px',
-          boxShadow: 'inset 0 0 20px rgba(0,229,255,0.05)'
-        }}>
-          <div className="mono" style={{ color: 'var(--win)', fontSize: '0.7rem', marginBottom: '20px', letterSpacing: '3px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ animation: 'pulse 1s infinite' }}>●</span> // GEFUNDENE DATENFRAGMENTE (KOSTENLOS)
+        <div className="reward-section" style={{ marginBottom: '40px', position: 'relative' }}>
+          <div className="mono" style={{ color: 'var(--win)', fontSize: '0.7rem', marginBottom: '15px', letterSpacing: '3px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ animation: 'pulse 1s infinite' }}>●</span> EXTRACTED DATA CACHES READY FOR DECRYPTION
           </div>
           
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px' }}>
             {rewardPacks.map(rp => (
-              <div key={rp.id} className="pack-item" style={{ borderColor: rp.color, width: '100%', maxWidth: '280px', minHeight: 'auto', padding: '15px', margin: 0, boxShadow: `0 0 15px ${rp.color}33` }}>
-                <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-                  <div className="pack-icon" style={{ color: rp.color, fontSize: '2rem', marginBottom: 0, textShadow: `0 0 10px ${rp.color}` }}>🎁</div>
+              <div key={rp.id} style={{ 
+                position: 'relative', width: '100%', maxWidth: '320px',
+                background: 'rgba(0, 0, 0, 0.6)', border: `1px solid ${rp.color}44`,
+                borderLeft: `4px solid ${rp.color}`, padding: '20px',
+                display: 'flex', flexDirection: 'column', gap: '15px',
+                boxShadow: `inset 0 0 20px ${rp.color}11, 0 5px 15px rgba(0,0,0,0.5)`,
+                clipPath: 'polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px)'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div>
-                    <h3 style={{ fontSize: '0.9rem', margin: 0 }}>{rp.name}</h3>
-                    <div className="mono" style={{ color: 'var(--win)', fontSize: '0.8rem' }}>GRATIS</div>
+                    <div className="mono" style={{ color: rp.color, fontSize: '0.6rem', letterSpacing: '2px', textShadow: `0 0 8px ${rp.color}` }}>[ SECURED ASSET ]</div>
+                    <h3 style={{ fontSize: '1.1rem', margin: '5px 0 0 0', color: '#fff', letterSpacing: '1px' }}>{rp.name}</h3>
                   </div>
+                  <div className="mono" style={{ color: '#fff', fontSize: '0.8rem', background: `${rp.color}33`, padding: '2px 8px', border: `1px solid ${rp.color}`, borderRadius: '2px' }}>FREE</div>
                 </div>
+                
                 <button 
                   className="btn-act" 
-                  style={{ borderLeftColor: 'var(--win)', marginTop: '15px', height: '35px' }} 
+                  style={{ borderLeftColor: rp.color, background: 'rgba(255,255,255,0.02)', padding: '10px 15px' }} 
                   onClick={() => handleOpenReward(rp)}
                   disabled={isOpening}
                 >
-                  <span className="act-title">DECRYPTEN</span>
+                  <span className="act-title" style={{ fontSize: '0.9rem', color: rp.color }}>DECRYPT PAYLOAD</span>
+                  <span className="act-cost">▶</span>
                 </button>
               </div>
             ))}
@@ -170,28 +184,68 @@ export default function Market({
       )}
 
       {/* STANDARD CACHES */}
-      <div className="mono" style={{ color: '#555', marginBottom: '15px', fontSize: '0.7rem', letterSpacing: '2px' }}>// STANDARD CACHES</div>
-      <div className="market-grid">
-        {packs.map(p => (
-          <div key={p.id} className="pack-item">
-            <div>
-              <div className="pack-icon">{p.icon}</div>
-              <h3>{p.name}</h3>
-              <p style={{ color: '#aaa', fontSize: '0.8rem', lineHeight: '1.4' }}>{p.desc}</p>
+      <div className="mono" style={{ color: '#666', marginBottom: '20px', fontSize: '0.75rem', letterSpacing: '2px', borderBottom: '1px solid #333', paddingBottom: '10px' }}>
+        // COMMERCIAL DATA NODES
+      </div>
+      
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '30px', width: '100%', maxWidth: '1200px' }}>
+        {packs.map(p => {
+          const isAffordable = credits >= p.cost;
+          // Farb-Zuordnung basierend auf Pack-Typ
+          const pColor = p.id === 'basic' ? 'var(--win)' : p.id === 'premium' ? 'var(--r-epi)' : '#bc13fe';
+          
+          return (
+            <div key={p.id} style={{
+              position: 'relative',
+              background: 'rgba(10, 10, 15, 0.8)',
+              border: `1px solid ${pColor}44`,
+              display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+              padding: '30px', transition: '0.3s',
+              clipPath: 'polygon(20px 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%, 0 20px)',
+              boxShadow: `inset 0 0 30px ${pColor}08`
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = pColor; e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.style.boxShadow = `inset 0 0 30px ${pColor}15, 0 10px 20px rgba(0,0,0,0.5)`; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = `${pColor}44`; e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = `inset 0 0 30px ${pColor}08`; }}
+            >
+              <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', background: pColor }} />
+              
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
+                  <div className="mono" style={{ fontSize: '0.65rem', color: pColor, letterSpacing: '3px', textShadow: `0 0 10px ${pColor}` }}>NODE: {p.id.toUpperCase()}</div>
+                  <div className="mono" style={{ fontSize: '0.65rem', background: '#000', padding: '2px 6px', border: `1px solid ${pColor}44`, color: '#aaa' }}>CAP: {p.num}</div>
+                </div>
+                
+                <h3 style={{ fontSize: '1.4rem', margin: '0 0 15px 0', letterSpacing: '2px', color: '#fff' }}>{p.name}</h3>
+                <p style={{ color: '#888', fontSize: '0.85rem', lineHeight: '1.5', minHeight: '60px' }}>{p.desc}</p>
+              </div>
+
+              <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                  <span className="mono" style={{ fontSize: '0.7rem', color: '#666' }}>ACCESS COST</span>
+                  <span className="mono" style={{ fontSize: '1.4rem', fontWeight: 'bold', color: isAffordable ? 'var(--ep)' : 'var(--lose)', textShadow: isAffordable ? '0 0 10px var(--ep)' : '0 0 10px var(--lose)' }}>
+                    {p.cost}
+                  </span>
+                </div>
+                
+                <button 
+                  className="btn-act" 
+                  style={{ 
+                    borderLeftColor: isAffordable ? pColor : '#444', 
+                    opacity: isOpening ? 0.5 : 1,
+                    background: 'rgba(0,0,0,0.4)',
+                    padding: '15px 20px'
+                  }}
+                  onClick={() => handleBuy(p)}
+                  disabled={isOpening}
+                >
+                  <span className="act-title" style={{ fontSize: '1rem', color: isAffordable ? '#fff' : '#555' }}>
+                    {isAffordable ? 'PURCHASE ACCESS' : 'INSUFFICIENT FUNDS'}
+                  </span>
+                </button>
+              </div>
             </div>
-            <div>
-              <div className="pack-cost mono" style={{ color: credits >= p.cost ? 'var(--ep)' : 'var(--lose)' }}>{p.cost} 💳</div>
-              <button 
-                className="btn-act" 
-                style={{ borderLeftColor: credits >= p.cost ? 'var(--win)' : '#444' }}
-                onClick={() => handleBuy(p)}
-                disabled={isOpening}
-              >
-                <span className="act-title">KAUFEN</span>
-              </button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* OVERLAYS (Öffnen & Reveal) */}

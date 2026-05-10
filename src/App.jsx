@@ -396,6 +396,7 @@ export default function App() {
   
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // NEU: Ghost Network Sidebar
   const [showSettings, setShowSettings] = useState(false);
+  const [showDevMode, setShowDevMode] = useState(false); // NEU: Stealth Admin Panel
   const [systemLogs, setSystemLogs] = useState(["[SYSTEM] Kern-Module initialisiert...", "[NETWORK] Ghost-Verschlüsselung aktiv."]);
 
   // Kleiner Effekt für die Live-Konsole unten rechts im Dashboard
@@ -726,8 +727,8 @@ export default function App() {
         if (showGlobalRules) { playSound('click'); setShowGlobalRules(false); return; }
         if (pendingOutgoingInvite) { playSound('click'); disconnectPeer(); setPendingOutgoingInvite(null); return; }
 
-        // 2. Priorität: Sub-Menü im Hauptmenü (Mission Starten) abbrechen
-        if (currentView === 'menu' && playMenuOpen) { playSound('click'); setPlayMenuOpen(false); return; }
+           // 2. Priorität: Sub-Menü im Hauptmenü (Mission Starten) abbrechen
+        if (currentView === 'menu' && showDifficultySelect) { playSound('click'); setShowDifficultySelect(false); return; }
 
         // 3. Priorität: Menüs, die ins Ghost Node Menu zurückgehen
         const backToGhostViews = ['avatarlab', 'roguelikesquad', 'roguelikemap', 'roguelikefailed'];
@@ -756,7 +757,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleGlobalKeys);
     return () => window.removeEventListener('keydown', handleGlobalKeys);
-  }, [currentView, playMenuOpen, showGlobalRules, lexiconInspectCard, pendingOutgoingInvite, conn]);
+  }, [currentView, showDifficultySelect, showGlobalRules, lexiconInspectCard, pendingOutgoingInvite, conn]);
 
   const updateAvatar = (newAvatar) => { setAvatarCard(newAvatar); };
 
@@ -1745,32 +1746,7 @@ export default function App() {
         )
       )}
 
-          {isAdmin && (
-            <div style={{ 
-              position: 'absolute', bottom: '20px', left: '20px', zIndex: 1000, 
-              padding: '15px', background: 'rgba(255,215,0,0.05)', 
-              border: '1px dashed rgba(255,215,0,0.4)', borderLeft: '3px solid #ffd700', 
-              backdropFilter: 'blur(4px)' 
-            }}>
-               <div className="mono" style={{ fontSize: '0.65rem', color: '#ffd700', letterSpacing: '2px', marginBottom: '12px', fontWeight: 'bold' }}>▸ SYSTEM ADMIN: NORMAL GAMES</div>
-               
-               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                     <span className="mono" style={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.6)' }}>PLAYER HP ({normalPlayerHp})</span>
-                     <button onClick={() => setNormalPlayerHp(200)} style={{ background: 'transparent', border: '1px solid #555', color: '#888', fontSize: '0.45rem', padding: '2px 6px', cursor: 'pointer' }}>RESET</button>
-                  </div>
-                  <input type="range" min="50" max="1000" step="10" value={normalPlayerHp} onChange={(e) => setNormalPlayerHp(parseInt(e.target.value))} style={{ width: '200px', accentColor: '#ffd700' }} />
-               </div>
-
-               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                     <span className="mono" style={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.6)' }}>ENEMY HP ({normalEnemyHp})</span>
-                     <button onClick={() => setNormalEnemyHp(200)} style={{ background: 'transparent', border: '1px solid #555', color: '#888', fontSize: '0.45rem', padding: '2px 6px', cursor: 'pointer' }}>RESET</button>
-                  </div>
-                  <input type="range" min="50" max="1000" step="10" value={normalEnemyHp} onChange={(e) => setNormalEnemyHp(parseInt(e.target.value))} style={{ width: '200px', accentColor: '#ffd700' }} />
-               </div>
-            </div>
-          )}
+          {/* Alter Admin-Slider wurde entfernt und in das DEV.MODE Panel integriert */}
 
         
       )
@@ -2017,16 +1993,65 @@ export default function App() {
         /> 
       )}
       
-      {currentView === 'inventory' && ( <Inventory inventory={inventory} setInventory={setInventory} decks={decks} setDecks={setDecks} allFactions={allFactions} onBack={() => setCurrentView('menu')} onShowRules={() => { playSound('click'); setShowGlobalRules(true); }} onClearNew={clearNewStatus} onCreditGain={handleCreditGain} onMissionAction={(type, amount) => { handleMissionProgress(type, amount); if (type === 'upgrade') handleStatUpdate('upgradesDone', amount); }} /> )}
+      {currentView === 'inventory' && ( <Inventory credits={credits} username={session?.user?.user_metadata?.username} inventory={inventory} setInventory={setInventory} decks={decks} setDecks={setDecks} allFactions={allFactions} onBack={() => setCurrentView('menu')} onOpenShop={() => setCurrentView('market')} onClearNew={clearNewStatus} onCreditGain={handleCreditGain} onMissionAction={(type, amount) => { handleMissionProgress(type, amount); if (type === 'upgrade') handleStatUpdate('upgradesDone', amount); }} /> )}
 
       {currentView === 'menu' && (
         <div className="command-center-layout">
-          {/* HEADER: CREDITS & USER */}
-          <div className="main-menu-top" style={{ position: 'absolute', top: '20px', right: '30px', display: 'flex', gap: '15px', alignItems: 'center', zIndex: 100 }}>
-             <div className="mono" style={{ fontSize: '1.2rem', color: '#fff', marginRight: '10px', textShadow: '0 0 10px var(--ep)' }}><span style={{color: 'var(--ep)'}}>{credits}</span> 💳</div>
-             <button className="btn-back" style={{borderColor:'var(--ep)', color:'var(--ep)', display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 14px'}} onClick={() => { playSound('click'); setIsSidebarOpen(true); }}>
-               <span style={{ fontSize: '1.2rem' }}>👤</span> {session?.user?.user_metadata?.username || 'AGENT'}
-             </button>
+          
+          {/* VIEWPORT FRAMING (Die Fadenkreuze in den Ecken) */}
+          <div className="hud-bracket tl"></div>
+          <div className="hud-bracket bl"></div>
+          <div className="hud-bracket br"></div>
+          
+          {/* UPLINK INDICATOR (Oben Links) */}
+          <div className="rec-indicator">
+            <div className="rec-dot"></div>
+            <span>REC // UPLINK SECURE</span>
+          </div>
+
+          {/* DEV MODE TRIGGER (Versteckt Unten Links) */}
+          <div className="dev-mode-trigger" onClick={() => setShowDevMode(!showDevMode)}>
+            &gt;_ DEV.MODE
+          </div>
+
+          {/* DAS VERSTECKTE ADMIN PANEL */}
+          {showDevMode && isAdmin && (
+            <div className="dev-panel" style={{ width: '320px' }}>
+              <div className="dev-panel-header">
+                <span>SYSTEM_OVERRIDE // DEV</span>
+                <button className="dev-panel-close" onClick={() => setShowDevMode(false)}>[ X ]</button>
+              </div>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                       <span className="mono" style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.8)' }}>PLAYER HP ({normalPlayerHp})</span>
+                       <button onClick={() => setNormalPlayerHp(200)} style={{ background: 'transparent', border: '1px solid #555', color: '#888', fontSize: '0.55rem', padding: '2px 6px', cursor: 'pointer' }}>RESET</button>
+                    </div>
+                    <input type="range" min="50" max="1000" step="10" value={normalPlayerHp} onChange={(e) => setNormalPlayerHp(parseInt(e.target.value))} style={{ width: '100%', accentColor: '#ff0055' }} />
+                 </div>
+
+                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                       <span className="mono" style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.8)' }}>ENEMY HP ({normalEnemyHp})</span>
+                       <button onClick={() => setNormalEnemyHp(200)} style={{ background: 'transparent', border: '1px solid #555', color: '#888', fontSize: '0.55rem', padding: '2px 6px', cursor: 'pointer' }}>RESET</button>
+                    </div>
+                    <input type="range" min="50" max="1000" step="10" value={normalEnemyHp} onChange={(e) => setNormalEnemyHp(parseInt(e.target.value))} style={{ width: '100%', accentColor: '#ff0055' }} />
+                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* HEADER: HUD STATUS BAR (Das neue cleane Top-Right) */}
+          <div className="hud-status-container">
+            <div className="hud-status-module funds" onClick={() => { playSound('click'); setCurrentView('market'); }} title="Shop öffnen">
+              <span className="hud-label">CREDITS</span>
+              <span className="hud-value">{credits}</span>
+            </div>
+            <div className="hud-status-module agent" onClick={() => { playSound('click'); setIsSidebarOpen(true); }} title="Ghost Network">
+              <span className="hud-label">SYS.ID</span>
+              <span className="hud-value">{session?.user?.user_metadata?.username || 'UNKNOWN'}</span>
+            </div>
           </div>
 
           {/* LEFT COLUMN: OPERATIONS */}
@@ -2041,17 +2066,15 @@ export default function App() {
               <div className="op-status">STATUS: {allRuns.solo ? 'LAUFENDER RUN' : 'BEREIT'}</div>
             </button>
 
-            <button className="btn-quick-play" onClick={() => { playSound('click'); setPlayMenuOpen(true); }}>
+            <button className="btn-quick-play" onClick={() => { playSound('click'); setShowDifficultySelect(true); }}>
               <div className="op-tag-cyan">MODUS</div>
               <div className="op-title">SCHNELLES SPIEL</div>
-              <div className="op-desc">1V1 GEGEN KI ODER ONLINE-AGENTEN</div>
-              {playMenuOpen && (
-                <div className="quick-play-dropdown" onClick={e => e.stopPropagation()}>
-                   <div onClick={startMatchFlow}>▶ VS SYSTEM-KI</div>
-                   <div onClick={() => setCurrentView('multiplayer')}>📡 MULTIPLAYER (BETA)</div>
-                   <div onClick={() => setPlayMenuOpen(false)} style={{color:'var(--lose)', borderTop:'1px solid #333', marginTop:'5px'}}>✕ ABBRECHEN</div>
-                </div>
-              )}
+              <div className="op-desc">1V1 VS SYSTEM-KI</div>
+            </button>
+
+            <button className="btn-quick-play" style={{ borderColor: 'var(--r-epi)', marginTop: '-10px' }} onClick={() => { playSound('click'); setCurrentView('multiplayer'); }}>
+              <div className="op-tag-cyan" style={{ color: 'var(--r-epi)', borderColor: 'var(--r-epi)' }}>📡 P2P</div>
+              <div className="op-title" style={{ fontSize: '1.1rem' }}>MULTIPLAYER</div>
             </button>
 
             <div style={{ flex: 1 }}></div>
@@ -2071,12 +2094,12 @@ export default function App() {
               </div>
               <div className="module-item mod-gold" onClick={() => setCurrentView('market')}>
                 <div className="mod-icon">🛒</div>
-                <div className="mod-label">MARKTPLATZ</div>
+                <div className="mod-label">SHOP</div>
                 {rewardPacks?.length > 0 && <div className="notif-dot" style={{ background: '#bc13fe' }}></div>}
               </div>
               <div className="module-item mod-green" onClick={() => setCurrentView('missions')}>
                 <div className="mod-icon">📜</div>
-                <div className="mod-label">PROTOKOLLE</div>
+                <div className="mod-label">MISSIONEN</div>
                 {hasClaimableMissions && <div className="notif-dot" style={{ background: 'var(--win)' }}></div>}
               </div>
               <div className="module-item mod-white" onClick={() => setCurrentView('lexicon')}>
@@ -2085,12 +2108,12 @@ export default function App() {
               </div>
               <div className="module-item mod-orange" onClick={() => setCurrentView('overrides')}>
                 <div className="mod-icon">⚙️</div>
-                <div className="mod-label">OVERRIDES</div>
+                <div className="mod-label">ACHIEVEMENTS</div>
                 {hasClaimableOverrides && <div className="notif-dot" style={{ background: 'var(--ep)' }}></div>}
               </div>
               <div className="module-item mod-pink" onClick={() => setCurrentView('leaderboard')}>
                 <div className="mod-icon">🏆</div>
-                <div className="mod-label">RANGLISTE</div>
+                <div className="mod-label">LEADERBOARDS</div>
               </div>
             </div>
 
@@ -2101,6 +2124,154 @@ export default function App() {
               ))}
             </div>
           </div>
+
+          {/* OVERLAY: DIFFICULTY SELECT */}
+          {showDifficultySelect && (
+            <div className="settings-overlay" onClick={() => setShowDifficultySelect(false)}>
+              <div className="settings-box" style={{ width: '600px', borderColor: DIFFICULTY_CONFIG[difficulty]?.color || '#fff' }} onClick={e => e.stopPropagation()}>
+                <div className="settings-header">
+                  <span style={{ color: DIFFICULTY_CONFIG[difficulty]?.color || '#fff' }}>THREAT LEVEL WÄHLEN</span>
+                  <button onClick={() => setShowDifficultySelect(false)}>✕</button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                  {[1, 2, 3, 4].map(lvl => (
+                    <button key={lvl} className="btn-act" style={{ 
+                      borderColor: difficulty === lvl ? DIFFICULTY_CONFIG[lvl].color : '#333', 
+                      borderLeft: `4px solid ${DIFFICULTY_CONFIG[lvl].color}`,
+                      opacity: difficulty === lvl ? 1 : 0.6
+                    }} onClick={() => setDifficulty(lvl)}>
+                      <span className="act-title" style={{ fontSize: '0.9rem' }}>{DIFFICULTY_CONFIG[lvl].name}</span>
+                      <span className="act-cost mono">LVL {lvl}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="mono" style={{ marginTop: '20px', padding: '15px', background: 'rgba(0,0,0,0.4)', fontSize: '0.75rem', color: '#aaa', borderLeft: `2px solid ${DIFFICULTY_CONFIG[difficulty]?.color || '#fff'}` }}>
+                  {DIFFICULTY_CONFIG[difficulty]?.desc}
+                </div>
+                <button className="menu-btn btn-play modern-btn" onClick={() => { playSound('clash'); setShowDifficultySelect(false); setCurrentView('match'); }}>KAMPF INITIALISIEREN</button>
+              </div>
+            </div>
+          )}
+
+          {/* SETTINGS MODAL */}
+
+          {/* OVERLAY: DIFFICULTY SELECT */}
+          {showDifficultySelect && (
+            <div className="settings-overlay" onClick={() => setShowDifficultySelect(false)}>
+              <div className="settings-box" style={{ width: '600px', borderColor: DIFFICULTY_CONFIG[difficulty]?.color || '#fff' }} onClick={e => e.stopPropagation()}>
+                <div className="settings-header">
+                  <span style={{ color: DIFFICULTY_CONFIG[difficulty]?.color || '#fff' }}>THREAT LEVEL WÄHLEN</span>
+                  <button onClick={() => setShowDifficultySelect(false)}>✕</button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                  {[1, 2, 3, 4].map(lvl => (
+                    <button key={lvl} className="btn-act" style={{ 
+                      borderColor: difficulty === lvl ? DIFFICULTY_CONFIG[lvl].color : '#333', 
+                      borderLeft: `4px solid ${DIFFICULTY_CONFIG[lvl].color}`,
+                      opacity: difficulty === lvl ? 1 : 0.6
+                    }} onClick={() => setDifficulty(lvl)}>
+                      <span className="act-title" style={{ fontSize: '0.9rem' }}>{DIFFICULTY_CONFIG[lvl].name}</span>
+                      <span className="act-cost mono">LVL {lvl}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="mono" style={{ marginTop: '20px', padding: '15px', background: 'rgba(0,0,0,0.4)', fontSize: '0.75rem', color: '#aaa', borderLeft: `2px solid ${DIFFICULTY_CONFIG[difficulty]?.color || '#fff'}` }}>
+                  {DIFFICULTY_CONFIG[difficulty]?.desc}
+                </div>
+                <button className="menu-btn btn-play modern-btn" onClick={() => { playSound('clash'); setShowDifficultySelect(false); setCurrentView('match'); }}>KAMPF INITIALISIEREN</button>
+              </div>
+            </div>
+          )}
+
+          {/* SETTINGS MODAL */}
+
+          {/* OVERLAY: DIFFICULTY SELECT */}
+          {showDifficultySelect && (
+            <div className="settings-overlay" onClick={() => setShowDifficultySelect(false)}>
+              <div className="settings-box" style={{ width: '600px', borderColor: DIFFICULTY_CONFIG[difficulty]?.color || '#fff' }} onClick={e => e.stopPropagation()}>
+                <div className="settings-header">
+                  <span style={{ color: DIFFICULTY_CONFIG[difficulty]?.color || '#fff' }}>THREAT LEVEL WÄHLEN</span>
+                  <button onClick={() => setShowDifficultySelect(false)}>✕</button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                  {[1, 2, 3, 4].map(lvl => (
+                    <button key={lvl} className="btn-act" style={{ 
+                      borderColor: difficulty === lvl ? DIFFICULTY_CONFIG[lvl].color : '#333', 
+                      borderLeft: `4px solid ${DIFFICULTY_CONFIG[lvl].color}`,
+                      opacity: difficulty === lvl ? 1 : 0.6
+                    }} onClick={() => setDifficulty(lvl)}>
+                      <span className="act-title" style={{ fontSize: '0.9rem' }}>{DIFFICULTY_CONFIG[lvl].name}</span>
+                      <span className="act-cost mono">LVL {lvl}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="mono" style={{ marginTop: '20px', padding: '15px', background: 'rgba(0,0,0,0.4)', fontSize: '0.75rem', color: '#aaa', borderLeft: `2px solid ${DIFFICULTY_CONFIG[difficulty]?.color || '#fff'}` }}>
+                  {DIFFICULTY_CONFIG[difficulty]?.desc}
+                </div>
+                <button className="menu-btn btn-play modern-btn" onClick={() => { playSound('clash'); setShowDifficultySelect(false); setCurrentView('match'); }}>KAMPF INITIALISIEREN</button>
+              </div>
+            </div>
+          )}
+
+          {/* SETTINGS MODAL */}
+
+          {/* OVERLAY: DIFFICULTY SELECT */}
+          {showDifficultySelect && (
+            <div className="settings-overlay" onClick={() => setShowDifficultySelect(false)}>
+              <div className="settings-box" style={{ width: '600px', borderColor: DIFFICULTY_CONFIG[difficulty]?.color || '#fff' }} onClick={e => e.stopPropagation()}>
+                <div className="settings-header">
+                  <span style={{ color: DIFFICULTY_CONFIG[difficulty]?.color || '#fff' }}>THREAT LEVEL WÄHLEN</span>
+                  <button onClick={() => setShowDifficultySelect(false)}>✕</button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                  {[1, 2, 3, 4].map(lvl => (
+                    <button key={lvl} className="btn-act" style={{ 
+                      borderColor: difficulty === lvl ? DIFFICULTY_CONFIG[lvl].color : '#333', 
+                      borderLeft: `4px solid ${DIFFICULTY_CONFIG[lvl].color}`,
+                      opacity: difficulty === lvl ? 1 : 0.6
+                    }} onClick={() => setDifficulty(lvl)}>
+                      <span className="act-title" style={{ fontSize: '0.9rem' }}>{DIFFICULTY_CONFIG[lvl].name}</span>
+                      <span className="act-cost mono">LVL {lvl}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="mono" style={{ marginTop: '20px', padding: '15px', background: 'rgba(0,0,0,0.4)', fontSize: '0.75rem', color: '#aaa', borderLeft: `2px solid ${DIFFICULTY_CONFIG[difficulty]?.color || '#fff'}` }}>
+                  {DIFFICULTY_CONFIG[difficulty]?.desc}
+                </div>
+                <button className="menu-btn btn-play modern-btn" onClick={() => { playSound('clash'); setShowDifficultySelect(false); setCurrentView('match'); }}>KAMPF INITIALISIEREN</button>
+              </div>
+            </div>
+          )}
+
+          {/* SETTINGS MODAL */}
+
+          {/* OVERLAY: DIFFICULTY SELECT */}
+          {showDifficultySelect && (
+            <div className="settings-overlay" onClick={() => setShowDifficultySelect(false)}>
+              <div className="settings-box" style={{ width: '600px', borderColor: DIFFICULTY_CONFIG[difficulty]?.color || '#fff' }} onClick={e => e.stopPropagation()}>
+                <div className="settings-header">
+                  <span style={{ color: DIFFICULTY_CONFIG[difficulty]?.color || '#fff' }}>THREAT LEVEL WÄHLEN</span>
+                  <button onClick={() => setShowDifficultySelect(false)}>✕</button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                  {[1, 2, 3, 4].map(lvl => (
+                    <button key={lvl} className="btn-act" style={{ 
+                      borderColor: difficulty === lvl ? DIFFICULTY_CONFIG[lvl].color : '#333', 
+                      borderLeft: `4px solid ${DIFFICULTY_CONFIG[lvl].color}`,
+                      opacity: difficulty === lvl ? 1 : 0.6
+                    }} onClick={() => setDifficulty(lvl)}>
+                      <span className="act-title" style={{ fontSize: '0.9rem' }}>{DIFFICULTY_CONFIG[lvl].name}</span>
+                      <span className="act-cost mono">LVL {lvl}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="mono" style={{ marginTop: '20px', padding: '15px', background: 'rgba(0,0,0,0.4)', fontSize: '0.75rem', color: '#aaa', borderLeft: `2px solid ${DIFFICULTY_CONFIG[difficulty]?.color || '#fff'}` }}>
+                  {DIFFICULTY_CONFIG[difficulty]?.desc}
+                </div>
+                <button className="menu-btn btn-play modern-btn" onClick={() => { playSound('clash'); setShowDifficultySelect(false); setCurrentView('match'); }}>KAMPF INITIALISIEREN</button>
+              </div>
+            </div>
+          )}
 
           {/* SETTINGS MODAL */}
           {showSettings && (

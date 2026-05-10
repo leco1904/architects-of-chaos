@@ -246,8 +246,7 @@ const UpgradeCard = ({ group, isUpgrading, onInitiateUpgrade, onSell }) => {
   );
 };
 
-export default function Inventory({ inventory = [], setInventory, decks = [], setDecks, allFactions = [], onBack, onShowRules, onClearNew, onCreditGain, onMissionAction }) {
-  const [search, setSearch] = useState('');
+export default function Inventory({ inventory = [], setInventory, decks = [], setDecks, allFactions = [], credits, username, onBack, onOpenShop, onClearNew, onCreditGain, onMissionAction }) {  const [search, setSearch] = useState('');
   const [factionFilter, setFactionFilter] = useState('ALL');
   const [sortBy, setSortBy] = useState('rating');
   const [mode, setMode] = useState('deck'); 
@@ -536,8 +535,13 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
   const isDeckValid = safeChars.length === 12 && safeEffs.length === 3;
 
   return (
-    <div className="screen active inv-screen" style={{ display: 'flex', padding: '20px', height: '100vh', overflow: 'hidden', position: 'relative' }}>
+    <div className="command-center-layout inv-screen" style={{ display: 'flex', flexDirection: 'column', padding: '60px 40px 20px', gap: '10px', height: '100vh', overflow: 'hidden', position: 'relative' }}>
       
+      {/* VIEWPORT FRAMING */}
+      <div className="hud-bracket tl"></div>
+      <div className="hud-bracket bl"></div>
+      <div className="hud-bracket br"></div>
+
       {activeUpgradeSession && (
          <UpgradeModal 
             group={activeUpgradeSession.group} 
@@ -560,37 +564,51 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
         />
       )}
 
-      <div className="top-bar" style={{ flexShrink: 0, width: '100%' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-           <div className="game-title-small" style={{ color: mode === 'deck' ? 'var(--r-epi)' : 'var(--ep)', textShadow: `0 0 15px ${mode === 'deck' ? 'var(--r-epi)' : 'var(--ep)'}` }}>
-              {mode === 'deck' ? 'INVENTAR & DECK-BUILDER' : 'UPGRADE LABOR'}
-           </div>
-           <div className="mono" style={{ fontSize: '0.8rem', color: '#aaa', letterSpacing: '1px' }}>
-              SAMMLUNG: <span style={{ color: 'var(--win)' }}>{currentCollected} / {totalCardsInGame}</span> KARTEN
-           </div>
-        </div>
+      {/* HEADER: HUD STATUS BAR (Stack Design) */}
+      <div style={{ position: 'absolute', top: '15px', right: '35px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px', zIndex: 1000 }}>
         
-        <div style={{ display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={{ background: '#111', borderRadius: '8px', padding: '5px', display: 'flex', gap: '5px', marginRight: '20px' }}>
-             <div style={{ position: 'relative', display: 'inline-block' }}>
-               <button className="btn-info" style={{ borderColor: mode === 'deck' ? 'var(--win)' : '#444', color: mode === 'deck' ? '#fff' : '#888', background: mode === 'deck' ? 'rgba(0,229,255,0.2)' : 'transparent' }} onClick={() => { playSound('click'); setMode('deck'); }}>DECK MODUS</button>
-               {safeInv.some(c => c.isNew) && <div className="notif-badge" style={{ background: 'var(--win)', boxShadow: '0 0 12px var(--win)', zIndex: 100, top: '-7px', right: '-7px' }}></div>}
-             </div>
-             
-             <div style={{ position: 'relative', display: 'inline-block' }}>
-               <button className="btn-info" style={{ borderColor: mode === 'upgrade' ? 'var(--ep)' : '#444', color: mode === 'upgrade' ? '#fff' : '#888', background: mode === 'upgrade' ? 'rgba(255,215,0,0.2)' : 'transparent' }} onClick={() => { playSound('click'); setMode('upgrade'); }}>
-                  UPGRADE LAB
-               </button>
-               {hasUpgradesAvailable && <div className="notif-badge" style={{ background: 'var(--r-epi)', boxShadow: '0 0 12px var(--r-epi)', zIndex: 100, top: '-7px', right: '-7px' }}></div>}
-             </div>
+        {/* ZEILE 1: GLOBAL HUD (Genaue Kopie vom Hauptmenü) */}
+        <div style={{ display: 'flex', filter: 'drop-shadow(0 0 10px rgba(0,0,0,0.5))' }}>
+          <div className="hud-status-module funds" onClick={() => { playSound('click'); onOpenShop && onOpenShop(); }} title="Shop öffnen" style={{ cursor: 'pointer', transition: '0.3s' }}>
+            <span className="hud-label">CREDITS</span>
+            <span className="hud-value">{credits ?? 0}</span>
           </div>
-          <button className="btn-info" onClick={onShowRules}>RULES</button>
-          <button className="btn-back" onClick={onBack}>ZURÜCK</button>
+          <div className="hud-status-module agent" style={{ borderColor: 'rgba(0, 229, 255, 0.2)', color: 'var(--win)', marginLeft: '-5px', clipPath: 'none' }}>
+            <span className="hud-label" style={{ color: 'var(--win)' }}>SYS.ID</span>
+            <span className="hud-value" style={{ fontSize: '1.1rem', textTransform: 'uppercase' }}>{username || 'UNKNOWN'}</span>
+          </div>
+          <div className="hud-status-module agent" onClick={onBack} style={{ borderColor: 'var(--lose)', color: 'var(--lose)', borderRight: 'none', clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)', paddingRight: '20px', marginLeft: '-5px', cursor: 'pointer' }}>
+            <span className="hud-label" style={{ color: 'var(--lose)' }}>STATUS</span>
+            <span className="hud-value" style={{ fontSize: '0.9rem' }}>EXIT</span>
+          </div>
+        </div>
+
+        {/* ZEILE 2: CONTEXT HUD (Inventar-Spezifisch) */}
+        <div style={{ display: 'flex', filter: 'drop-shadow(0 0 10px rgba(0,0,0,0.5))' }}>
+          <div className="hud-status-module funds" onClick={() => { playSound('click'); setMode('deck'); }} style={{ borderColor: mode === 'deck' ? 'var(--win)' : 'rgba(255,255,255,0.1)', color: mode === 'deck' ? '#fff' : '#888', background: mode === 'deck' ? 'rgba(0,229,255,0.15)' : 'rgba(10,10,15,0.85)', cursor: 'pointer', transition: '0.3s', position: 'relative' }}>
+            <span className="hud-label" style={{ color: mode === 'deck' ? 'var(--win)' : '#888' }}>MODE</span>
+            <span className="hud-value" style={{ fontSize: '0.8rem' }}>DECK</span>
+            {safeInv.some(c => c.isNew) && <div className="notif-badge" style={{ background: 'var(--win)', boxShadow: '0 0 12px var(--win)', top: '-5px', right: '5px' }}></div>}
+          </div>
+          <div className="hud-status-module agent" onClick={() => { playSound('click'); setMode('upgrade'); }} style={{ borderColor: mode === 'upgrade' ? 'var(--ep)' : 'rgba(255,255,255,0.1)', color: mode === 'upgrade' ? '#fff' : '#888', background: mode === 'upgrade' ? 'rgba(255,215,0,0.15)' : 'rgba(10,10,15,0.85)', cursor: 'pointer', transition: '0.3s', position: 'relative', borderRight: '1px solid rgba(255,255,255,0.1)', clipPath: 'none', marginLeft: '-5px' }}>
+            <span className="hud-label" style={{ color: mode === 'upgrade' ? 'var(--ep)' : '#888' }}>MODE</span>
+            <span className="hud-value" style={{ fontSize: '0.8rem' }}>UPGRADE</span>
+            {hasUpgradesAvailable && <div className="notif-badge" style={{ background: 'var(--r-epi)', boxShadow: '0 0 12px var(--r-epi)', top: '-5px', right: '5px' }}></div>}
+          </div>
         </div>
       </div>
 
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginBottom: '10px' }}>
+         <div className="ops-header" style={{ fontSize: '1.4rem', color: mode === 'deck' ? 'var(--win)' : 'var(--ep)', textShadow: `0 0 10px ${mode === 'deck' ? 'var(--win)' : 'var(--ep)'}` }}>
+            [ {mode === 'deck' ? 'INVENTORY & DECK-BUILDER' : 'UPGRADE LABORATORY'} ]
+         </div>
+         <div className="mono" style={{ fontSize: '0.8rem', color: '#aaa', letterSpacing: '1px' }}>
+            // EXTRACTED ASSETS: <span style={{ color: 'var(--win)' }}>{currentCollected} / {totalCardsInGame}</span> LOGGED
+         </div>
+      </div>
+
       {mode === 'deck' ? (
-        <div className="inv-dual-panel" style={{ display: 'flex', gap: '30px', height: 'calc(100% - 70px)', width: '100%', flexDirection: 'column' }}>
+        <div className="inv-dual-panel" style={{ display: 'flex', gap: '30px', flex: 1, minHeight: 0, width: '100%', flexDirection: 'column' }}>
           
           <div className="mobile-tab-switcher">
             <button className={`tab-btn ${mobileTab === 'deck' ? 'active' : ''}`} onClick={() => { playSound('click'); setMobileTab('deck'); }}>
@@ -772,7 +790,7 @@ export default function Inventory({ inventory = [], setInventory, decks = [], se
           </div>
         </div>
       ) : (
-        <div className="glass-panel inv-column" style={{ height: 'calc(100% - 70px)' }}>
+        <div className="glass-panel inv-column" style={{ flex: 1, minHeight: 0 }}>
           <h2 style={{ color: 'var(--ep)', letterSpacing: '2px', borderBottom: '1px solid #333', paddingBottom: '10px', textAlign: 'center' }}>
             KARTEN UPGRADEN & VERKAUFEN
           </h2>

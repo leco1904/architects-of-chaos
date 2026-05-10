@@ -2076,3 +2076,38 @@ body, html {
 .settings-box {
   width: 400px; background: #0c0c14; border: 1px solid #bc13fe; padding: 30px;
 }
+
+/* ========================================= */
+/* --- 4. HUD VIEWPORT & TELEMETRY ---       */
+/* ========================================= */
+
+/* Viewport Brackets (Fadenkreuze) */
+.hud-bracket { position: absolute; width: 40px; height: 40px; border: 2px solid rgba(0, 229, 255, 0.4); pointer-events: none; z-index: 50; }
+.hud-bracket.tl { top: 20px; left: 20px; border-right: none; border-bottom: none; }
+.hud-bracket.tr { top: 20px; right: 20px; border-left: none; border-bottom: none; }
+.hud-bracket.bl { bottom: 20px; left: 20px; border-right: none; border-top: none; }
+.hud-bracket.br { bottom: 20px; right: 20px; border-left: none; border-top: none; }
+
+/* REC Indicator (Blinkender Punkt oben links) */
+.rec-indicator { position: absolute; top: 30px; left: 35px; display: flex; align-items: center; gap: 10px; font-family: 'Roboto Mono', monospace; font-size: 0.7rem; color: #ff0055; letter-spacing: 2px; z-index: 50; pointer-events: none; }
+.rec-dot { width: 8px; height: 8px; background: #ff0055; border-radius: 50%; animation: recBlink 1.5s infinite; box-shadow: 0 0 10px #ff0055; }
+@keyframes recBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+/* HUD Status Bar (Top Right Data Stream) */
+.hud-status-container { position: absolute; top: 15px; right: 35px; display: flex; z-index: 100; filter: drop-shadow(0 0 10px rgba(0,0,0,0.5)); }
+.hud-status-module { display: flex; align-items: center; background: rgba(10, 10, 15, 0.85); padding: 6px 25px; gap: 15px; border-top: 1px solid rgba(255,255,255,0.1); border-bottom: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(5px); }
+.hud-status-module.funds { border-left: 2px solid var(--ep); color: var(--ep); clip-path: polygon(15px 0, 100% 0, 100% 100%, 0 100%); padding-left: 35px; cursor: pointer; transition: 0.3s; }
+.hud-status-module.funds:hover { background: rgba(255, 215, 0, 0.15); box-shadow: inset 0 0 15px rgba(255, 215, 0, 0.2); }
+.hud-status-module.agent { border-left: 1px solid rgba(255,255,255,0.1); border-right: 2px solid var(--win); color: var(--win); cursor: pointer; transition: 0.3s; clip-path: polygon(0 0, 100% 0, calc(100% - 15px) 100%, 0 100%); padding-right: 35px; margin-left: -5px; }
+.hud-status-module.agent:hover { background: rgba(0, 229, 255, 0.15); box-shadow: inset 0 0 15px rgba(0,229,255,0.2); }
+.hud-label { font-family: 'Share Tech Mono', monospace; font-size: 0.65rem; color: #777; letter-spacing: 2px; }
+.hud-value { font-family: 'Rajdhani', sans-serif; font-size: 1.2rem; font-weight: 700; letter-spacing: 1px; text-shadow: 0 0 8px currentColor; }
+
+/* Dev Mode Trigger & Panel */
+.dev-mode-trigger { position: absolute; bottom: 30px; left: 35px; font-family: 'Roboto Mono', monospace; font-size: 0.65rem; color: #444; cursor: pointer; z-index: 100; transition: 0.2s; }
+.dev-mode-trigger:hover { color: #fff; text-shadow: 0 0 5px #fff; }
+.dev-panel { position: absolute; bottom: 60px; left: 35px; background: rgba(5, 0, 10, 0.95); border: 1px solid #ff0055; padding: 20px; z-index: 1000; font-family: 'Roboto Mono', monospace; box-shadow: 0 0 30px rgba(255,0,85,0.2); animation: devSlideUp 0.2s ease-out; width: 250px; }
+@keyframes devSlideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.dev-panel-header { display: flex; justify-content: space-between; color: #ff0055; font-size: 0.8rem; border-bottom: 1px solid rgba(255,0,85,0.3); padding-bottom: 10px; margin-bottom: 15px; }
+.dev-panel-close { background: transparent; border: none; color: #ff0055; cursor: pointer; font-weight: bold; }
+.dev-panel-close:hover { color: #fff; }
